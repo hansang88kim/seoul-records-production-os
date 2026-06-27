@@ -145,7 +145,7 @@ class ProjectManifest(BaseModel):
     output_type: str = "YouTube + Distribution Package"
     output_folder: str = ""
     status: ProjectStatus = ProjectStatus.PROJECT_CREATED
-    app_version: str = "0.1.3"
+    app_version: str = "0.2.0"
 
     tracks: list[TrackManifest] = Field(default_factory=list)
     visual: VisualManifest = Field(default_factory=VisualManifest)
@@ -153,8 +153,14 @@ class ProjectManifest(BaseModel):
     youtube: YouTubeManifest = Field(default_factory=YouTubeManifest)
     distribution: DistributionManifest = Field(default_factory=DistributionManifest)
 
-    auto_mode_last_job_time: Optional[str] = None
+    # ─── Auto Mode state fields (v0.2) ───────────────────────────────────────
     auto_mode_active: bool = False
+    auto_mode_last_job_time: Optional[str] = None
+    last_generation_started_at: Optional[str] = None
+    last_generation_completed_at: Optional[str] = None
+    next_generation_allowed_at: Optional[str] = None
+    current_auto_track_number: Optional[int] = None
+    max_concurrent_suno_jobs: int = 1
 
     created_at: str = Field(default_factory=_now)
     updated_at: str = Field(default_factory=_now)

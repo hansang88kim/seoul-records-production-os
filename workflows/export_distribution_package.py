@@ -79,7 +79,8 @@ def export_distribution_package(
         d.mkdir(parents=True, exist_ok=True)
 
     approved = manifest.approved_tracks()
-    warnings = qc_distribution(manifest.distribution, approved)
+    # QC will run AFTER all artifacts are generated (F5 warning-order fix)
+    warnings: list[str] = []
 
     # ── MP3-block check ───────────────────────────────────────────────────────
     mp3_only = [t for t in approved if not t.is_wav]
@@ -249,13 +250,23 @@ Generated: {datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M UTC')}
             if file.is_file():
                 zf.write(file, Path("rights") / file.name)
 
+    # ── F5 Warning Fix: run QC AFTER all artifacts generated ─────────────────
+    # metadata_ready and rights_statements_ready are already True at this point,
+    # so qc_distribution will not emit false "metadata_not_ready" warnings.
+    manifest.distribution.metadata_ready = True
+    manifest.distribution.rights_statements_ready = True
+    manifest.distribution.cover_ready = cover_copied
+    post_qc_warnings = qc_distribution(manifest.distribution, wav_tracks)
+    # Merge: keep any block-level warnings from earlier, add post-generation warnings
+    for w in post_qc_warnings:
+        if w not in warnings:
+            warnings.append(w)
+
     # ── Update manifest ───────────────────────────────────────────────────────
     manifest.distribution.status = "package_ready"
     manifest.distribution.package_path = str(zip_path)
     manifest.distribution.wav_masters_count = len(wav_tracks)
     manifest.distribution.wav_masters_ready = len(wav_tracks) > 0
-    manifest.distribution.metadata_ready = True
-    manifest.distribution.rights_statements_ready = True
     manifest.distribution.updated_at = _now()
     manifest.update_status(ProjectStatus.DISTRIBUTION_PACKAGE_READY)
     save_manifest(manifest, output_folder)
