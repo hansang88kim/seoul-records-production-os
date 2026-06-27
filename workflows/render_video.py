@@ -146,23 +146,53 @@ def export_video_package(
 
     # Attempt real render if FFmpeg is available and we have audio
     rendered = False
+    audio_mix_path: Path | None = None
+
     if _ffmpeg_available() and audio_lines:
+        # ── 4a: Render final_video.mp4 ────────────────────────────────────────
         try:
             result = subprocess.run(
-                ffmpeg_cmd, shell=True, capture_output=True, text=True, timeout=300
+                ffmpeg_cmd, shell=True, capture_output=True, text=True, timeout=600
             )
             if result.returncode == 0 and output_video_path.exists():
                 rendered = True
                 log_action(output_folder, "video_render", "ffmpeg_render_success",
                            {"output": str(output_video_path)}, project_id=manifest.project_id)
+            else:
+                log_action(output_folder, "video_render", "ffmpeg_render_failed",
+                           {"returncode": result.returncode, "stderr": result.stderr[:300]},
+                           level="WARNING", project_id=manifest.project_id)
+        except subprocess.TimeoutExpired:
+            log_action(output_folder, "video_render", "ffmpeg_render_timeout",
+                       {}, level="WARNING", project_id=manifest.project_id)
         except Exception as e:
             log_action(output_folder, "video_render", "ffmpeg_render_failed",
                        {"error": str(e)}, level="WARNING", project_id=manifest.project_id)
+
+        # ── 4b: Generate final_audio_mix.wav (audio-only concat pass) ────────
+        try:
+            audio_mix_path = out_dir / "final_audio_mix.wav"
+            audio_mix_cmd = (
+                f'ffmpeg -y -f concat -safe 0 -i "{audio_list_path}" '
+                f'-c:a pcm_s16le "{audio_mix_path}"'
+            )
+            mix_result = subprocess.run(
+                audio_mix_cmd, shell=True, capture_output=True, text=True, timeout=300
+            )
+            if mix_result.returncode != 0 or not audio_mix_path.exists():
+                audio_mix_path = None
+        except Exception:
+            audio_mix_path = None
+    elif not _ffmpeg_available():
+        log_action(output_folder, "video_render", "ffmpeg_not_available",
+                   {"note": "install ffmpeg to render video"},
+                   level="WARNING", project_id=manifest.project_id)
 
     # Video manifest
     video_manifest = {
         "status": "rendered" if rendered else "command_ready",
         "final_video_path": str(output_video_path) if rendered else None,
+        "final_audio_mix_path": str(audio_mix_path) if audio_mix_path else None,
         "render_command_path": str(scripts_dir / "ffmpeg_render_command.txt"),
         "timestamps_generated": True,
         "chapters_generated": True,
@@ -175,6 +205,7 @@ def export_video_package(
 
     manifest.video.status = "rendered" if rendered else "command_ready"
     manifest.video.final_video_path = str(output_video_path) if rendered else None
+    manifest.video.final_audio_mix_path = str(audio_mix_path) if audio_mix_path else None
     manifest.video.render_command_path = str(scripts_dir / "ffmpeg_render_command.txt")
     manifest.video.timestamps_generated = True
     manifest.video.chapters_generated = True
