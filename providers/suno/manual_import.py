@@ -39,17 +39,20 @@ class ManualImportProvider(ComposerProvider):
 
     PROVIDER_NAME = "manual_import"
 
-    def get_capabilities(self) -> dict:
-        return {
-            "provider": self.PROVIDER_NAME,
-            "can_wav": True,
-            "can_mp3": True,
-            "requires_credentials": False,
-            "note": (
-                "User manually places WAV files into candidates/ folder. "
-                "Call import_wav() to validate and register."
-            ),
-        }
+    def get_capabilities(self):
+        from providers.suno.base import ProviderCapabilities
+        return ProviderCapabilities(
+            provider=self.PROVIDER_NAME,
+            status="ready",
+            title=False, lyrics=False, style=False,
+            exclude_styles=False, vocal_gender=False,
+            weirdness=False, style_influence=False,
+            instrumental=False, model_selector=False, persona=False,
+            two_candidates=True, wav_download=True, mp3_preview=True,
+            supports_polling=False,
+            note="User manually imports WAV/MP3 files. No generation API.",
+            fallback_instructions="Upload WAV via Song Generation tab.",
+        )
 
     def create_song(
         self,

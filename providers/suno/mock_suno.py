@@ -118,16 +118,19 @@ class MockSunoProvider(ComposerProvider):
     def __init__(self, fast_mode: bool = True) -> None:
         self.fast_mode = fast_mode
 
-    def get_capabilities(self) -> dict:
-        return {
-            "provider": self.PROVIDER_NAME,
-            "can_wav": True,
-            "can_mp3": False,
-            "requires_credentials": False,
-            "max_concurrent_jobs": 1,
-            "fast_mode": self.fast_mode,
-            "note": "Mock provider — generates local sine-wave WAV files.",
-        }
+    def get_capabilities(self):
+        from providers.suno.base import ProviderCapabilities
+        return ProviderCapabilities(
+            provider=self.PROVIDER_NAME,
+            status="ready",
+            title=True, lyrics=True, style=True,
+            exclude_styles=True, vocal_gender=True,
+            weirdness=True, style_influence=True,
+            instrumental=True, model_selector=True, persona=False,
+            two_candidates=True, wav_download=True, mp3_preview=False,
+            supports_polling=True,
+            note=f"Mock provider — generates local sine-wave WAV. fast_mode={self.fast_mode}",
+        )
 
     def create_song(
         self,

@@ -21,7 +21,9 @@ def test_mock_provider_fast_mode_default():
     p = MockSunoProvider()
     assert p.fast_mode is True
     caps = p.get_capabilities()
-    assert caps["fast_mode"] is True
+    assert caps.provider == "mock_suno"
+    assert caps.wav_download is True
+    assert caps.status == "ready"
 
 
 def test_mock_provider_fast_mode_small_files(tmp_path):
