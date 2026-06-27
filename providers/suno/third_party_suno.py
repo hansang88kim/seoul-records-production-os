@@ -27,12 +27,20 @@ class ThirdPartySunoProvider(ComposerProvider):
 
     PROVIDER_NAME = "third_party_suno"
 
-    def get_capabilities(self) -> dict:
-        return {
-            "provider": self.PROVIDER_NAME,
-            "status": "not_implemented",
-            "warning": "Not the default provider. Requires ALLOW_THIRD_PARTY_SUNO=true.",
-        }
+    def get_capabilities(self):
+        from providers.suno.base import ProviderCapabilities
+        return ProviderCapabilities(
+            provider=self.PROVIDER_NAME,
+            status="not_implemented",
+            title=True, lyrics=True, style=True,
+            exclude_styles=True, vocal_gender=True,
+            weirdness=True, style_influence=True,
+            instrumental=True, model_selector=True, persona=True,
+            two_candidates=True, wav_download=True, mp3_preview=True,
+            supports_polling=True,
+            requires_api_key=True,
+            note="Paid third-party. NOT default. Requires ALLOW_THIRD_PARTY_SUNO=true.",
+        )
 
     def create_song(self, title: str, style: str, lyrics: str, options=None) -> str:
         raise NotImplementedError("ThirdPartySunoProvider — not permitted by default.")

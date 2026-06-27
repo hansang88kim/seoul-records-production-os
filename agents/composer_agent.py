@@ -227,7 +227,7 @@ class ComposerAgent:
             "title": title,
             "style": style,
             "task_id": task_id,
-            "provider": self.provider.get_capabilities()["provider_name"],
+            "provider": self.provider.get_capabilities().provider,
             "candidates": {
                 "A": {"path": str(path_a), "duration_sec": dur_a},
                 "B": {"path": str(path_b), "duration_sec": dur_b},
