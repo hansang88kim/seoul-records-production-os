@@ -92,27 +92,7 @@ def render_project_screen():
                 st.success(f"Project '{project_name}' created!")
                 st.rerun()
 
-    # ── RESUME PROJECT ────────────────────────────────────────────────────────
+    # ── PROJECT LIBRARY ───────────────────────────────────────────────────────
     with col_resume:
-        st.markdown("#### 🔄 Resume Project")
-        projects = list_projects()
-
-        if not projects:
-            st.info("No existing projects found in outputs/")
-        else:
-            for proj in projects[:10]:
-                with st.expander(f"**{proj['project_name']}** — {proj['status']}", expanded=False):
-                    st.caption(f"📁 {proj['folder_name']}")
-                    st.caption(f"🎵 {proj['track_count']} tracks")
-                    st.caption(f"📅 {proj['created_at'][:10]}")
-
-                    if st.button(
-                        "Open Project",
-                        key=f"resume_{proj['folder_name']}",
-                        use_container_width=True,
-                    ):
-                        output_folder = Path(proj["output_folder"])
-                        manifest = resume_project(output_folder)
-                        st.session_state.current_project = manifest
-                        st.session_state.current_output_folder = str(output_folder)
-                        st.rerun()
+        from app.tabs.project_library import render_project_library_panel
+        render_project_library_panel()
