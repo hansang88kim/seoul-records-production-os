@@ -35,43 +35,9 @@ jobs:
           PYTHONDONTWRITEBYTECODE=1 python -m pytest tests/ -v -p no:cacheprovider --cov=. --cov-report=term-missing
 
       - name: Validate presets JSON
-        run: python -c "
-import json, sys
-from pathlib import Path
-for f in Path('presets').rglob('*.json'):
-    try:
-        json.loads(f.read_text())
-        print(f'OK: {f}')
-    except Exception as e:
-        print(f'FAIL: {f}: {e}')
-        sys.exit(1)
-"
+        run: |
+          python scripts/ci_validate_presets.py
 
       - name: Check package cleanliness
-        run: python -c "
-from pathlib import Path
-root = Path('.')
-
-# No brace-expansion dirs
-bad = [str(d) for d in root.rglob('*')
-       if d.is_dir() and ('{' in d.name or '}' in d.name or ',' in d.name)]
-assert not bad, f'Brace-expansion dirs: {bad}'
-
-# outputs/.gitkeep
-assert (root / 'outputs/.gitkeep').exists(), 'outputs/.gitkeep missing'
-
-# Provider registry single source
-assert 'def get_composer_provider' not in (root / 'providers/suno/mock_suno.py').read_text()
-assert 'def get_composer_provider' in (root / 'providers/suno/__init__.py').read_text()
-
-# exclude_styles is list[str]
-assert 'exclude_styles: list[str]' in (root / 'app/models.py').read_text()
-
-# Version consistency
-import re
-ver = re.search(r'APP_VERSION = "([^"]+)"', (root / 'app/config.py').read_text()).group(1)
-assert f'version = "{ver}"' in (root / 'pyproject.toml').read_text(), f'pyproject.toml version mismatch: expected {ver}'
-assert f'app_version: str = "{ver}"' in (root / 'app/models.py').read_text(), f'models.py version mismatch: expected {ver}'
-
-print('Package cleanliness checks passed')
-"
+        run: |
+          python scripts/ci_check_cleanliness.py
