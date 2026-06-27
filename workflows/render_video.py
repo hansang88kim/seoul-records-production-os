@@ -100,11 +100,12 @@ def export_video_package(
 
     tracks = manifest.approved_tracks()
 
-    # Audio list for FFmpeg concat
+    # Audio list for FFmpeg concat — always use absolute paths
     audio_lines = []
     for t in tracks:
         if t.selected_wav_path and Path(t.selected_wav_path).exists():
-            audio_lines.append(f"file '{t.selected_wav_path}'")
+            abs_path = Path(t.selected_wav_path).resolve()
+            audio_lines.append(f"file '{abs_path}'")
     audio_list_path = input_dir / "selected_audio_list.txt"
     audio_list_path.write_text("\n".join(audio_lines), encoding="utf-8")
 
