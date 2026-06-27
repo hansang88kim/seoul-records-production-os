@@ -86,7 +86,7 @@ def test_manual_wav_import_saves_to_correct_track_folder(tmp_path, monkeypatch):
 
     # Manifest updated
     manifest_path = output_folder / "project_manifest.json"
-    saved = json.loads(manifest_path.read_text())
+    saved = json.loads(manifest_path.read_text(encoding="utf-8"))
     t0 = saved["tracks"][0]
     assert t0["is_wav"] is True
     assert t0["selected_wav_path"] == str(dest)
@@ -104,7 +104,7 @@ def test_manual_wav_import_saves_to_correct_track_folder(tmp_path, monkeypatch):
     # Log appended
     log_path = output_folder / "project_log.jsonl"
     assert log_path.exists()
-    entries = [json.loads(line) for line in log_path.read_text().splitlines() if line.strip()]
+    entries = [json.loads(line) for line in log_path.read_text(encoding="utf-8").splitlines() if line.strip()]
     import_entries = [e for e in entries if e.get("action") == "selected_wav_imported"]
     assert len(import_entries) >= 1, "project_log.jsonl must have a selected_wav_imported entry"
 
@@ -164,6 +164,6 @@ def test_candidate_selection_policy_applied_on_import(tmp_path, monkeypatch):
     # Verify
     assert dst.exists(), "suno_master.wav must be created"
     manifest_path = output_folder / "project_manifest.json"
-    saved = json.loads(manifest_path.read_text())
+    saved = json.loads(manifest_path.read_text(encoding="utf-8"))
     assert saved["tracks"][0]["selected_candidate_id"] == "B"
     assert saved["tracks"][0]["selected_wav_path"] == str(dst)

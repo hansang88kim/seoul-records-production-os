@@ -141,7 +141,7 @@ def test_final_video_path_appears_in_youtube_package_after_render(tmp_path, monk
     # Verify manifest was updated
     import json
     manifest_data = json.loads(
-        (output_folder / "project_manifest.json").read_text()
+        (output_folder / "project_manifest.json").read_text(encoding="utf-8")
     )
     assert manifest_data["video"]["final_video_path"] is not None, (
         "final_video_path must be set in project_manifest.json after render"
