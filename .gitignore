@@ -7,10 +7,16 @@
 credentials/
 cookies/
 tokens/
+sessions/
 *.token
 *.cookie
+*.cookies
 *.key
+*.secret
 suno_session*
+.env.*
+!.env.example
+playwright/.auth/
 
 # Python
 __pycache__/

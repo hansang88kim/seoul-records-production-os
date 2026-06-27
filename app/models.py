@@ -145,7 +145,7 @@ class ProjectManifest(BaseModel):
     output_type: str = "YouTube + Distribution Package"
     output_folder: str = ""
     status: ProjectStatus = ProjectStatus.PROJECT_CREATED
-    app_version: str = "0.3.1"
+    app_version: str = "0.3.2"
 
     tracks: list[TrackManifest] = Field(default_factory=list)
     visual: VisualManifest = Field(default_factory=VisualManifest)
