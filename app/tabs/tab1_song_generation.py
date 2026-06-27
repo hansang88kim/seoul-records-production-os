@@ -273,11 +273,18 @@ def render_manual_track_editor(track_index: int):
 
         def _run_qc_and_display(file_path: Path) -> "AudioQCResult":
             """Run Audio QC and show result in UI. Returns QCResult."""
-            from workflows.audio_qc import run_audio_qc
+            from workflows.audio_qc import run_audio_qc, get_duration_warning
+            from app.config import TARGET_DURATION_MIN_SECONDS, TARGET_DURATION_MAX_SECONDS
             qc = run_audio_qc(file_path)
 
             col_meta1, col_meta2, col_meta3 = st.columns(3)
-            dur_str = f"{qc.duration_seconds:.1f}s" if qc.duration_seconds else "—"
+            # Format duration with target-range indicator
+            if qc.duration_seconds:
+                m, s = divmod(int(qc.duration_seconds), 60)
+                in_range = TARGET_DURATION_MIN_SECONDS <= qc.duration_seconds <= TARGET_DURATION_MAX_SECONDS
+                dur_str = f"{m}:{s:02d} {'✅' if in_range else '⚠️'}"
+            else:
+                dur_str = "—"
             sr_str = f"{qc.sample_rate:,} Hz" if qc.sample_rate else "—"
             ch_str = str(qc.channels) if qc.channels else "—"
             with col_meta1:
@@ -291,6 +298,7 @@ def render_manual_track_editor(track_index: int):
                 st.metric("Codec", qc.codec or "—")
                 st.metric("Method", qc.method)
 
+            # Format status
             if qc.is_fake_wav:
                 st.error(
                     "❌ Fake WAV detected — this file has a .wav extension but the "
@@ -302,6 +310,15 @@ def render_manual_track_editor(track_index: int):
                 st.warning("⚠️ WAV format OK but distribution eligibility check failed")
             else:
                 st.warning(f"⚠️ Non-WAV format ({qc.codec}) — YouTube preview only, distribution blocked")
+
+            # Duration warning (separate from distribution block)
+            dur_warn = get_duration_warning(qc.duration_seconds)
+            if dur_warn:
+                if qc.duration_seconds and qc.duration_seconds < TARGET_DURATION_MIN_SECONDS:
+                    st.warning(f"⏱ {dur_warn}")
+                    st.caption("Distribution is not blocked, but regeneration is recommended for best results.")
+                elif qc.duration_seconds and qc.duration_seconds > TARGET_DURATION_MAX_SECONDS:
+                    st.error(f"⏱ {dur_warn}")
 
             if qc.warnings:
                 with st.expander("QC warnings", expanded=False):

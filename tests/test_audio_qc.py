@@ -136,3 +136,38 @@ def test_wav_44100_stereo_16bit(tmp_path):
     assert result.channels == 2
     assert result.bit_depth == 16
     assert result.distribution_eligible
+
+
+def test_get_duration_warning_below_target(tmp_path):
+    """Track shorter than 3:30 must return a warning, not block distribution."""
+    from workflows.audio_qc import get_duration_warning
+    warn = get_duration_warning(172.0)  # 2:52 — below 3:30
+    assert warn is not None, "Expected warning for short track"
+    assert "below" in warn.lower() or "recommended" in warn.lower()
+
+
+def test_get_duration_warning_in_range(tmp_path):
+    """Track in 3:30–4:00 range must return no warning."""
+    from workflows.audio_qc import get_duration_warning
+    assert get_duration_warning(215.0) is None  # 3:35 — in range
+    assert get_duration_warning(210.0) is None  # exactly 3:30
+    assert get_duration_warning(240.0) is None  # exactly 4:00
+
+
+def test_get_duration_warning_above_target(tmp_path):
+    """Track longer than 4:00 must return a warning."""
+    from workflows.audio_qc import get_duration_warning
+    warn = get_duration_warning(245.0)  # 4:05
+    assert warn is not None
+    assert "exceed" in warn.lower() or "4:00" in warn
+
+
+def test_short_track_still_distribution_eligible(tmp_path):
+    """WAV below 3:30 must still be distribution_eligible (warning only, not blocked)."""
+    _make_wav(tmp_path / "short.wav", duration_s=172.0)
+    from workflows.audio_qc import run_audio_qc
+    result = run_audio_qc(tmp_path / "short.wav")
+    assert result.is_wav
+    assert result.distribution_eligible, (
+        "Short WAV must remain distribution_eligible — duration warning is advisory only"
+    )

@@ -100,12 +100,26 @@ def export_video_package(
 
     tracks = manifest.approved_tracks()
 
-    # Audio list for FFmpeg concat — always use absolute paths
+    # Audio list for FFmpeg concat
+    # Rules:
+    #   1. Always absolute paths (Path.resolve()) — works from any cwd
+    #   2. Single-quote the path for FFmpeg concat format
+    #   3. Escape any single-quote in the path itself ('→'\'')
+    #   4. On Windows, use forward slashes (ffmpeg prefers them)
+    import platform as _platform
+
+    def _ffmpeg_path_escape(p: Path) -> str:
+        abs_str = str(p.resolve())
+        if _platform.system() == "Windows":
+            abs_str = abs_str.replace("\\", "/")
+        # Escape single quotes inside the path
+        abs_str = abs_str.replace("'", "'\\''")
+        return f"file '{abs_str}'"
+
     audio_lines = []
     for t in tracks:
         if t.selected_wav_path and Path(t.selected_wav_path).exists():
-            abs_path = Path(t.selected_wav_path).resolve()
-            audio_lines.append(f"file '{abs_path}'")
+            audio_lines.append(_ffmpeg_path_escape(Path(t.selected_wav_path)))
     audio_list_path = input_dir / "selected_audio_list.txt"
     audio_list_path.write_text("\n".join(audio_lines), encoding="utf-8")
 

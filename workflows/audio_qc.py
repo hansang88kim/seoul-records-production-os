@@ -23,6 +23,10 @@ from pathlib import Path
 from typing import Optional
 
 
+# ─── Seoul Records duration targets ──────────────────────────────────────────
+TARGET_DURATION_MIN_SECONDS = 210  # 3:30
+TARGET_DURATION_MAX_SECONDS = 240  # 4:00
+
 # ─── PCM codec whitelist ─────────────────────────────────────────────────────
 _PCM_CODECS = {
     "pcm_s16le", "pcm_s16be",
@@ -291,4 +295,23 @@ def qc_result_to_track_fields(result: AudioQCResult) -> dict:
         "duration_seconds": result.duration_seconds,
         "distribution_eligible": result.distribution_eligible,
         "qc_warnings": result.warnings,
+        "duration_warning": get_duration_warning(result.duration_seconds),
     }
+
+
+def get_duration_warning(duration_seconds: Optional[float]) -> Optional[str]:
+    """
+    Return a human-readable duration warning string, or None if in target range.
+    Target: 3:30 (210s) – 4:00 (240s).
+    Below target → warning only, distribution not blocked.
+    Above target → strict_duration policy applies (handled by select_best_candidate).
+    """
+    if duration_seconds is None:
+        return None
+    if duration_seconds < TARGET_DURATION_MIN_SECONDS:
+        m, s = divmod(int(duration_seconds), 60)
+        return f"Duration {m}:{s:02d} is below target 3:30 — regeneration recommended"
+    if duration_seconds > TARGET_DURATION_MAX_SECONDS:
+        m, s = divmod(int(duration_seconds), 60)
+        return f"Duration {m}:{s:02d} exceeds 4:00 — strict policy: both candidates must be in range"
+    return None
