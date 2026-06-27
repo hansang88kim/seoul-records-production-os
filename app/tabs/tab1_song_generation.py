@@ -256,10 +256,13 @@ def render_manual_track_editor(track_index: int):
             else:
                 st.error(f"Candidate WAV not found: {src}")
 
-    # ── Fix 7: Manual WAV Import UI ──────────────────────────────────────────
+    # ── v0.2 Manual WAV Import UI ─────────────────────────────────────────────
     st.divider()
     with st.expander("📂 Manual WAV Import", expanded=False):
-        st.caption("Upload WAV files directly (bypasses Suno). Good for manual production.")
+        st.caption(
+            "Upload WAV files directly from Suno. "
+            "Files are saved to **this track's folder only** — other tracks are never overwritten."
+        )
 
         import_mode = st.radio(
             "Import mode",
@@ -268,107 +271,229 @@ def render_manual_track_editor(track_index: int):
             key=f"import_mode_{track_index}",
         )
 
+        def _run_qc_and_display(file_path: Path) -> "AudioQCResult":
+            """Run Audio QC and show result in UI. Returns QCResult."""
+            from workflows.audio_qc import run_audio_qc
+            qc = run_audio_qc(file_path)
+
+            col_meta1, col_meta2, col_meta3 = st.columns(3)
+            dur_str = f"{qc.duration_seconds:.1f}s" if qc.duration_seconds else "—"
+            sr_str = f"{qc.sample_rate:,} Hz" if qc.sample_rate else "—"
+            ch_str = str(qc.channels) if qc.channels else "—"
+            with col_meta1:
+                st.metric("Duration", dur_str)
+                st.metric("Sample Rate", sr_str)
+            with col_meta2:
+                st.metric("Channels", ch_str)
+                bd_str = f"{qc.bit_depth}-bit" if qc.bit_depth else "—"
+                st.metric("Bit Depth", bd_str)
+            with col_meta3:
+                st.metric("Codec", qc.codec or "—")
+                st.metric("Method", qc.method)
+
+            if qc.is_fake_wav:
+                st.error(
+                    "❌ Fake WAV detected — this file has a .wav extension but the "
+                    f"actual codec is **{qc.codec}**. Distribution blocked."
+                )
+            elif qc.is_wav and qc.distribution_eligible:
+                st.success("✅ Valid PCM WAV — distribution eligible")
+            elif qc.is_wav:
+                st.warning("⚠️ WAV format OK but distribution eligibility check failed")
+            else:
+                st.warning(f"⚠️ Non-WAV format ({qc.codec}) — YouTube preview only, distribution blocked")
+
+            if qc.warnings:
+                with st.expander("QC warnings", expanded=False):
+                    for w in qc.warnings:
+                        st.caption(f"• {w}")
+            return qc
+
+        def _save_to_track_folder(
+            uploaded_file,
+            track,
+            dest_relative: str,
+        ) -> "Path | None":
+            """
+            Write uploaded bytes to the correct track folder.
+            Returns dest Path on success, None on error.
+            """
+            from app.project_manager import create_track_folder
+            songs_root = output_folder / "01_suno_song_generation"
+            tf = create_track_folder(
+                songs_root,
+                track.track_number,
+                track.prompt.title or f"track-{track.track_number:02d}",
+            )
+            track.track_folder_path = str(tf)
+            dest = tf / dest_relative
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            try:
+                dest.write_bytes(uploaded_file.read())
+                return dest
+            except Exception as e:
+                st.error(f"Write error: {e}")
+                return None
+
+        # ── Mode: Upload selected WAV directly ────────────────────────────────
         if import_mode == "Upload selected WAV directly":
             uploaded = st.file_uploader(
-                "Upload WAV", type=["wav"],
+                "Upload WAV (or MP3 for preview-only)",
+                type=["wav", "mp3"],
                 key=f"manual_wav_{track_index}",
             )
-            if uploaded and st.button("💾 Import WAV", key=f"import_btn_{track_index}"):
-                from providers.suno.manual_import import ManualImportProvider
-                from app.project_manager import create_track_folder, _slugify
+            if uploaded:
+                ext = Path(uploaded.name).suffix.lower()
+                dest_name = "suno_master.wav" if ext == ".wav" else f"preview{ext}"
+                dest_rel = f"selected/{dest_name}"
 
-                songs_root = output_folder / "01_suno_song_generation"
-                tf = create_track_folder(
-                    songs_root, track.track_number,
-                    track.prompt.title or f"track-{track.track_number:02d}",
-                )
-                track.track_folder_path = str(tf)
-                dest = tf / "selected" / "suno_master.wav"
-                dest.parent.mkdir(parents=True, exist_ok=True)
-                dest.write_bytes(uploaded.read())
+                if st.button("💾 Import & QC", key=f"import_btn_{track_index}", type="primary"):
+                    dest = _save_to_track_folder(uploaded, track, dest_rel)
+                    if dest:
+                        st.markdown("**Audio QC Result**")
+                        qc = _run_qc_and_display(dest)
 
-                provider = ManualImportProvider()
-                # Re-read for validation
-                info = provider.import_wav(dest, dest)
-                track.selected_wav_path = str(dest)
-                track.is_wav = info["is_wav"]
-                track.duration_seconds = info.get("duration_seconds")
-                track.distribution_eligible = info["is_wav"]
-                track.update_status(TrackStatus.SAVED)
-                _save(manifest)
-                st.success(
-                    f"✅ WAV imported: {info.get('duration_seconds', '?'):.0f}s"
-                    if info.get("duration_seconds")
-                    else "✅ WAV imported (duration unknown)"
-                )
-                st.rerun()
+                        # Update track manifest
+                        track.selected_wav_path = str(dest)
+                        track.is_wav = qc.is_wav and not qc.is_fake_wav
+                        track.duration_seconds = qc.duration_seconds
+                        track.distribution_eligible = qc.distribution_eligible
+                        track.qc_warnings = list(set(track.qc_warnings + qc.warnings))
+                        if track.is_wav:
+                            track.update_status(TrackStatus.SAVED)
+                        else:
+                            track.update_status(TrackStatus.MANUAL_IMPORT_REQUIRED)
 
-        else:  # Upload Candidate A + B
+                        _save(manifest)
+                        log_action(
+                            output_folder, "manual_wav_import", "selected_wav_imported",
+                            {
+                                "track_number": track.track_number,
+                                "file": dest.name,
+                                "is_wav": track.is_wav,
+                                "duration": track.duration_seconds,
+                                "codec": qc.codec,
+                                "method": qc.method,
+                                "qc_warnings": qc.warnings,
+                            },
+                            track_id=track.track_id,
+                            project_id=manifest.project_id,
+                        )
+                        if not qc.is_fake_wav:
+                            st.rerun()
+
+        # ── Mode: Upload Candidate A + B ──────────────────────────────────────
+        else:
             col_a, col_b = st.columns(2)
             with col_a:
-                up_a = st.file_uploader("Candidate A (WAV)", type=["wav"],
-                                         key=f"cand_a_{track_index}")
+                st.markdown("**Candidate A**")
+                up_a = st.file_uploader(
+                    "Candidate A (WAV/MP3)",
+                    type=["wav", "mp3"],
+                    key=f"cand_a_{track_index}",
+                )
             with col_b:
-                up_b = st.file_uploader("Candidate B (WAV)", type=["wav"],
-                                         key=f"cand_b_{track_index}")
+                st.markdown("**Candidate B**")
+                up_b = st.file_uploader(
+                    "Candidate B (WAV/MP3)",
+                    type=["wav", "mp3"],
+                    key=f"cand_b_{track_index}",
+                )
 
-            if (up_a or up_b) and st.button("💾 Import Candidates", key=f"import_cands_{track_index}"):
-                from providers.suno.manual_import import ManualImportProvider
-                from providers.suno.mock_suno import _read_wav_duration
-                from app.project_manager import create_track_folder
+            if (up_a or up_b) and st.button(
+                "💾 Import Candidates & Run QC",
+                key=f"import_cands_{track_index}",
+                type="primary",
+            ):
+                import shutil as _shutil
                 from app.models import CandidateMetadata
                 from agents.qc_agent import select_best_candidate
+                from workflows.audio_qc import run_audio_qc
 
-                songs_root = output_folder / "01_suno_song_generation"
-                tf = create_track_folder(
-                    songs_root, track.track_number,
-                    track.prompt.title or f"track-{track.track_number:02d}",
-                )
-                track.track_folder_path = str(tf)
-                cands_dir = tf / "candidates"
-                cands_dir.mkdir(exist_ok=True)
                 cand_infos = []
+                new_candidates = []
 
-                for label, uploaded_file, cid in [("A", up_a, "A"), ("B", up_b, "B")]:
-                    if uploaded_file:
-                        dest = cands_dir / f"candidate_{cid}.wav"
-                        dest.write_bytes(uploaded_file.read())
-                        dur = _read_wav_duration(dest)
-                        cand_infos.append({
-                            "candidate_id": cid,
-                            "file_path": str(dest),
-                            "duration_seconds": dur or 0,
-                            "is_wav": True,
-                        })
-                        track.candidates.append(CandidateMetadata(
-                            candidate_id=cid,
-                            task_id="manual",
-                            file_path=str(dest),
-                            duration_seconds=dur,
-                            is_wav=True,
-                            provider="manual_import",
-                        ))
+                for cid, uploaded_file in [("A", up_a), ("B", up_b)]:
+                    if not uploaded_file:
+                        continue
+                    ext = Path(uploaded_file.name).suffix.lower()
+                    dest = _save_to_track_folder(
+                        uploaded_file, track,
+                        f"candidates/candidate_{cid}{ext}",
+                    )
+                    if not dest:
+                        continue
+
+                    st.markdown(f"**Candidate {cid} — QC**")
+                    qc = _run_qc_and_display(dest)
+
+                    cand_infos.append({
+                        "candidate_id": cid,
+                        "file_path": str(dest),
+                        "duration_seconds": qc.duration_seconds or 0,
+                        "is_wav": qc.is_wav and not qc.is_fake_wav,
+                    })
+                    new_candidates.append(CandidateMetadata(
+                        candidate_id=cid,
+                        task_id="manual",
+                        file_path=str(dest),
+                        duration_seconds=qc.duration_seconds,
+                        sample_rate=qc.sample_rate,
+                        channels=qc.channels,
+                        bit_depth=qc.bit_depth,
+                        file_format=ext.lstrip("."),
+                        is_wav=qc.is_wav and not qc.is_fake_wav,
+                        qc_warnings=qc.warnings,
+                        provider="manual_import",
+                    ))
+
+                # Merge into track.candidates (avoid duplicates by candidate_id)
+                existing_ids = {c.candidate_id for c in track.candidates}
+                for c in new_candidates:
+                    if c.candidate_id in existing_ids:
+                        track.candidates = [x for x in track.candidates if x.candidate_id != c.candidate_id]
+                    track.candidates.append(c)
 
                 if cand_infos:
-                    result = select_best_candidate(cand_infos)
-                    track.selected_candidate_id = result.candidate_id
-                    if result.save_wav:
-                        import shutil
-                        src = cands_dir / f"candidate_{result.candidate_id}.wav"
-                        dst = tf / "selected" / "suno_master.wav"
+                    sel = select_best_candidate(cand_infos)
+                    track.selected_candidate_id = sel.candidate_id
+                    track.qc_warnings = list(set(track.qc_warnings + sel.qc_warnings))
+
+                    if sel.save_wav:
+                        best = next(c for c in cand_infos if c["candidate_id"] == sel.candidate_id)
+                        src = Path(best["file_path"])
+                        tf_path = Path(track.track_folder_path)
+                        dst = tf_path / "selected" / "suno_master.wav"
                         dst.parent.mkdir(parents=True, exist_ok=True)
-                        shutil.copy2(src, dst)
+                        _shutil.copy2(src, dst)
+
+                        from workflows.audio_qc import run_audio_qc as _qc2
+                        master_qc = _qc2(dst)
                         track.selected_wav_path = str(dst)
-                        track.is_wav = True
-                        best_info = next((c for c in cand_infos if c["candidate_id"] == result.candidate_id), {})
-                        track.duration_seconds = best_info.get("duration_seconds")
-                        track.distribution_eligible = True
+                        track.is_wav = master_qc.is_wav and not master_qc.is_fake_wav
+                        track.duration_seconds = master_qc.duration_seconds
+                        track.distribution_eligible = master_qc.distribution_eligible
                         track.update_status(TrackStatus.SAVED)
+                        st.success(
+                            f"✅ Selected Candidate {sel.candidate_id} → suno_master.wav"
+                        )
                     else:
                         track.update_status(TrackStatus.REGENERATION_REQUIRED)
-                    track.qc_warnings.extend(result.qc_warnings)
+                        st.warning("⚠️ Both candidates exceed 4:00. Regeneration required.")
+
                     _save(manifest)
-                    st.success(f"Candidates imported. Selected: {result.candidate_id}")
+                    log_action(
+                        output_folder, "manual_wav_import", "candidates_imported",
+                        {
+                            "track_number": track.track_number,
+                            "candidates": [c["candidate_id"] for c in cand_infos],
+                            "selected": sel.candidate_id,
+                            "save_wav": sel.save_wav,
+                            "qc_warnings": sel.qc_warnings,
+                        },
+                        track_id=track.track_id,
+                        project_id=manifest.project_id,
+                    )
                     st.rerun()
 
 
