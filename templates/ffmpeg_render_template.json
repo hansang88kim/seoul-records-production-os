@@ -1,0 +1,47 @@
+{
+  "_comment": "FFmpeg render template for Seoul Records longform video production.",
+  "version": "0.1",
+  "presets": {
+    "1h_playlist": {
+      "label": "1 Hour Playlist Mode",
+      "target_tracks": 15,
+      "target_duration_minutes": 60,
+      "video_codec": "libx264",
+      "audio_codec": "aac",
+      "audio_bitrate": "320k",
+      "video_tune": "stillimage",
+      "pixel_format": "yuv420p",
+      "background_width": 1920,
+      "background_height": 1080,
+      "notes": "Static image background. Audio concat from selected WAV masters."
+    },
+    "full_album_mix": {
+      "label": "Full Album Mix Mode",
+      "target_tracks": 20,
+      "target_duration_minutes": 75,
+      "video_codec": "libx264",
+      "audio_codec": "aac",
+      "audio_bitrate": "320k",
+      "video_tune": "stillimage",
+      "pixel_format": "yuv420p",
+      "background_width": 1920,
+      "background_height": 1080,
+      "notes": "Do not describe as '1 hour' in metadata. Target 70-80 minutes."
+    },
+    "youtube_distribution_package": {
+      "label": "YouTube + Distribution Package",
+      "target_tracks": 5,
+      "video_codec": "libx264",
+      "audio_codec": "aac",
+      "audio_bitrate": "320k",
+      "video_tune": "stillimage",
+      "pixel_format": "yuv420p",
+      "background_width": 1280,
+      "background_height": 720,
+      "notes": "Shorter package. Thumbnail at 1280x720."
+    }
+  },
+  "ffprobe_fallback_duration_seconds": 210,
+  "chapter_format": "HH:MM:SS Title",
+  "youtube_chapter_minimum_gap_seconds": 10
+}

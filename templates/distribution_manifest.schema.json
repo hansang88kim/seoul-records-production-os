@@ -1,0 +1,38 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "DistributionManifest",
+  "description": "Schema for distribution_manifest.json in the music distribution step.",
+  "type": "object",
+  "required": ["generated_at", "tracks_total"],
+  "properties": {
+    "generated_at": { "type": "string" },
+    "tracks_total": { "type": "integer" },
+    "tracks_eligible": { "type": "integer" },
+    "tracks_blocked": { "type": "integer" },
+    "cover_status": {
+      "type": "string",
+      "enum": ["ok", "missing", "error"]
+    },
+    "wav_required": { "type": "boolean" },
+    "mp3_distribution_blocked": { "type": "boolean" },
+    "distributor": {
+      "type": "string",
+      "enum": ["unitedmasters", "distrokid", "other"]
+    },
+    "blocked_details": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "track": { "type": "string" },
+          "reason": { "type": "string" }
+        }
+      }
+    },
+    "rights_statements": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "package_path": { "type": "string" }
+  }
+}

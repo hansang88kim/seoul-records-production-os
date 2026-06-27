@@ -1,0 +1,16 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "TrackManifest",
+  "type": "object",
+  "required": ["track_number", "track_id", "status"],
+  "properties": {
+    "track_number": { "type": "integer", "minimum": 1 },
+    "track_id": { "type": "string" },
+    "status": { "type": "string" },
+    "is_wav": { "type": "boolean" },
+    "distribution_eligible": { "type": "boolean" },
+    "duration_seconds": { "type": ["number", "null"] },
+    "selected_wav_path": { "type": ["string", "null"] },
+    "qc_warnings": { "type": "array", "items": { "type": "string" } }
+  }
+}

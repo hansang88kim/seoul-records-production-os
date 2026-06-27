@@ -1,0 +1,82 @@
+{
+  "_comment": "Canva layout template for Seoul Records City Pop Core. Used in v0.4+ with Canva MCP.",
+  "version": "0.1",
+  "templates": {
+    "youtube_thumbnail_16x9": {
+      "template_id": "CANVA_TEMPLATE_YOUTUBE_16x9_TODO",
+      "canvas_width": 1280,
+      "canvas_height": 720,
+      "background_layer": "source_image_16x9",
+      "text_elements": [
+        {
+          "id": "title",
+          "position": "lower-left",
+          "x_offset_px": 60,
+          "y_offset_from_bottom_px": 140,
+          "max_width_px": 860,
+          "font_style": "clean_sans_serif",
+          "font_size": "large",
+          "color": "#FFFFFF",
+          "shadow": true,
+          "shadow_color": "#000000",
+          "shadow_opacity": 0.7
+        },
+        {
+          "id": "artist",
+          "position": "lower-left",
+          "x_offset_px": 60,
+          "y_offset_from_bottom_px": 60,
+          "max_width_px": 600,
+          "font_style": "clean_sans_serif",
+          "font_size": "medium",
+          "color": "#E8E0C0",
+          "shadow": true,
+          "shadow_color": "#000000",
+          "shadow_opacity": 0.6
+        }
+      ],
+      "notes": "CTR-focused. No background box. Text must be legible on city photo background."
+    },
+    "dsp_cover_1x1": {
+      "template_id": "CANVA_TEMPLATE_DSP_COVER_1x1_TODO",
+      "canvas_width": 3000,
+      "canvas_height": 3000,
+      "background_layer": "source_image_1x1",
+      "text_elements": [
+        {
+          "id": "title",
+          "position": "center-bottom",
+          "x_offset_px": 150,
+          "y_offset_from_bottom_px": 550,
+          "max_width_px": 2700,
+          "font_style": "elegant_serif_or_clean_sans",
+          "font_size": "large",
+          "color": "#FFFFFF",
+          "shadow": false
+        },
+        {
+          "id": "artist",
+          "position": "center-bottom",
+          "x_offset_px": 150,
+          "y_offset_from_bottom_px": 350,
+          "max_width_px": 2700,
+          "font_style": "clean_sans_serif",
+          "font_size": "medium",
+          "color": "#C8C0A0",
+          "shadow": false
+        }
+      ],
+      "notes": "Conservative. No URLs, QR codes, social handles, logos, or decorative elements."
+    }
+  },
+  "rules": {
+    "no_watermark": true,
+    "no_fake_letters": true,
+    "no_random_typography": true,
+    "no_qr_code": true,
+    "no_social_handles_on_cover": true,
+    "no_brand_logos": true,
+    "canva_template_only": true,
+    "no_freeform_design": true
+  }
+}

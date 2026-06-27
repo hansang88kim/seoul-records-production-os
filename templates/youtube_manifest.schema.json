@@ -1,0 +1,43 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "YouTubeManifest",
+  "description": "Schema for youtube_manifest.json in the YouTube upload step.",
+  "type": "object",
+  "required": ["title", "description", "tags", "visibility"],
+  "properties": {
+    "title": { "type": "string" },
+    "description": { "type": "string" },
+    "tags": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "hashtags": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "visibility": {
+      "type": "string",
+      "enum": ["private", "unlisted", "public"]
+    },
+    "category": { "type": "string" },
+    "language": { "type": "string" },
+    "video_path": { "type": "string" },
+    "thumbnail_path": { "type": "string" },
+    "youtube_url": { "type": "string" },
+    "upload_status": {
+      "type": "string",
+      "enum": ["pending", "package_ready", "uploaded_private", "error"]
+    },
+    "chapters": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "timestamp": { "type": "string" },
+          "title": { "type": "string" }
+        }
+      }
+    },
+    "generated_at": { "type": "string" }
+  }
+}

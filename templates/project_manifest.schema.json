@@ -1,0 +1,22 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "ProjectManifest",
+  "type": "object",
+  "required": ["project_id", "project_name", "status", "tracks"],
+  "properties": {
+    "project_id": { "type": "string", "format": "uuid" },
+    "project_name": { "type": "string", "minLength": 1 },
+    "core_style": { "type": "string" },
+    "language_pack": { "type": "string" },
+    "theme": { "type": "string" },
+    "track_count": { "type": "integer", "minimum": 1 },
+    "production_mode": { "type": "string", "enum": ["Manual", "Auto"] },
+    "output_type": { "type": "string" },
+    "output_folder": { "type": "string" },
+    "status": { "type": "string" },
+    "app_version": { "type": "string" },
+    "tracks": { "type": "array" },
+    "created_at": { "type": "string", "format": "date-time" },
+    "updated_at": { "type": "string", "format": "date-time" }
+  }
+}

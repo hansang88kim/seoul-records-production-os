@@ -1,0 +1,45 @@
+{
+  "name": "Seoul Records City Pop Core",
+  "version": "1.0",
+  "description": "Core musical identity for Seoul Records. Do not modify without creative direction approval.",
+  "core_styles": [
+    "Japanese city pop",
+    "sophisticated 1990s urban pop",
+    "nostalgic night city",
+    "elegant female vocal",
+    "lush arrangement"
+  ],
+  "exclude_styles": [
+    "sax lead",
+    "strong saxophone",
+    "drum fills",
+    "tom fills",
+    "snare rolls",
+    "trot",
+    "enka",
+    "EDM",
+    "bleepy sounds",
+    "toy percussion",
+    "folk pop",
+    "cheesy local",
+    "loud brass",
+    "aggressive drums"
+  ],
+  "vocal_direction": {
+    "gender": "Female",
+    "tone": "low, thick, elegant",
+    "style": "smooth, sophisticated, slightly breathy"
+  },
+  "arrangement_notes": [
+    "No sax lead",
+    "No strong sax",
+    "No drum fill-ins",
+    "No tom fills",
+    "No snare rolls",
+    "Low, thick female vocal",
+    "Elegant, nostalgic mood",
+    "Night city feeling",
+    "1990s urban pop sophistication"
+  ],
+  "local_flavor_default": "off"
+}

@@ -1,0 +1,70 @@
+{
+  "pack_id": "ko_kr_seoul",
+  "name": "Korean Seoul City Pop",
+  "language": "Korean",
+  "script": "Hangul",
+  "city": "Seoul",
+  "region": "South Korea",
+  "version": "1.0",
+  "core_styles": [
+    "Japanese city pop",
+    "sophisticated 1990s Korean urban pop",
+    "nostalgic Seoul night",
+    "elegant female vocal",
+    "lush arrangement"
+  ],
+  "optional_style_modifiers": [
+    "late night drive",
+    "summer rain",
+    "neon city",
+    "rooftop bar",
+    "han river",
+    "gentle groove"
+  ],
+  "exclude_styles": [
+    "sax lead",
+    "strong saxophone",
+    "drum fills",
+    "tom fills",
+    "snare rolls",
+    "trot",
+    "enka",
+    "EDM",
+    "bleepy sounds",
+    "toy percussion",
+    "folk pop",
+    "pansori",
+    "gugak",
+    "ballad trot"
+  ],
+  "moods": [
+    "야경",
+    "빗속",
+    "도심",
+    "새벽",
+    "한강",
+    "네온",
+    "밤거리",
+    "이별"
+  ],
+  "title_templates": [
+    "서울의 {mood}",
+    "{city} 야경",
+    "밤의 {city}",
+    "{mood}의 기억",
+    "{city} Express",
+    "Night Drive in {city}",
+    "{mood} Lover",
+    "{city} Rain"
+  ],
+  "lyric_templates": [
+    "[Verse 1]\n네온빛 서울 야경 아래\n그대와 걷던 그 거리\n빗방울이 내리던 밤\n우리의 이야기\n\n[Pre-Chorus]\n시간이 흘러도\n이 순간만큼은\n\n[Chorus]\n기억해줘 이 밤을\n서울의 불빛처럼\n우리가 함께였던\n이 도시의 밤\n\n[Verse 2]\n창문 너머 흐르는 불빛\n그리움이 되어 흘러가\n한강변을 걷다 보면\n그대 생각이 나\n\n[Bridge]\n안녕, 서울의 밤이여\n\n[Outro]\n이 도시 어딘가에\n우리의 기억이"
+  ],
+  "metadata": {
+    "language_code": "ko-KR",
+    "lyrics_language": "Korean",
+    "lyrics_script": "Hangul",
+    "do_not_translate_from": "Korean",
+    "generate_original": true
+  }
+}

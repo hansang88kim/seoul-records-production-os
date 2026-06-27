@@ -1,0 +1,36 @@
+version: "3.9"
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: seoul-records-production-os:latest
+    container_name: seoul-records-app
+    ports:
+      - "8501:8501"
+    volumes:
+      - ./outputs:/app/outputs
+      - ./.env:/app/.env:ro
+    environment:
+      - COMPOSER_PROVIDER=${COMPOSER_PROVIDER:-mock}
+      - SUNO_DOWNLOAD_FORMAT=${SUNO_DOWNLOAD_FORMAT:-wav}
+      - ALLOW_MP3_FOR_DISTRIBUTION=${ALLOW_MP3_FOR_DISTRIBUTION:-false}
+    restart: unless-stopped
+    command: ["streamlit", "run", "app/main.py", "--server.port=8501", "--server.address=0.0.0.0"]
+
+  # Uncomment in v0.3 when LocalUnofficialSunoProvider is active
+  # suno-local-api:
+  #   image: node:20-alpine
+  #   container_name: suno-local-api
+  #   working_dir: /app
+  #   volumes:
+  #     - ./suno-unofficial-api:/app
+  #   ports:
+  #     - "3000:3000"
+  #   command: ["npm", "start"]
+  #   environment:
+  #     - SUNO_COOKIE=${SUNO_COOKIE}
+
+# NOTE: Never commit .env, SUNO_COOKIE, credentials, or audio files.
+# See .gitignore for full exclusion list.
