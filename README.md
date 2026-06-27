@@ -1,10 +1,49 @@
 # Seoul Records Production OS
 
-**AI Music Label Production Harness — v0.1.3**
+**AI Music Label Production Harness — v0.2.0**
 
 > Creative direction: controlled by ChatGPT and the user.
 > Engineering: this repository.
-> Creative prompt generation is placeholder in v0.1.3 and will later be controlled by ChatGPT.
+> Creative prompt generation is placeholder and will later be controlled by ChatGPT.
+
+---
+
+## What's New in v0.2.0## What's New in v0.2.0
+
+### Manual WAV Import Pipeline
+- **Tab 1 — Song Generation**: Manual WAV Import section fully rebuilt
+  - Upload Candidate A / B or Selected WAV directly
+  - Files saved to the **correct track folder only** (no cross-track overwrite)
+  - Instant Audio QC display (duration / sample rate / channels / codec / method)
+  - `project_manifest.json` updated + `project_log.jsonl` appended on every import
+  - Candidate A/B selection policy applied automatically → `suno_master.wav` created
+
+### Audio QC (`workflows/audio_qc.py`)
+- ffprobe → wave module → mutagen fallback chain
+- **Fake WAV detection**: MP3 data inside `.wav` extension is caught via magic-byte check
+- MP3 allowed for YouTube draft preview only; distribution blocked
+- `AudioQCResult` dataclass with full metadata
+
+### Distribution Master (`workflows/create_distribution_master.py`)
+- Source must be confirmed PCM WAV — fake WAV, MP3, AAC all strictly blocked
+- Source already at 44.1 kHz / 16-bit / stereo → simple copy
+- Off-spec WAV → FFmpeg lossless conversion
+- FFmpeg absent → `manual_required`, no crash
+
+### FFmpeg Longform Rendering (enhanced)
+- `final_audio_mix.wav` generated alongside `final_video.mp4`
+- Better error capture (returncode + stderr in log)
+- Graceful `manual_required` when FFmpeg is missing
+
+### Project Library
+- Landing page "Open Existing Project" panel rebuilt
+- Shows 5-step status icons (Song Gen / Thumbnail / Video / YouTube / Distribution)
+- Sort by Newest / Oldest / Name, Resume button
+- **Not a 6th tab** — 5-tab production console preserved
+
+### Distribution Warning Fix
+- QC now runs **after** metadata, rights, cover, and audio are all generated
+- Eliminates false `metadata_not_ready` / `rights_statements_missing` warnings
 
 ---
 
@@ -12,7 +51,7 @@
 
 Seoul Records Production OS is a local MVP application for creating AI-generated city pop album projects. It provides a full 5-tab production pipeline from song generation through music distribution, with mock providers for v0.1.x and a clear upgrade path to real integrations.
 
-**v0.1.3 is still mock/local only — no real Suno, Canva, YouTube, or UnitedMasters APIs yet.**
+**v0.2.0: Local WAV import pipeline — no real Suno, Canva, YouTube, or UnitedMasters APIs. Manual WAV import → FFmpeg render → Distribution package.**
 
 **Core creative identity: Seoul Records City Pop Core**
 - Japanese nostalgic city pop, sophisticated 1990s urban feeling
@@ -110,7 +149,7 @@ seoul-records-production-os/
 
 ## Production Tabs
 
-| Tab | Purpose | v0.1.3 Status |
+| Tab | Purpose | v0.2.0 Status |
 |-----|---------|---------------|
 | 🎵 Song Generation | Prompt generation, mock Suno, WAV import, candidate selection | ✅ Mock + Manual Import |
 | 🖼 Thumbnail & Cover | 16:9 YouTube thumbnail + 1:1 DSP cover | ✅ Mock (Pillow) |
@@ -214,8 +253,8 @@ No backend code changes required. Planned packs:
 
 | Version | Focus | Status |
 |---------|-------|--------|
-| v0.1.3 | Clean package, fast tests, manual WAV import, safe candidate override | ✅ Current |
-| v0.2 | Real FFmpeg rendering, ffprobe audio QC | Planned |
+| v0.1.3 | Clean package, fast tests, manual WAV import, safe candidate override | ✅ Released |
+| v0.2.0 | Manual WAV import UI, Audio QC (ffprobe/wave), Distribution Master, FFmpeg render, Project Library | ✅ Current |
 | v0.3 | LocalUnofficialSunoProvider (user's own Suno credits) | Planned |
 | v0.4 | Flow / Nano Banana image, Canva MCP template design | Planned |
 | v0.5 | YouTube private upload (YouTube Data API v3) | Planned |
