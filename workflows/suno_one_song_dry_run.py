@@ -93,7 +93,7 @@ TEST_OPTIONS = {
         "sax lead", "strong sax", "drum fill-in", "tom fill",
         "snare roll", "trot", "enka", "EDM", "bleepy sounds", "toy percussion",
     ],
-    "model": "chirp-v4",
+    "model": "v5.5",
     "instrumental": False,
     "weirdness": 35,
     "style_influence": 70,
