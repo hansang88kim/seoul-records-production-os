@@ -240,7 +240,7 @@ def render_composer_panel() -> dict | None:
             current = st.session_state.get("form_style", CITYPOP_STYLE_PRESET)
             if current.strip():
                 with st.spinner("스타일 변주 중..."):
-                    from providers.ai.base import generate_style_variation, get_available_ai_providers
+                    from providers.ai.base import generate_style_variation
                     avail = [p for p in get_available_ai_providers() if p["available"] and p["name"] != "mock"]
                     pname = avail[0]["name"] if avail else "mock"
                     st.session_state["form_style"] = generate_style_variation(current, pname)
