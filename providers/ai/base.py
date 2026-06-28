@@ -339,7 +339,7 @@ class GeminiProvider:
 
     @property
     def MODEL_NAME(self):
-        return os.getenv("GEMINI_MODEL", "gemini-2.0-flash")
+        return os.getenv("GEMINI_MODEL", "gemini-flash-latest")
 
     @staticmethod
     def is_available() -> bool:
@@ -383,7 +383,10 @@ class GeminiProvider:
         # Prefer flash models (faster, cheaper), then any available
         flash_models = [m for m in available if "flash" in m and "lite" not in m]
         models_to_try += flash_models + available
-        models_to_try += ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-2.5-flash"]
+        models_to_try += [
+            "gemini-flash-latest", "gemini-3-flash", "gemini-3.5-flash",
+            "gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash",
+        ]
 
         seen = set()
         last_error = "사용 가능한 모델을 찾지 못함"

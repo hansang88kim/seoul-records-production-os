@@ -358,17 +358,22 @@ def _verify_openai(key):
 
 def _verify_gemini(key):
     try:
+        from providers.ai.base import GeminiProvider
+        models = GeminiProvider.list_models(key)
+        if models:
+            flash = [m for m in models if "flash" in m and "lite" not in m]
+            preferred = flash[0] if flash else models[0]
+            return True, f"Gemini 연결됨 ({preferred})"
+        # No models but maybe key works — do a basic check
         import requests
         r = requests.get(f"https://generativelanguage.googleapis.com/v1beta/models?key={key}", timeout=12)
         if r.status_code == 200:
-            return True, "Gemini 인증 성공"
+            return True, "Gemini 인증 성공 (모델 목록 비어있음)"
         if r.status_code == 400:
             return False, "키 형식 오류"
         if r.status_code == 403:
             return False, "키 비활성화/권한 없음"
         return False, f"HTTP {r.status_code}"
-    except requests.exceptions.ConnectionError:
-        return False, "네트워크 연결 실패"
     except Exception as e:
         return False, f"{type(e).__name__}"
 
