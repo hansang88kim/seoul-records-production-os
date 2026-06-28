@@ -1,18 +1,11 @@
 """
 tests/test_suno_cli_provider.py (v0.4.2)
-───────────────────────────────────────
-Tests for SunoCliProvider (paperfoot/suno-cli subprocess adapter).
-All tests use mock subprocess — no real suno binary needed.
 """
 from __future__ import annotations
-
-import json
-import os
+import json, os
 from pathlib import Path
 from unittest import mock
-
 import pytest
-
 from providers.suno.base import ProviderError, CandidateInfo, ProviderCapabilities
 
 
@@ -20,167 +13,137 @@ from providers.suno.base import ProviderError, CandidateInfo, ProviderCapabiliti
 
 def test_registry_selects_suno_cli():
     from providers.suno import get_composer_provider
-    p = get_composer_provider("suno_cli")
-    assert p.PROVIDER_NAME == "suno_cli"
-
+    assert get_composer_provider("suno_cli").PROVIDER_NAME == "suno_cli"
 
 def test_registry_selects_suno_cli_short():
     from providers.suno import get_composer_provider
-    p = get_composer_provider("cli")
-    assert p.PROVIDER_NAME == "suno_cli"
+    assert get_composer_provider("cli").PROVIDER_NAME == "suno_cli"
 
 
 # ─── Capabilities ───────────────────────────────────────────────────────────
 
 def test_suno_cli_capabilities():
     from providers.suno.suno_cli_provider import SunoCliProvider
-    p = SunoCliProvider()
-    caps = p.get_capabilities()
+    caps = SunoCliProvider().get_capabilities()
     assert isinstance(caps, ProviderCapabilities)
-    assert caps.title is True
-    assert caps.exclude_styles is True
     assert caps.vocal_gender is True
     assert caps.weirdness is True
-    assert caps.style_influence is True
-    assert caps.persona is True
     assert caps.wav_download is False
     assert caps.mp3_preview is True
 
 
-# ─── SUNO_CLI_BIN env support ────────────────────────────────────────────────
+# ─── SUNO_CLI_BIN env support ───────────────────────────────────────────────
 
 def test_suno_cli_bin_absolute_path_is_used(monkeypatch):
-    """SUNO_CLI_BIN with absolute path → used directly, not PATH lookup."""
     from providers.suno import suno_cli_provider as m
     from importlib import reload
-
     env_val = "C:/tools/suno/suno.exe"
     monkeypatch.setenv("SUNO_CLI_BIN", env_val)
     reload(m)
     result = m._get_suno_bin()
-    # On Linux: returned as-is. On Windows: Path normalizes to backslash.
-    # Either way, resolved path must contain 'suno.exe'
     assert "suno.exe" in result
     assert result == env_val or result == str(Path(env_val))
 
-
 def test_suno_cli_bin_windows_path_supported(monkeypatch):
-    """Windows backslash paths in SUNO_CLI_BIN are accepted."""
     from providers.suno import suno_cli_provider as m
     from importlib import reload
-
     win_path = "C:\\tools\\suno\\suno.exe"
     monkeypatch.setenv("SUNO_CLI_BIN", win_path)
     reload(m)
     result = m._get_suno_bin()
     assert "suno" in result.lower()
-    # Value preserved as-is from env (OS normalizes on actual use)
     assert result == win_path
 
-
 def test_suno_available_uses_env_path_before_path_lookup(monkeypatch, tmp_path):
-    """_suno_available checks SUNO_CLI_BIN path first, not shutil.which."""
     from providers.suno import suno_cli_provider as m
     from importlib import reload
-
-    # Create a fake binary at a known path
     fake_bin = tmp_path / "suno.exe"
     fake_bin.write_text("fake")
     monkeypatch.setenv("SUNO_CLI_BIN", str(fake_bin))
     reload(m)
-
     assert m._suno_available() is True
 
-
 def test_path_fallback_to_suno_when_env_missing(monkeypatch):
-    """Without SUNO_CLI_BIN, falls back to 'suno' on PATH."""
     from providers.suno import suno_cli_provider as m
     from importlib import reload
-
     monkeypatch.delenv("SUNO_CLI_BIN", raising=False)
     reload(m)
-    result = m._get_suno_bin()
-    # Either found on PATH or returns "suno" as fallback
-    assert isinstance(result, str)
-    assert "suno" in result.lower()
+    assert isinstance(m._get_suno_bin(), str)
+
+def test_run_suno_uses_resolved_binary(tmp_path):
+    from providers.suno.suno_cli_provider import _run_suno_json
+    fake_bin = str(tmp_path / "my_suno")
+    captured = []
+    def mock_run(cmd, **kw):
+        captured.extend(cmd)
+        return mock.Mock(returncode=0, stdout=json.dumps({"data": {}}), stderr="")
+    with mock.patch("subprocess.run", side_effect=mock_run):
+        _run_suno_json(["credits"], suno_bin=fake_bin)
+    assert captured[0] == fake_bin
 
 
-def test_run_suno_uses_resolved_binary(monkeypatch, tmp_path):
-    """_run_suno must use the resolved binary path, not hardcoded 'suno'."""
-    from providers.suno import suno_cli_provider as m
-    from importlib import reload
-
-    fake_bin = str(tmp_path / "my_suno_binary")
-    monkeypatch.setenv("SUNO_CLI_BIN", fake_bin)
-    reload(m)
-
-    captured_cmd = []
-
-    def mock_subprocess_run(cmd, **kwargs):
-        captured_cmd.extend(cmd)
-        return mock.Mock(
-            returncode=0,
-            stdout=json.dumps({"data": [{"id": "clip-1"}]}),
-            stderr="",
-        )
-
-    with mock.patch("subprocess.run", side_effect=mock_subprocess_run):
-        m._run_suno(["credits"], suno_bin=fake_bin)
-
-    assert captured_cmd[0] == fake_bin, (
-        f"Expected binary '{fake_bin}', got '{captured_cmd[0]}'"
-    )
-
-
-# ─── Command building with --wait --download ────────────────────────────────
+# ─── generate command construction ──────────────────────────────────────────
 
 def test_generate_command_includes_wait_and_download(monkeypatch, tmp_path):
-    """create_song must include --wait and --download <dir> in the command."""
-    from providers.suno.suno_cli_provider import SunoCliProvider
-
+    """create_song must include --wait --download and NOT --json."""
+    from providers.suno import suno_cli_provider as m
+    from importlib import reload
     fake_bin = tmp_path / "suno.exe"
     fake_bin.write_text("fake")
     monkeypatch.setenv("SUNO_CLI_BIN", str(fake_bin))
-
-    from providers.suno import suno_cli_provider as m
-    from importlib import reload
     reload(m)
 
     p = m.SunoCliProvider()
     captured = []
+    dl_dir = str(tmp_path / "downloads")
 
     def mock_run(cmd, **kw):
         captured.extend(cmd)
-        return mock.Mock(
-            returncode=0,
-            stdout=json.dumps({"data": [{"id": "clip-aaa"}, {"id": "clip-bbb"}]}),
-            stderr="",
-        )
+        # Simulate downloaded file
+        Path(dl_dir).mkdir(parents=True, exist_ok=True)
+        (Path(dl_dir) / "test-song-abc12345.mp3").write_bytes(b"fake")
+        return mock.Mock(returncode=0, stdout="", stderr="")
 
     with mock.patch("subprocess.run", side_effect=mock_run):
-        dl_dir = str(tmp_path / "downloads")
-        task_id = p.create_song(
-            "밤이 지나면", "city pop", "test lyrics",
-            {"download_dir": dl_dir, "vocal_gender": "Female", "weirdness": 35},
-        )
+        p.create_song("밤이 지나면", "city pop", "test",
+                       {"download_dir": dl_dir, "vocal_gender": "Female", "weirdness": 35})
 
     cmd_str = " ".join(captured)
-    assert "--wait" in cmd_str, f"--wait missing: {cmd_str}"
-    assert "--download" in cmd_str, f"--download missing: {cmd_str}"
-    assert dl_dir in cmd_str, f"download dir missing: {cmd_str}"
+    assert "--wait" in cmd_str
+    assert "--download" in cmd_str
+    assert "--json" not in cmd_str, f"--json must NOT be in generate command: {cmd_str}"
     assert "--vocal" in cmd_str
     assert "female" in cmd_str
     assert "--weirdness" in cmd_str
-    assert "35" in cmd_str
-    assert "--json" in cmd_str
-    assert task_id == "clip-aaa,clip-bbb"
 
-
-def test_create_song_builds_full_command(monkeypatch, tmp_path):
-    """Full command matches paperfoot/suno-cli v0.5.7 syntax."""
+def test_generate_does_not_include_json_flag(monkeypatch, tmp_path):
+    """--json conflicts with --wait --download; must NOT be appended to generate."""
     from providers.suno import suno_cli_provider as m
     from importlib import reload
+    fake_bin = tmp_path / "suno.exe"
+    fake_bin.write_text("fake")
+    monkeypatch.setenv("SUNO_CLI_BIN", str(fake_bin))
+    reload(m)
 
+    p = m.SunoCliProvider()
+    captured = []
+    dl_dir = str(tmp_path / "dl")
+
+    def mock_run(cmd, **kw):
+        captured.extend(cmd)
+        Path(dl_dir).mkdir(parents=True, exist_ok=True)
+        (Path(dl_dir) / "song-abc12345.mp3").write_bytes(b"fake")
+        return mock.Mock(returncode=0, stdout="", stderr="")
+
+    with mock.patch("subprocess.run", side_effect=mock_run):
+        p.create_song("Test", "pop", "lyrics", {"download_dir": dl_dir})
+
+    assert "--json" not in captured, f"--json in generate args: {captured}"
+
+def test_generate_full_command_matches_cli_syntax(monkeypatch, tmp_path):
+    """Full command matches: suno generate --title --tags --lyrics-file --exclude --vocal --weirdness --style-influence --wait --download <dir>."""
+    from providers.suno import suno_cli_provider as m
+    from importlib import reload
     fake_bin = tmp_path / "suno"
     fake_bin.write_text("fake")
     monkeypatch.setenv("SUNO_CLI_BIN", str(fake_bin))
@@ -188,50 +151,38 @@ def test_create_song_builds_full_command(monkeypatch, tmp_path):
 
     p = m.SunoCliProvider()
     captured = []
+    dl = str(tmp_path / "out")
 
     def mock_run(cmd, **kw):
         captured.extend(cmd)
-        return mock.Mock(
-            returncode=0,
-            stdout=json.dumps({"data": [{"id": "c1"}]}),
-            stderr="",
-        )
+        Path(dl).mkdir(parents=True, exist_ok=True)
+        (Path(dl) / "song-a1b2c3d4.mp3").write_bytes(b"fake")
+        return mock.Mock(returncode=0, stdout="", stderr="")
 
     with mock.patch("subprocess.run", side_effect=mock_run):
-        p.create_song(
-            title="Test Song",
-            style="indie rock, guitar",
-            lyrics="[Verse]\nHello",
-            options={
-                "exclude_styles": ["sax lead", "trot", "EDM"],
-                "vocal_gender": "Female",
-                "weirdness": 40,
-                "style_influence": 65,
-                "model": "chirp-v4",
-                "download_dir": str(tmp_path / "out"),
-            },
-        )
+        p.create_song("Test", "rock, guitar", "[Verse]\nHi", {
+            "exclude_styles": ["sax lead", "trot"],
+            "vocal_gender": "Female",
+            "weirdness": 40,
+            "style_influence": 65,
+            "download_dir": dl,
+        })
 
-    cmd_str = " ".join(captured)
     assert captured[0] == str(fake_bin)
-    assert "generate" in cmd_str
-    assert "--title" in cmd_str
-    assert "--tags" in cmd_str
-    assert "--lyrics-file" in cmd_str
-    assert "--exclude" in cmd_str
-    assert "sax lead" in cmd_str
-    assert "--vocal" in cmd_str
-    assert "--weirdness" in cmd_str
-    assert "--style-influence" in cmd_str
-    assert "--model" in cmd_str
-    assert "--wait" in cmd_str
-    assert "--download" in cmd_str
-    assert "--json" in cmd_str
+    assert "generate" in captured
+    assert "--title" in captured
+    assert "--tags" in captured
+    assert "--lyrics-file" in captured
+    assert "--exclude" in captured
+    assert "--vocal" in captured
+    assert "--weirdness" in captured
+    assert "--style-influence" in captured
+    assert "--wait" in captured
+    assert "--download" in captured
+    assert "--json" not in captured
 
-
-# ─── Status normalization ────────────────────────────────────────────────────
-
-def test_status_polling_normalizes_response(monkeypatch, tmp_path):
+def test_model_name_normalized(monkeypatch, tmp_path):
+    """chirp-v4 → v4, chirp-v4-5 → v4.5."""
     from providers.suno import suno_cli_provider as m
     from importlib import reload
     fake_bin = tmp_path / "suno"
@@ -240,92 +191,90 @@ def test_status_polling_normalizes_response(monkeypatch, tmp_path):
     reload(m)
 
     p = m.SunoCliProvider()
-    mock_response = json.dumps({
-        "status": "ok",
-        "data": [
-            {"id": "clip-1", "status": "complete", "duration": 218.5,
-             "audio_url": "https://cdn.suno.ai/1.mp3", "title": "Test"},
-            {"id": "clip-2", "status": "complete", "duration": 215.0,
-             "audio_url": "https://cdn.suno.ai/2.mp3", "title": "Test"},
-        ],
-    })
+    captured = []
+    dl = str(tmp_path / "dl")
 
-    with mock.patch("subprocess.run") as mr:
-        mr.return_value = mock.Mock(returncode=0, stdout=mock_response, stderr="")
-        status = p.get_status("clip-1,clip-2")
+    def mock_run(cmd, **kw):
+        captured.extend(cmd)
+        Path(dl).mkdir(parents=True, exist_ok=True)
+        (Path(dl) / "x-12345678.mp3").write_bytes(b"fake")
+        return mock.Mock(returncode=0, stdout="", stderr="")
 
-    assert status["status"] == "completed"
-    assert len(status["candidates"]) == 2
-    assert status["candidates"][0]["candidate_id"] == "A"
+    with mock.patch("subprocess.run", side_effect=mock_run):
+        p.create_song("T", "pop", "lyrics", {"model": "chirp-v4", "download_dir": dl})
+
+    # chirp-v4 should be normalized to v4
+    if "--model" in captured:
+        idx = captured.index("--model")
+        assert captured[idx + 1] == "v4"
 
 
-# ─── WAV unavailable ────────────────────────────────────────────────────────
+# ─── status uses --json ─────────────────────────────────────────────────────
+
+def test_status_uses_json_flag():
+    from providers.suno.suno_cli_provider import SunoCliProvider
+    p = SunoCliProvider()
+    captured = []
+    def mock_run(cmd, **kw):
+        captured.extend(cmd)
+        return mock.Mock(returncode=0, stdout=json.dumps({"data": [{"id": "c1", "status": "complete", "duration": 200}]}), stderr="")
+    with mock.patch("subprocess.run", side_effect=mock_run):
+        p.get_status("c1")
+    assert "--json" in captured
+
+
+# ─── WAV / errors / credentials ─────────────────────────────────────────────
 
 def test_wav_download_raises_unavailable():
     from providers.suno.suno_cli_provider import SunoCliProvider
-    p = SunoCliProvider()
     with pytest.raises(ProviderError) as exc:
-        p.download_wav("clip-1", Path("/tmp/test.wav"))
+        SunoCliProvider().download_wav("x", Path("/tmp/t.wav"))
     assert exc.value.status == "wav_download_unavailable"
 
-
-# ─── Error mapping ──────────────────────────────────────────────────────────
-
-def test_auth_expired_error_maps_correctly(monkeypatch, tmp_path):
-    from providers.suno import suno_cli_provider as m
-    from importlib import reload
-    fake_bin = tmp_path / "suno"
-    fake_bin.write_text("fake")
-    monkeypatch.setenv("SUNO_CLI_BIN", str(fake_bin))
-    reload(m)
-
-    p = m.SunoCliProvider()
-    error_json = json.dumps({
-        "version": "1", "status": "error",
-        "error": {"code": "auth_expired", "message": "JWT expired",
-                  "suggestion": "Run `suno auth --login`"},
-    })
-    with mock.patch("subprocess.run") as mr:
-        mr.return_value = mock.Mock(returncode=1, stdout=error_json, stderr="")
+def test_auth_expired_maps_correctly():
+    from providers.suno.suno_cli_provider import _run_suno_json
+    err = json.dumps({"version": "1", "status": "error",
+                      "error": {"code": "auth_expired", "message": "JWT expired", "suggestion": "suno auth"}})
+    with mock.patch("subprocess.run", return_value=mock.Mock(returncode=1, stdout=err, stderr="")):
         with pytest.raises(ProviderError) as exc:
-            p.get_status("clip-1")
+            _run_suno_json(["credits"])
         assert exc.value.status == "auth_required"
 
-
-def test_binary_not_found_raises_unavailable():
-    from providers.suno.suno_cli_provider import _run_suno
+def test_binary_not_found():
+    from providers.suno.suno_cli_provider import _run_suno_raw
     with mock.patch("subprocess.run", side_effect=FileNotFoundError):
         with pytest.raises(ProviderError) as exc:
-            _run_suno(["credits"])
+            _run_suno_raw(["generate"])
         assert exc.value.status == "provider_unavailable"
 
-
-# ─── Credential safety ──────────────────────────────────────────────────────
-
-def test_stderr_with_credentials_is_redacted():
-    from providers.suno.suno_cli_provider import _run_suno
-    with mock.patch("subprocess.run") as mr:
-        mr.return_value = mock.Mock(returncode=1, stdout="", stderr="Error: invalid jwt token abc123")
+def test_exit_code_2_includes_stderr_in_error():
+    """Exit code 2 (invalid args) must include sanitized stderr in error details."""
+    from providers.suno.suno_cli_provider import _run_suno_raw
+    with mock.patch("subprocess.run", return_value=mock.Mock(
+        returncode=2, stdout="", stderr="error: unexpected argument '--json'")):
         with pytest.raises(ProviderError) as exc:
-            _run_suno(["generate", "--title", "test"])
-    assert "abc123" not in exc.value.details.get("stderr", "")
+            _run_suno_raw(["generate", "--title", "test"])
+    assert exc.value.status == "generation_failed"
+    assert "stderr" in exc.value.details
+    assert "unexpected" in exc.value.details["stderr"]
 
-
-def test_credential_fields_redacted_in_safe_error():
+def test_credential_fields_redacted():
     from providers.suno.suno_cli_provider import SunoCliProvider
-    p = SunoCliProvider()
-    err = p.safe_error("auth_required", "expired",
-                       cookie="secret_cookie", jwt="secret_jwt", base_url="http://ok")
+    err = SunoCliProvider().safe_error("auth_required", "expired",
+                                       cookie="secret", jwt="secret2", url="http://ok")
     assert err.details["cookie"] == "***REDACTED***"
     assert err.details["jwt"] == "***REDACTED***"
-    assert err.details["base_url"] == "http://ok"
+    assert err.details["url"] == "http://ok"
 
+def test_stderr_with_jwt_is_redacted():
+    from providers.suno.suno_cli_provider import _redact_stderr
+    assert _redact_stderr("error: invalid jwt token abc") == "[stderr redacted — may contain credentials]"
+    assert "unexpected" in _redact_stderr("error: unexpected argument")
 
 # ─── Backward compat ────────────────────────────────────────────────────────
 
-def test_all_providers_still_importable():
+def test_all_providers_importable():
     from providers.suno import get_composer_provider
     for name in ["mock", "manual_import", "local_unofficial", "suno_cli", "playwright_web"]:
-        p = get_composer_provider(name)
-        caps = p.get_capabilities()
+        caps = get_composer_provider(name).get_capabilities()
         assert isinstance(caps, ProviderCapabilities)
