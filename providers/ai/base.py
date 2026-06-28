@@ -479,8 +479,9 @@ class GeminiProvider:
         available = self.list_models(api_key)
         if not available:
             raise RuntimeError(
-                "Gemini 모델 목록을 가져올 수 없습니다 — API 키를 확인하세요"
+                "[v2] Gemini 모델 목록 조회 실패 — API 키 또는 네트워크 확인"
             )
+        logger.info("Gemini available models: %s", available)
 
         # Order preference: flash (fast) → pro → others. Skip lite for quality.
         def _rank(m):
@@ -577,7 +578,7 @@ class GeminiProvider:
                 logger.warning("Gemini JSON error: %s", last_error)
                 continue
 
-        raise RuntimeError(f"Gemini 생성 실패 — {last_error}")
+        raise RuntimeError(f"[v2] Gemini 실패 ({len(models_to_try)}개 모델 시도) — {last_error}")
 
     def generate_song_package(self, concept: str, locked: dict | None = None) -> SongPromptPackage:
         data = self._call(concept, "all")

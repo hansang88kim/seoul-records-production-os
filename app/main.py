@@ -363,19 +363,20 @@ def _verify_gemini(key):
         if models:
             flash = [m for m in models if "flash" in m and "lite" not in m]
             preferred = flash[0] if flash else models[0]
-            return True, f"Gemini 연결됨 ({preferred})"
-        # No models but maybe key works — do a basic check
+            # Store full list for debug display
+            st.session_state["_gemini_models"] = models
+            return True, f"[v2] 연결됨 → 사용 모델: {preferred} (총 {len(models)}개 가능)"
         import requests
         r = requests.get(f"https://generativelanguage.googleapis.com/v1beta/models?key={key}", timeout=12)
         if r.status_code == 200:
-            return True, "Gemini 인증 성공 (모델 목록 비어있음)"
+            return True, "[v2] 인증됐으나 generateContent 지원 모델 없음"
         if r.status_code == 400:
             return False, "키 형식 오류"
         if r.status_code == 403:
-            return False, "키 비활성화/권한 없음"
+            return False, "키 비활성화/권한 없음 — Google AI Studio 확인"
         return False, f"HTTP {r.status_code}"
     except Exception as e:
-        return False, f"{type(e).__name__}"
+        return False, f"{type(e).__name__}: {e}"
 
 
 # ─── Sidebar ─────────────────────────────────────────────────────────────────
