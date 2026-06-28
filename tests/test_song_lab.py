@@ -227,3 +227,51 @@ def test_composer_returns_clean_style_and_exclude_list():
     ]
     assert "sax lead" in exclude_list
     assert all(not item.startswith("-") for item in exclude_list)
+
+
+# ─── Auto Batch 2-step plan flow ─────────────────────────────────────────────
+
+def test_plan_only_helpers_exist():
+    """Plan-based generation helpers exist."""
+    from app.tabs.song_lab import _generate_plan_only, _generate_one_from_draft, _render_auto_batch
+
+
+def test_generate_plan_only_returns_draft():
+    """_generate_plan_only with mock returns title/style/lyrics draft (no Suno)."""
+    from app.tabs.song_lab import _generate_plan_only
+    draft = _generate_plan_only("서울 밤", "mock")
+    assert draft["status"] == "drafted"
+    assert draft["title"]
+    assert draft["style"]
+    assert draft["lyrics"]
+    assert "lyric_chars" in draft
+
+
+def test_generate_one_from_draft_uses_exclude_flag(monkeypatch, tmp_path):
+    """_generate_one_from_draft sends exclude via flag, clean style."""
+    from app.tabs import song_lab
+    from unittest import mock
+    from pathlib import Path as P
+
+    monkeypatch.setenv("SUNO_COOKIE", "cookie")
+    captured = []
+
+    def fake_create(self, title, style, lyrics, options):
+        captured.append(("style", style))
+        captured.append(("exclude", options.get("exclude_styles")))
+        dl = options.get("download_dir", str(tmp_path))
+        P(dl).mkdir(parents=True, exist_ok=True)
+        (P(dl) / "x-12345678.mp3").write_bytes(b"fake")
+        return "x12345678"
+
+    draft = {"title": "테스트", "style": "Japanese city pop, warm piano", "lyrics": "[Verse]\n가사"}
+    with mock.patch("providers.suno.suno_cli_provider.SunoCliProvider.create_song", fake_create):
+        result = song_lab._generate_one_from_draft(draft, {"model": "v5.5"})
+
+    assert result["status"] == "generated"
+    # Style passed clean (no -sax), exclude as list
+    style_val = [v for k, v in captured if k == "style"][0]
+    exclude_val = [v for k, v in captured if k == "exclude"][0]
+    assert "sax" not in style_val
+    assert isinstance(exclude_val, list)
+    assert "sax lead" in exclude_val

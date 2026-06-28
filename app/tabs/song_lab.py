@@ -220,6 +220,91 @@ def render_song_lab():
         _render_quick_single()
 
 
+def _generate_plan_only(concept: str, ai_provider_name: str) -> dict:
+    """
+    AI writes ONE song's title/style/lyrics (no Suno generation yet).
+    Returns a draft dict for the plan preview.
+    """
+    from providers.ai.base import get_ai_provider, _lyrics_char_count
+
+    draft = {"status": "drafted", "title": "", "style": "", "lyrics": "", "error": ""}
+    try:
+        ai = get_ai_provider(ai_provider_name)
+        pkg = ai.generate_song_package(concept)
+        draft["title"] = pkg.title
+        draft["style"] = pkg.style
+        draft["lyrics"] = pkg.lyrics
+        draft["lyric_chars"] = _lyrics_char_count(pkg.lyrics)
+    except Exception as e:
+        draft["status"] = "draft_failed"
+        draft["error"] = f"AI 생성 실패: {e}"
+    return draft
+
+
+def _generate_one_from_draft(draft: dict, base_params: dict) -> dict:
+    """
+    Generate ONE song in Suno from an already-prepared draft (title/style/lyrics).
+    Re-authenticates internally. Returns result dict with status.
+    """
+    from providers.suno.suno_cli_provider import SunoCliProvider
+    from app.ui.composer_panel import DEFAULT_EXCLUDE
+
+    result = dict(draft)
+    title = draft.get("title", "제목 없음")
+    style = draft.get("style", "")
+    lyrics = draft.get("lyrics", "")
+
+    exclude_list = [s.strip() for s in DEFAULT_EXCLUDE.split(",") if s.strip()]
+
+    try:
+        provider = SunoCliProvider()
+        ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+        safe_title = title.replace("/", "_").replace("\\", "_").replace(":", "_").replace(" ", "-")
+        dl_dir = _get_outputs_dir() / "suno_downloads" / f"{ts}_{safe_title}"
+        dl_dir.mkdir(parents=True, exist_ok=True)
+
+        options = {
+            "exclude_styles": exclude_list,
+            "model": base_params.get("model", "v5.5"),
+            "vocal_gender": base_params.get("vocal_gender", "Female"),
+            "instrumental": base_params.get("instrumental", False),
+            "weirdness": base_params.get("weirdness", 35),
+            "style_influence": base_params.get("style_influence", 70),
+            "download_dir": str(dl_dir),
+        }
+
+        task_id = provider.create_song(title, style, lyrics, options)
+
+        mp3s = sorted(dl_dir.glob("*.mp3"))
+        if not mp3s and getattr(provider, "_last_download_dir", None):
+            mp3s = sorted(Path(provider._last_download_dir).glob("*.mp3"))
+            if mp3s:
+                dl_dir = Path(provider._last_download_dir)
+
+        if mp3s:
+            result["status"] = "generated"
+            result["file_count"] = len(mp3s)
+            for i, mp3 in enumerate(mp3s):
+                cid = ["A", "B", "C", "D"][i] if i < 4 else str(i)
+                _save_generated_song({
+                    "title": title, "candidate_id": cid, "status": "completed",
+                    "provider": "suno_cli", "model": options["model"],
+                    "duration": None, "file_type": "mp3", "file_path": str(mp3),
+                    "distribution_eligible": False,
+                    "created_at": datetime.now(timezone.utc).isoformat(),
+                    "style": style,
+                })
+        else:
+            result["status"] = "no_files"
+            result["error"] = f"생성됐지만 파일 못 찾음 (task: {task_id})"
+    except Exception as e:
+        err_status = getattr(e, "status", "failed")
+        result["status"] = "failed"
+        result["error"] = f"[{err_status}] {e}"
+
+    return result
+
+
 def _generate_one_auto(concept: str, ai_provider_name: str, base_params: dict) -> dict:
     """
     Generate ONE complete song automatically: AI writes title/style/lyrics,
@@ -310,13 +395,12 @@ def _generate_one_auto(concept: str, ai_provider_name: str, base_params: dict) -
 
 
 def _render_auto_batch():
-    """Auto Batch mode — generate N songs automatically."""
+    """Auto Batch — 2-step: generate plan (preview title/style/lyrics) → generate songs."""
     from providers.ai.base import get_available_ai_providers
 
     st.markdown("<h2 style='margin-bottom:0.5rem'>🤖 Auto Batch 생성</h2>", unsafe_allow_html=True)
-    st.caption("컨셉과 곡 수를 입력하면 AI가 매번 새 제목/스타일/가사를 만들고, Suno가 자동 생성합니다.")
+    st.caption("① AI가 N곡의 제목/스타일/가사를 먼저 만듭니다 → ② 확인/편집 후 Suno로 순차 생성")
 
-    # Provider
     providers = get_available_ai_providers()
     available = [p for p in providers if p["available"]]
 
@@ -336,7 +420,6 @@ def _render_auto_batch():
     with col_count:
         count = st.number_input("곡 수", min_value=1, max_value=20, value=5, step=1, key="auto_count")
 
-    # Base settings
     with st.expander("⚙️ 공통 설정 (모델 / 보컬)", expanded=False):
         col_m, col_v = st.columns(2)
         with col_m:
@@ -345,44 +428,89 @@ def _render_auto_batch():
             vocal = st.selectbox("보컬", ["Female", "Male", "Instrumental"], index=0, key="auto_vocal")
 
     if count >= 10:
-        st.warning(f"⚠️ {count}곡 생성은 시간이 오래 걸립니다 (곡당 1~3분, CAPTCHA 대기 포함). 크레딧도 충분한지 확인하세요.")
+        st.warning(f"⚠️ {count}곡은 시간이 오래 걸립니다 (곡당 1~3분, CAPTCHA 대기 포함).")
 
-    # Cookie check
     cookie = os.getenv("SUNO_COOKIE", "").strip()
-    if not cookie:
-        st.error("❌ SUNO_COOKIE 미설정 — 사이드바에서 쿠키를 연결하세요.")
-        return
-
     ai_ok = bool(available) and bool(concept.strip())
 
-    # Start button
-    if st.button(f"🚀 {count}곡 자동 생성 시작", type="primary", disabled=not ai_ok,
-                 use_container_width=True, key="auto_start"):
-        base_params = {"model": model, "vocal_gender": vocal,
-                       "instrumental": vocal == "Instrumental"}
-        ai_provider_name = available[prov_idx]["name"]
+    base_params = {"model": model, "vocal_gender": vocal, "instrumental": vocal == "Instrumental"}
 
-        progress = st.progress(0.0)
-        status = st.empty()
-        results_box = st.container()
+    # ── Step 1: Generate Plan ────────────────────────────────────────────
+    col_plan, col_clear = st.columns([3, 1])
+    with col_plan:
+        if st.button(f"📝 {count}곡 계획 생성 (제목/스타일/가사)", disabled=not ai_ok,
+                     use_container_width=True, key="auto_plan_btn"):
+            ai_provider_name = available[prov_idx]["name"]
+            plan = []
+            prog = st.progress(0.0)
+            stat = st.empty()
+            for n in range(int(count)):
+                stat.info(f"📝 {n+1}/{count}곡 작곡 중... (AI가 제목/스타일/가사 생성)")
+                draft = _generate_plan_only(concept.strip(), ai_provider_name)
+                plan.append(draft)
+                prog.progress((n + 1) / count)
+            st.session_state["auto_plan_data"] = plan
+            stat.success(f"✅ {count}곡 계획 완료 — 아래에서 확인/편집하세요")
+            st.rerun()
+    with col_clear:
+        if st.session_state.get("auto_plan_data") and st.button("🗑️ 계획 삭제", use_container_width=True, key="auto_plan_clear"):
+            st.session_state.pop("auto_plan_data", None)
+            st.rerun()
 
-        results = []
-        for n in range(int(count)):
-            status.info(f"🎵 {n+1}/{count}곡 생성 중... (인증 → AI 작곡 → Suno 생성)")
-            res = _generate_one_auto(concept.strip(), ai_provider_name, base_params)
-            results.append(res)
-            progress.progress((n + 1) / count)
+    # ── Step 2: Show Plan (editable) + Generate ──────────────────────────
+    plan = st.session_state.get("auto_plan_data", [])
+    if plan:
+        st.divider()
+        st.markdown(f"<h3>📋 생성 계획 ({len(plan)}곡)</h3>", unsafe_allow_html=True)
+        st.caption("각 곡을 펼쳐서 제목/스타일/가사를 확인하고 직접 수정할 수 있습니다.")
 
-            with results_box:
-                icon = {"generated": "✅", "failed": "❌", "no_files": "⚠️"}.get(res["status"], "•")
-                st.write(f"{icon} **{n+1}. {res.get('title', '?')}** — {res['status']}"
-                         + (f" · {res['error']}" if res.get("error") else ""))
+        for i, draft in enumerate(plan):
+            title = draft.get("title", "제목 없음")
+            chars = draft.get("lyric_chars", 0)
+            status_icon = {"drafted": "📝", "generated": "✅", "failed": "❌",
+                            "no_files": "⚠️", "draft_failed": "❌"}.get(draft.get("status"), "•")
+            with st.expander(f"{status_icon} {i+1}. {title}  ·  가사 {chars}자", expanded=False):
+                if draft.get("error"):
+                    st.error(draft["error"])
+                # Editable fields
+                draft["title"] = st.text_input("제목", value=draft.get("title", ""), key=f"plan_title_{i}")
+                draft["style"] = st.text_area("스타일", value=draft.get("style", ""), height=80, key=f"plan_style_{i}")
+                draft["lyrics"] = st.text_area("가사", value=draft.get("lyrics", ""), height=200, key=f"plan_lyrics_{i}")
+                # Recompute char count
+                from providers.ai.base import _lyrics_char_count
+                lc = _lyrics_char_count(draft["lyrics"])
+                est = int(lc / 118 * 60) + 15
+                st.caption(f"가사 {lc}자 · 예상 ~{est//60}:{est%60:02d}")
 
-        ok = sum(1 for r in results if r["status"] == "generated")
-        status.success(f"✅ 완료: {ok}/{count}곡 생성 성공")
+        st.session_state["auto_plan_data"] = plan  # save edits
+
+        st.divider()
+        if not cookie:
+            st.error("❌ SUNO_COOKIE 미설정 — 사이드바에서 쿠키를 연결하세요.")
+        else:
+            if st.button(f"🚀 {len(plan)}곡 Suno 생성 시작", type="primary",
+                         use_container_width=True, key="auto_generate"):
+                prog = st.progress(0.0)
+                stat = st.empty()
+                results_box = st.container()
+                ok = 0
+                for n, draft in enumerate(plan):
+                    stat.info(f"🎵 {n+1}/{len(plan)}곡 생성 중: {draft.get('title','?')} "
+                              f"(인증 → Suno 생성, CAPTCHA 자동 재시도)")
+                    res = _generate_one_from_draft(draft, base_params)
+                    plan[n] = res
+                    if res["status"] == "generated":
+                        ok += 1
+                    prog.progress((n + 1) / len(plan))
+                    with results_box:
+                        icon = {"generated": "✅", "failed": "❌", "no_files": "⚠️"}.get(res["status"], "•")
+                        st.write(f"{icon} **{n+1}. {res.get('title','?')}** — {res['status']}"
+                                 + (f" · {res['error']}" if res.get("error") else ""))
+                st.session_state["auto_plan_data"] = plan
+                stat.success(f"✅ 완료: {ok}/{len(plan)}곡 생성 성공")
 
     st.divider()
-    st.markdown("<h3>📋 생성된 곡</h3>", unsafe_allow_html=True)
+    st.markdown("<h3>🎵 생성된 곡</h3>", unsafe_allow_html=True)
     render_song_list(_load_generated_songs())
 
 
