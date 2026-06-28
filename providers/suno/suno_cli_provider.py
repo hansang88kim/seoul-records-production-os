@@ -30,10 +30,18 @@ logger = logging.getLogger(__name__)
 import sys as _sys
 
 def _win_creation_flags() -> dict:
-    """On Windows, isolate child process from parent's console signals."""
+    """
+    On Windows, fully detach child process so it cannot receive or send
+    console signals (Ctrl+C / STATUS_CONTROL_C_EXIT) to the parent.
+    - DETACHED_PROCESS:       no shared console
+    - CREATE_NEW_PROCESS_GROUP: own signal group
+    - CREATE_NO_WINDOW:       no console window pop-up
+    """
     if _sys.platform == "win32":
+        DETACHED_PROCESS      = 0x00000008
         CREATE_NEW_PROCESS_GROUP = 0x00000200
-        return {"creationflags": CREATE_NEW_PROCESS_GROUP}
+        CREATE_NO_WINDOW      = 0x08000000
+        return {"creationflags": DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP | CREATE_NO_WINDOW}
     return {}
 
 
