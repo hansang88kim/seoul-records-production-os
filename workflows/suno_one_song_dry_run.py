@@ -204,9 +204,20 @@ def run_dry_run(mock: bool = False) -> dict:
         sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
         from dotenv import load_dotenv
         load_dotenv()
-        from providers.suno.local_unofficial_suno import LocalUnofficialSunoProvider
-        provider = LocalUnofficialSunoProvider()
-        log("Mode: REAL (LocalUnofficialSunoProvider)")
+        import os
+        composer = os.getenv("COMPOSER_PROVIDER", "suno_cli").strip().lower()
+        if composer in ("suno_cli", "cli"):
+            from providers.suno.suno_cli_provider import SunoCliProvider
+            provider = SunoCliProvider()
+            log("Mode: REAL (SunoCliProvider — paperfoot/suno-cli)")
+        elif composer in ("local", "local_unofficial"):
+            from providers.suno.local_unofficial_suno import LocalUnofficialSunoProvider
+            provider = LocalUnofficialSunoProvider()
+            log("Mode: REAL (LocalUnofficialSunoProvider — gcui-art/suno-api)")
+        else:
+            from providers.suno.local_unofficial_suno import LocalUnofficialSunoProvider
+            provider = LocalUnofficialSunoProvider()
+            log(f"Mode: REAL (fallback to LocalUnofficialSunoProvider, COMPOSER_PROVIDER={composer})")
 
     report["provider"] = provider.PROVIDER_NAME
 
