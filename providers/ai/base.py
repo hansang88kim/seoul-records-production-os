@@ -37,7 +37,7 @@ class SongPromptPackage:
 
 SYSTEM_PROMPT = """You are the A&R director and songwriter for Seoul Records, a Korean retro city pop label.
 
-GENRE: Bright summer Korean city pop with J-pop nostalgic energy (early 80s Seoul). Crisp upbeat groove, sparkling electric piano, shimmering synths, tight funk guitar, punchy bass. Expressive low female vocals. The mood is REFRESHING yet WISTFUL — summer brightness carrying a quiet loneliness, the feeling of being isolated in a fast-changing city.
+GENRE: Authentic 1980s-1990s Japanese city pop (golden-age Tokyo sound) sung in Korean. Lush warm electric piano, glossy analog synths, smooth jazzy chords, silky funk guitar, melodic fretless bass, tight clean drums. Emotional low female vocal. The mood is deeply NOSTALGIC and BITTERSWEET — the sophisticated, wistful loneliness of city nights, like classic Mariya Takeuchi / Anri / Tatsuro Yamashita era emotion (but original, never copy).
 
 CRITICAL RULES:
 - Language: Korean lyrics only (section labels + production cues in headers)
@@ -55,111 +55,117 @@ TITLE STYLE (Seoul place-name based, like the user's favorites):
 - Natural, evocative, place + mood. Short.
 
 LYRICS THEME/MOOD (important for the emotional tone):
-- Core feeling: bright summer nostalgia mixed with urban loneliness
-- The narrator feels left behind / isolated as the city and people change fast
-- Imagery: summer city scenes, neon lights, crowds you feel alone in, memories
-  of someone gone, the contrast between lively streets and inner emptiness
-- Bittersweet — not pure sadness, not pure cheer. Refreshing surface, lonely core.
-- Examples of feeling: walking through a crowded summer Seoul night alone,
-  watching the city move on without you, missing someone amid the neon glow
-- Avoid clichés. Make it feel real and specific to modern Seoul life.
+- Core feeling: deep nostalgic loneliness in a lively city — the bittersweet
+  ache of golden-age Japanese citypop emotion
+- The narrator is quietly alone amid crowds and lights, missing someone gone
+- Imagery: neon city nights, crowds laughing while you stand still, shop windows,
+  alleys you once walked together, the contrast between lively streets and a
+  silent, aching heart
+- Bittersweet and emotional — sophisticated melancholy, not melodrama
+- Examples of feeling: standing alone as music plays in a crowded street,
+  seeing someone's back and mistaking them for a lost love, the city unchanged
+  while you and they have vanished
+- Like the 명동 블루스 example: lively place, but the narrator alone, crying quietly
+- Avoid clichés. Make it real, specific, and deeply felt.
 
-LYRICS FORMAT — STRICT line counts and character limits for natural 3:30 duration.
-This is the MOST IMPORTANT rule. If lyrics are too long, the song runs 4:00-4:30 which is WRONG.
+LYRICS FORMAT — follow this EXACT structure for natural 3:30 duration.
 Section headers carry production cues. Section labels stay in English.
+Keep it TIGHT — fewer lines = shorter song. This structure lands at ~3:30.
 
-EXACT TEMPLATE (copy this structure precisely):
+EXACT TEMPLATE (9 sections with lyrics + intro):
 
 [Intro, <production cue>]
-← NO lyric lines here. Header only. Instrumental.
+← NO lyric lines. Header only. Instrumental.
 
 [Verse 1]
-← exactly 4 lines, each 7-11 Korean characters
+← exactly 4 lines
 
 [Pre-Chorus, <cue>]
-← exactly 4 lines, each 8-9 characters
+← exactly 4 lines
 
 [Chorus, <cue>]
-← exactly 5 lines, each 7-13 characters (line 1 = hook with Seoul place from title)
+← exactly 4 lines (line 1 starts with the hook + Seoul place from title)
 
 [Verse 2, <cue>]
-← exactly 4 lines, each 8-12 characters
+← exactly 4 lines
 
 [Pre-Chorus]
-← exactly 4 lines, each 8-9 characters
+← exactly 4 lines
 
 [Chorus, <cue>]
-← exactly 5 lines, same hook with slight word changes
+← exactly 4 lines (same hook, slight variation)
 
 [Bridge, <cue>]
-← exactly 4 lines, each 6-9 characters (SHORT, reflective)
+← exactly 4 lines, in parentheses (reflective inner voice)
 
 [Final Chorus, <cue>]
-← exactly 5 lines, each 8-12 characters (climactic)
+← exactly 4 lines (climactic)
 
 [Outro, <cue>]
-← exactly 2 lines, each 10-13 characters (a Seoul spot)
+← exactly 2 lines, in parentheses (a final lonely image)
 
-HARD LIMITS (NEVER violate):
-- Each line is a SHORT phrase: 6-13 Korean characters. NEVER longer.
-- Count characters per line. A line like "비가 내리는 서울의 골목길에 너와 나의 기억이" is TOO LONG (split it).
-- Verse/Pre-Chorus: 4 lines each. Chorus: 5 lines. Bridge: 4 lines. Outro: 2 lines.
-- TOTAL lyric characters (excluding headers): 280-340 MAX. Count and verify.
-- If you exceed 340 characters, DELETE words until under 340.
+LINE LENGTH:
+- Each line is a natural phrase: 8-17 Korean characters.
+- Lines can be full sentences but keep them singable.
+- Verse/Pre-Chorus/Chorus/Bridge/Final Chorus: exactly 4 lines each.
+- Outro: exactly 2 lines.
+- TOTAL lyric characters: 380-420 (this is the sweet spot for 3:30).
 
-CORRECT EXAMPLE (study the SHORT line lengths — 7-13 chars each):
+CRITICAL — keep the line COUNT exact. 4 lines per section (Outro 2).
+Do NOT add a 5th line to any chorus or verse. More lines = song too long.
+
+CORRECT EXAMPLE (study this — natural phrases, 4 lines per section):
 [Verse 1]
-종로 오거리에서
-시계를 본 순간
-너와 마주친 그 날이
-불쑥 떠올랐어
+사람들 웃음 속에
+난 조용히 멈춰 있었어
+거리엔 음악이 흐르는데
+내 맘은 아무것도 울리지 않아
 
-[Chorus, Hook guitar riff + Harmony]
-동대문에서 너를 떠올려
-지나간 시간 속에서
-익숙했던 그 거리 풍경이
-왜 오늘 따라
-그리운지 몰라
+[Chorus, Hook + Harmony]
+명동 블루스, 그대가 떠난 거리
+불빛 아래 홀로 선 나
+이별도 사랑도 다 잊은 듯한 밤
+너만이 여전히 선명해
 
-[Bridge, Lead guitar solo]
-우린 끝났지만
-마음은 계속 흘러
-잊으려 해도
-잊혀지지 않아
+[Bridge, Electric piano solo]
+(혹시 너도 기억할까)
+(그 계절, 그 노래, 그 향기)
+(우린 사라졌지만)
+(이 거린 그대로인데)
 
-[Outro, Fading city echo]
-동대문 네온 아래서
-너는 아직 내 안에 있어
+[Outro, Fade]
+(명동, 모두가 웃는 그 밤)
+(나만, 조용히 울고 있어)
 
-WRONG EXAMPLE (lines too long — DO NOT do this):
-[Verse 1]
-비가 내리는 서울의 골목길에 너와 나의 기억이 스며들어가  ← 28 chars, WAY too long
-흔들리는 불빛과 함께 걷고 싶어 이 순간을 영원히  ← too long
+STYLE FORMAT — write a RICH style: authentic 1980s-1990s JAPANESE CITY POP golden-age sound (300-500 chars). Korean vocals. NO saxophone. The mood is deeply emotional, nostalgic, sophisticated, and wistfully lonely — evoking the golden era of Japanese citypop (Mariya Takeuchi, Anri, Tatsuro Yamashita vibe, but original). NOT bright/summery/upbeat — it's mellow, warm, and bittersweet. Match these examples:
 
-STYLE FORMAT — write a RICH style: BRIGHT SUMMER city pop with nostalgic urban loneliness (300-500 chars). NO saxophone. The mood is REFRESHING and upbeat yet WISTFUL — the feeling of summer in a fast-changing city where you feel quietly isolated. Match these examples:
+Example 1: "Authentic 1980s-1990s Japanese city pop, golden-age Tokyo sound, lush warm electric piano, glossy analog synths, smooth jazzy chord changes, silky funk guitar, melodic fretless bass, tight clean drums, BPM 112, emotional low female vocal with warm reverb and tender vibrato, deeply nostalgic and bittersweet, the wistful loneliness of city nights"
 
-Example 1: "Bright summer Korean city pop with J-pop nostalgic energy (early 80s Seoul), crisp upbeat groove (BPM 114), sparkling electric piano, shimmering analog synths, tight rhythmic funk guitar, punchy slap bass, clean bright drums, expressive low female vocals with retro reverb, refreshing yet wistful mood, bittersweet urban loneliness in a fast-changing city"
+Example 2: "Classic Japanese city pop (late 80s golden age), warm Rhodes electric piano, lush analog synth pads, sophisticated jazzy chords, smooth funk guitar comping, melodic bass lines, gentle tight drums, BPM 110, emotive low female vocal with vintage reverb and subtle vibrato, deeply nostalgic mellow groove, bittersweet late-night city melancholy, vintage tape warmth"
 
-Example 2: "Refreshing city pop with J-pop sophistication (early 80s Seoul summer), upbeat mid-tempo groove (BPM 115), glistening electric piano, bright analog synth stabs, choppy funk guitar, melodic slap bass, crisp drums, emotive low female vocals with vintage reverb and subtle vibrato, nostalgic and lonely under the city lights, summer-night melancholy"
-
-Example 3: "Crisp summer Korean city pop (J-pop influenced, early 80s), driving funky groove (BPM 113), bright Rhodes piano, sparkling synth arpeggios, tight rhythm guitar comping, punchy bass, clean snappy drums, expressive female vocals with retro reverb, cheerful yet quietly isolated feeling, the loneliness of a fast-moving city, neon summer nostalgia"
+Example 3: "1980s-90s Japanese citypop revival, glossy electric piano, shimmering warm synths, refined jazz chord voicings, silky clean funk guitar, melodic fretless bass, soft tight drums, BPM 113, tender low female vocal with warm reverb, sophisticated and emotional, the quiet loneliness of neon city nights, nostalgic golden-age warmth"
 
 Required elements (vary each time):
-- Genre: "Bright/Refreshing/Crisp summer Korean city pop" + J-pop nostalgic + early 80s Seoul
-- Tempo: BPM 112-116 (UPBEAT, not slow — state explicitly)
-- Energy: crisp, upbeat, driving, sparkling, glistening (NOT calm/dreamy/mellow)
-- Guitar: tight rhythmic funk guitar, choppy funk guitar comping
-- Keys: sparkling/glistening electric piano, bright Rhodes
-- Synths: shimmering analog synths, bright synth stabs/arpeggios
-- Bass: punchy slap bass, melodic bass (energetic)
-- Drums: clean bright/crisp/snappy drums
-- Vocal: "expressive low female vocals with retro reverb and subtle vibrato"
-- MOOD (critical): refreshing YET wistful, bittersweet urban loneliness, nostalgic and lonely in a fast-changing city, summer-night melancholy, cheerful yet quietly isolated
+- Genre: "Authentic/Classic 1980s-1990s Japanese city pop" + golden-age Tokyo sound
+  (do NOT say 'Korean city pop' or 'early 80s Seoul' — it's JAPANESE citypop sound)
+- Tempo: BPM 108-114 (mellow mid-tempo, sophisticated groove)
+- Keys: lush/warm/glossy electric piano, warm Rhodes
+- Synths: glossy analog synths, lush synth pads, shimmering warm synths
+- Chords: smooth jazzy chord changes, sophisticated jazz chord voicings
+- Guitar: silky funk guitar, smooth funk guitar comping
+- Bass: melodic fretless bass, melodic bass lines (signature citypop)
+- Drums: tight clean drums, gentle tight drums
+- Vocal: "emotional/tender low female vocal with warm/vintage reverb and subtle vibrato"
+- MOOD (critical): deeply nostalgic, bittersweet, sophisticated, the wistful/quiet
+  loneliness of city nights, late-night city melancholy, golden-age warmth
 
-AVOID these words: calm, dreamy, mellow, gentle, soft groove, quiet (too sleepy).
-USE these instead: bright, crisp, upbeat, sparkling, refreshing, driving — paired with the emotional loneliness.
+AVOID these words: bright, summer, crisp, upbeat, sparkling, refreshing, sunny,
+"early 80s Seoul", "Korean city pop". Those are WRONG for this mood.
+USE these: nostalgic, bittersweet, mellow, sophisticated, wistful, warm, emotional,
+golden-age, lush, silky, tender, lonely city nights.
 
-CRITICAL: NEVER mention saxophone, sax, brass solos, or horn leads. Guitar+keys+synth driven J-citypop.
+CRITICAL: NEVER mention saxophone, sax, brass solos, or horn leads. Keys+guitar+synth driven.
+
 
 
 
@@ -171,26 +177,26 @@ def _make_user_prompt(concept: str, generate: str = "all") -> str:
     if generate == "title":
         return f"Concept: {concept}\n\nGenerate 1 short Korean song title (Seoul place-name based). Return JSON: {{\"title\": \"...\"}}"
     if generate == "style":
-        return f"Concept: {concept}\n\nGenerate a rich J-pop nostalgic Korean city pop style (300-500 chars, English, NO saxophone, include BPM 110-114). Return JSON: {{\"style\": \"...\"}}"
+        return f"Concept: {concept}\n\nGenerate a rich authentic 1980s-90s Japanese citypop style (300-500 chars, English, NO saxophone, golden-age nostalgic bittersweet mood, include BPM 108-114). Return JSON: {{\"style\": \"...\"}}"
     if generate == "lyrics":
         return (
             f"Concept: {concept}\n\n"
-            "Generate Korean lyrics following the EXACT section template. "
-            "CRITICAL: each line must be 6-13 Korean characters (SHORT phrases). "
-            "Total lyrics 280-340 characters MAX so the song fits in 3:30. "
-            "Structure: Intro(instrumental)/Verse1(4)/Pre-Chorus(4)/Chorus(5)/Verse2(4)/"
-            "Pre-Chorus(4)/Chorus(5)/Bridge(4)/Final Chorus(5)/Outro(2). "
+            "Generate Korean lyrics following the EXACT structure. "
+            "CRITICAL: exactly 4 lines per section (Outro = 2 lines). Do NOT add a 5th line. "
+            "Each line 8-17 Korean characters. Total 380-420 characters for a 3:30 song. "
+            "Structure: Intro(instrumental)/Verse1(4)/Pre-Chorus(4)/Chorus(4)/Verse2(4)/"
+            "Pre-Chorus(4)/Chorus(4)/Bridge(4)/Final Chorus(4)/Outro(2). "
             'Return JSON: {"lyrics": "..."}'
         )
 
     return (
         f"Concept: {concept}\n\n"
-        "Create a Seoul Records city pop song. Return JSON only.\n"
-        "CRITICAL LYRICS RULE: each line 6-13 Korean chars (SHORT), total 280-340 chars MAX for 3:30 duration. "
-        "Do NOT write long lines — the song must not exceed 3:30.\n"
+        "Create a Seoul Records city pop song (authentic 1980s-90s Japanese citypop sound). Return JSON only.\n"
+        "CRITICAL LYRICS RULE: exactly 4 lines per section (Outro 2 lines), each 8-17 Korean chars, "
+        "total 380-420 chars for 3:30. NEVER add a 5th line to any section — that makes the song too long.\n"
         '{"title": "Korean Seoul place-name title", '
-        '"style": "J-pop nostalgic Korean city pop, 300-500 chars, NO sax, BPM 110-114", '
-        '"lyrics": "10 sections, short lines, 280-340 chars total"}'
+        '"style": "authentic 1980s-90s Japanese citypop, golden-age sound, 300-500 chars, NO sax, BPM 108-114, nostalgic bittersweet", '
+        '"lyrics": "10 sections, 4 lines each (Outro 2), 380-420 chars total"}'
     )
 
 
@@ -278,124 +284,118 @@ def _title_from_lyrics(lyrics: str) -> str:
 
 MOCK_SONGS = [
     SongPromptPackage(
-        title="동대문에서 너를 떠올려",
-        style="Bright summer Korean city pop with J-pop nostalgic energy (early 80s Seoul), crisp upbeat groove (BPM 114), sparkling electric piano, shimmering analog synths, tight rhythmic funk guitar, punchy slap bass, clean bright drums, expressive low female vocals with retro reverb and subtle vibrato, refreshing yet wistful, bittersweet urban loneliness in a fast-changing city, neon summer melancholy",
-        lyrics="""[Intro, Guitar strums + busy city noise fade-in]
+        title="명동 블루스",
+        style="Authentic 1980s-1990s Japanese city pop, golden-age Tokyo sound, lush warm electric piano, glossy analog synths, smooth jazzy chord changes, silky funk guitar, melodic fretless bass, tight clean drums, BPM 112, emotional low female vocal with warm reverb and tender vibrato, deeply nostalgic and bittersweet, the wistful loneliness of city nights, vintage tape warmth",
+        lyrics="""[Intro, 도시 소음 + 따뜻한 로즈 피아노]
 
 [Verse 1]
-종로 오거리에서
-시계를 본 순간
-너와 마주친 그 날이
-불쑥 떠올랐어
+사람들 웃음 속에
+난 조용히 멈춰 있었어
+거리엔 음악이 흐르는데
+내 맘은 아무것도 울리지 않아
 
-[Pre-Chorus, Bright comping guitar]
-백화점 불빛 아래
-수줍게 잡은 손
-그 작은 떨림이
-아직도 남아 있어
+[Pre-Chorus, 부드러운 신스 패드]
+쇼윈도에 비친 내 모습
+어느새 낯설어졌어
+네 손을 놓던 그날 밤
+지금도 여길 맴돌아
 
-[Chorus, Hook guitar riff + Harmony]
-동대문에서 너를 떠올려
-지나간 시간 속에서
-익숙했던 그 거리 풍경이
-왜 오늘 따라
-그리운지 몰라
+[Chorus, 재지한 코드 + 코러스 하모니]
+명동 블루스, 그대가 떠난 거리
+불빛 아래 홀로 선 나
+이별도 사랑도 다 잊은 듯한 밤
+너만이 여전히 선명해
 
-[Verse 2, Muted funk guitar + warm keys]
-길게 뻗은 지하철 소리
-우리 대화 같아
-조금씩 멀어지고
-사라져가는 말들
+[Verse 2, 실키 펑크 기타]
+화려한 간판 아래
+우리 자주 걷던 길
+계절이 두 번 바뀌었어도
+너는 여전히 그 자리에 있어
 
-[Pre-Chorus]
-너 없는 주말 밤
-혼자 걷는 서울
-모든 게 그대로인데
-너만 없다는 게 달라
+[Pre-Chorus, 멜로딕 프렛리스 베이스]
+우산을 나눴던 골목
+지금은 텅 비었는데
+너의 온기만 잔향처럼
+남아 있어
 
-[Chorus, Layered rhythm + emotional lift]
-동대문에서 너를 떠올려
-멀어진 기억이지만
-이 노래가 울려 퍼지면
-어디선가 넌
-같은 하늘을 볼까
+[Chorus, 감정이 쌓이는 진행]
+명동 블루스, 웃음이 많은 그곳
+나만 조용히 멈춘 채
+노래는 흐르지만 눈물은 속삭여
+사랑은 끝났다는 걸
 
-[Bridge, Lead guitar solo + pad swell]
-우린 끝났지만
-마음은 계속 흘러
-잊으려 해도
-잊혀지지 않아
+[Bridge, 일렉트릭 피아노 솔로]
+(혹시 너도 기억할까)
+(그 계절, 그 노래, 그 향기)
+(우린 사라졌지만)
+(이 거린 그대로인데)
 
-[Final Chorus, Expanded groove + backing vocal]
-동대문에서 너를 떠올려
-바쁜 사람들 속에도
-우리의 시간이 머물던
-그 밤 공기 속에
-네 목소릴 느껴
+[Final Chorus, 감정 폭발 클라이맥스]
+명동 블루스, 그대가 떠난 거리
+오늘도 네 이름을 부르다
+누군가의 뒷모습에 너를 겹쳐보다
+또 한 번, 마음을 접는다
 
-[Outro, Fading city echo + single guitar note]
-동대문 네온 아래서
-너는 아직 내 안에 있어""",
+[Outro, 도시 소음 + 페이드아웃 피아노]
+(명동, 모두가 웃는 그 밤)
+(나만, 조용히 울고 있어)""",
     ),
     SongPromptPackage(
-        title="을지로 새벽 골목",
-        style="Refreshing city pop with J-pop sophistication (early 80s Seoul summer), upbeat groove (BPM 115), glistening electric piano, bright synth stabs, choppy funk guitar, melodic slap bass, crisp drums, emotive low female vocals with vintage reverb and subtle vibrato, nostalgic and lonely under the city lights, summer-night melancholy",
-        lyrics="""[Intro, Rhodes piano + distant traffic hum]
+        title="을지로 블루스",
+        style="Classic Japanese city pop (late 80s golden age), warm Rhodes electric piano, lush analog synth pads, sophisticated jazzy chords, smooth funk guitar comping, melodic bass lines, gentle tight drums, BPM 110, emotive low female vocal with vintage reverb and subtle vibrato, deeply nostalgic mellow groove, bittersweet late-night city melancholy, vintage tape warmth",
+        lyrics="""[Intro, 잔잔한 로즈 피아노 + 도시 잔향]
 
 [Verse 1]
-을지로 골목 끝에
-불 켜진 작은 창
-너와 마시던 커피
-온기가 떠올라
+좁은 골목 불빛 아래
+혼자 걷던 그 밤처럼
+오늘도 같은 길 위에서
+너의 흔적을 더듬어
 
-[Pre-Chorus, Soft synth swell]
-좁은 길 사이로
+[Pre-Chorus, 따뜻한 신스 패드]
+인쇄소 불빛 사이로
 스며든 새벽 공기
 그때 네 목소리가
-귓가에 맴돌아
+아직 귓가에 맴돌아
 
-[Chorus, Warm groove + Layered harmony]
-을지로 새벽 골목에서
-혼자 너를 그려봐
-지워진 줄 알았던 마음이
-이 거리 위에
-다시 번져가
+[Chorus, 재지한 코드 + 하모니]
+을지로 블루스, 네가 머물던 거리
+식어버린 커피처럼
+우리도 그렇게 멀어졌지만
+너만은 선명히 남아
 
-[Verse 2, Nylon guitar + warm keys]
-인쇄소 불빛 아래
-밤새 걷던 우리
-말없이 나눈 시선
-이젠 흐릿해져
+[Verse 2, 스무스 펑크 기타]
+밤새 걷던 그 거리에
+이제는 나 혼자야
+계절이 바뀌어 가도
+마음은 그날에 멈춰
 
-[Pre-Chorus]
-식어버린 골목
-너의 자리만 비어
-모든 게 그대로인데
-나만 멈춰 있어
+[Pre-Chorus, 멜로딕 베이스]
+말없이 나눈 시선들
+지금은 흐릿한데
+너의 온기만 잔향처럼
+남아 있어
 
-[Chorus, Expanded rhythm + emotional lift]
-을지로 새벽 골목에서
-혼자 너를 그려봐
-멀어진 시간 속에서도
-네 미소만은
-선명히 남아
+[Chorus, 감정이 쌓이는 진행]
+을지로 블루스, 불빛이 많은 그곳
+나만 조용히 멈춘 채
+노래는 흐르지만 마음은 속삭여
+사랑은 끝났다는 걸
 
-[Bridge, Electric piano solo + pad swell]
-돌아갈 수 없어도
-마음은 그 골목에
-잊으려 해봐도
-발길이 멈춰
+[Bridge, 일렉트릭 피아노 솔로]
+(돌아갈 수 없어도)
+(그 골목, 그 밤, 그 온기)
+(우린 사라졌지만)
+(이 거린 그대로인데)
 
-[Final Chorus, Full band + backing vocal]
-을지로 새벽 골목에서
-너의 이름 불러봐
-우리가 머물던 그 밤이
-아직 이곳에
-숨 쉬고 있어
+[Final Chorus, 감정 클라이맥스]
+을지로 블루스, 네가 머물던 거리
+오늘도 네 이름을 부르다
+누군가의 뒷모습에 너를 겹쳐보다
+또 한 번, 마음을 접는다
 
-[Outro, Fading echo + single piano note]
-을지로 불빛 아래서
-너는 아직 내 곁에 있어""",
+[Outro, 도시 소음 + 페이드아웃]
+(을지로, 모두가 웃는 그 밤)
+(나만, 조용히 울고 있어)""",
     ),
 ]
 

@@ -206,13 +206,13 @@ def test_mock_songs_have_10_sections():
 
 
 def test_mock_songs_lyric_length_for_330():
-    """Mock song lyrics are ~300-360 chars for 3:30 duration."""
+    """Mock song lyrics are ~360-440 chars for 3:30 duration."""
     from providers.ai.base import MOCK_SONGS, _format_lyrics
     for song in MOCK_SONGS:
         formatted = _format_lyrics(song.lyrics)
-        lyric_lines = [l for l in formatted.split("\n") if l and not l.startswith("[")]
-        total = sum(len(l) for l in lyric_lines)
-        assert 280 <= total <= 400, f"{song.title} has {total} chars (target ~340 for 3:30)"
+        lyric_lines = [l for l in formatted.split("\n") if l and not l.startswith("[") and not l.startswith("(")]
+        total = sum(len(l.replace("(", "").replace(")", "")) for l in formatted.split("\n") if l and not l.startswith("["))
+        assert 340 <= total <= 460, f"{song.title} has {total} chars (target ~400 for 3:30)"
 
 
 # ─── Lyric length control for 3:30 ───────────────────────────────────────────
@@ -225,24 +225,23 @@ def test_lyrics_char_count_excludes_headers():
     assert _lyrics_char_count(lyrics) == 8
 
 
-def test_mock_songs_under_360_chars():
-    """Mock songs stay under 360 chars for ~3:30 duration."""
+def test_mock_songs_under_440_chars():
+    """Mock songs stay in the 3:30 range (380-420 sweet spot, 440 max)."""
     from providers.ai.base import MOCK_SONGS, _lyrics_char_count
     for song in MOCK_SONGS:
         chars = _lyrics_char_count(song.lyrics)
-        assert chars <= 360, f"{song.title} has {chars} chars (max 360 for 3:30)"
+        assert chars <= 440, f"{song.title} has {chars} chars (max 440 for 3:30)"
 
 
 def test_system_prompt_has_char_limits():
-    """SYSTEM_PROMPT must specify the 6-13 char line limit and 340 total."""
+    """SYSTEM_PROMPT must specify line limits and total char target."""
     from providers.ai.base import SYSTEM_PROMPT
-    assert "6-13" in SYSTEM_PROMPT or "13 Korean" in SYSTEM_PROMPT
-    assert "340" in SYSTEM_PROMPT
+    assert "8-17" in SYSTEM_PROMPT or "4 lines" in SYSTEM_PROMPT
+    assert "380-420" in SYSTEM_PROMPT or "420" in SYSTEM_PROMPT
 
 
 def test_user_prompt_emphasizes_length():
     """User prompt for full generation emphasizes the length limit."""
     from providers.ai.base import _make_user_prompt
     prompt = _make_user_prompt("test", "all")
-    assert "280-340" in prompt or "340" in prompt
     assert "3:30" in prompt
