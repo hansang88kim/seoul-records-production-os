@@ -402,4 +402,27 @@ with st.sidebar:
 
     st.divider()
 
+    # ── Job Status Panel ─────────────────────────────────────────────
+    try:
+        from services.job_store import get_active_jobs, list_jobs
+        active = get_active_jobs()
+        recent = list_jobs(limit=5)
+
+        if active:
+            st.markdown("<div style='color:#6a7a94;font-size:0.7rem;font-weight:600;text-transform:uppercase;letter-spacing:1.5px;margin:0.3rem 0'>🔄 진행 중</div>", unsafe_allow_html=True)
+            for j in active:
+                pct = j.get("progress_percent", 0) or 0
+                title = j.get("current_track_title", "")
+                st.progress(pct / 100)
+                st.caption(f"🎵 {title} · {j.get('completed_tracks',0)}/{j.get('total_tracks',0)}곡")
+
+        completed = [j for j in recent if j.get("status") in ("completed", "partially_failed")]
+        if completed:
+            st.markdown("<div style='color:#6a7a94;font-size:0.7rem;font-weight:600;text-transform:uppercase;letter-spacing:1.5px;margin:0.3rem 0'>📋 최근 작업</div>", unsafe_allow_html=True)
+            for j in completed[:3]:
+                status_icon = "✅" if j["status"] == "completed" else "⚠️"
+                st.caption(f"{status_icon} {j.get('project','?')} · {j.get('completed_tracks',0)}/{j.get('total_tracks',0)}곡")
+    except Exception:
+        pass  # job store not available yet
+
 render_dashboard()

@@ -163,6 +163,13 @@ def _run_generation(params: dict, project: str = ""):
     # Snapshot existing mp3s so we can identify the NEW ones afterward
     before_mp3s = _snapshot_mp3s(dl_dir)
 
+    # Create persistent job for tracking
+    from services.job_store import create_job, update_job, add_log_line, complete_job
+    job = create_job(project=proj, mode="quick_single", total_tracks=1)
+    job_id = job["job_id"]
+    update_job(job_id, status="running", current_track_title=title)
+    add_log_line(job_id, f"Quick Single: {title} 생성 시작")
+
     # Progress display
     progress_container = st.empty()
     status_container = st.empty()
@@ -205,8 +212,12 @@ def _run_generation(params: dict, project: str = ""):
         if mp3s:
             dur = _mp3_duration(kept)
             status_container.success(f"✅ 생성 완료! 더 긴 1곡 선택 ({int(dur)}초, {elapsed}초 소요)")
+            complete_job(job_id, "completed")
+            add_log_line(job_id, f"완료: {title} ({int(dur)}초)")
         else:
             status_container.warning(f"⚠️ Suno 생성은 됐지만 파일을 못 찾았습니다 ({elapsed}초). task_id: {task_id}")
+            complete_job(job_id, "failed")
+            add_log_line(job_id, f"실패: 파일 못 찾음 (task: {task_id})", "error")
 
         songs = []
         labels = ["A", "B", "C", "D"]
@@ -799,29 +810,70 @@ def _render_auto_batch():
                 do_retry = False
 
             if do_all or do_retry:
+                from services.job_store import create_job, update_job, add_log_line, complete_job
+
                 indices = list(range(len(plan)))
                 if do_retry:
-                    # Only retry failed ones
                     indices = [i for i, d in enumerate(plan) if d.get("status") in ("failed", "no_files", "drafted", "draft_failed")]
+
+                # Create persistent job
+                job = create_job(
+                    project=project or "기본",
+                    mode="auto_batch",
+                    total_tracks=len(indices),
+                    plan=plan,
+                )
+                job_id = job["job_id"]
+                update_job(job_id, status="running", started_at=datetime.now(timezone.utc).isoformat())
+                add_log_line(job_id, f"배치 생성 시작: {len(indices)}곡")
 
                 prog = st.progress(0.0)
                 stat = st.empty()
+                log_container = st.expander("📋 생성 로그", expanded=False)
                 ok_new = 0
+
                 for step, idx in enumerate(indices):
                     draft = plan[idx]
                     if draft.get("status") == "generated":
-                        continue  # skip already successful
-                    stat.info(f"🎵 {step+1}/{len(indices)}곡 생성 중 (전체 {idx+1}/{len(plan)}): "
-                              f"**{draft.get('title','?')}** (인증 → CAPTCHA 자동 재시도)")
+                        continue
+
+                    title = draft.get("title", "?")
+                    msg = f"🎵 {step+1}/{len(indices)}곡 생성 중 (전체 {idx+1}/{len(plan)}): {title}"
+                    stat.info(msg)
+                    update_job(job_id,
+                              current_track_no=idx + 1,
+                              current_track_title=title,
+                              progress_percent=round(step / len(indices) * 100))
+                    add_log_line(job_id, f"Track {idx+1}: {title} 생성 시작")
+
                     res = _generate_one_from_draft(draft, base_params, project=project or "기본")
                     plan[idx] = res
+
                     if res["status"] == "generated":
                         ok_new += 1
+                        add_log_line(job_id, f"Track {idx+1}: {title} ✅ 생성 완료")
+                    else:
+                        err = res.get("error", "unknown")
+                        add_log_line(job_id, f"Track {idx+1}: {title} ❌ 실패 — {err}", "error")
+
+                    update_job(job_id,
+                              completed_tracks=ok_new,
+                              failed_tracks=sum(1 for d in plan if d.get("status") in ("failed", "no_files")))
                     prog.progress((step + 1) / len(indices))
+
+                    with log_container:
+                        icon = "✅" if res["status"] == "generated" else "❌"
+                        st.write(f"{icon} {idx+1}. {title} — {res['status']}")
+
+                # Complete job
                 st.session_state["auto_plan_data"] = plan
                 if project:
                     _save_plan_to_disk(project, plan)
                 total_ok = sum(1 for d in plan if d.get("status") == "generated")
+                total_fail = sum(1 for d in plan if d.get("status") in ("failed", "no_files"))
+                final_status = "completed" if total_fail == 0 else "partially_failed"
+                complete_job(job_id, status=final_status)
+                add_log_line(job_id, f"완료: {total_ok}/{len(plan)}곡 성공, {total_fail}곡 실패")
                 stat.success(f"✅ 완료: 이번 {ok_new}곡 성공 · 전체 {total_ok}/{len(plan)}곡")
                 st.rerun()
 
