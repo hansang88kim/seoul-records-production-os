@@ -12,7 +12,7 @@ from __future__ import annotations
 # Each entry defines how to write lyrics for that language/market.
 LANGUAGES: dict[str, dict] = {
     "korean": {
-        "label": "한국어 (Seoul)",
+        "label": "한국어 (서울)",
         "lyric_language": "Korean",
         "native_name": "한국어",
         "city": "Seoul",
@@ -30,7 +30,7 @@ LANGUAGES: dict[str, dict] = {
         ),
     },
     "japanese": {
-        "label": "日本語 (Tokyo/Shibuya)",
+        "label": "일본어 (도쿄/시부야)",
         "lyric_language": "Japanese",
         "native_name": "日本語",
         "city": "Tokyo (Shibuya, Shinjuku)",
@@ -49,7 +49,7 @@ LANGUAGES: dict[str, dict] = {
         ),
     },
     "thai": {
-        "label": "ภาษาไทย (Bangkok)",
+        "label": "태국어 (방콕)",
         "lyric_language": "Thai",
         "native_name": "ภาษาไทย",
         "city": "Bangkok",
@@ -68,7 +68,7 @@ LANGUAGES: dict[str, dict] = {
         ),
     },
     "indonesian": {
-        "label": "Bahasa Indonesia (Jakarta)",
+        "label": "인도네시아어 (자카르타)",
         "lyric_language": "Indonesian (Bahasa Indonesia)",
         "native_name": "Bahasa Indonesia",
         "city": "Jakarta",
@@ -87,7 +87,7 @@ LANGUAGES: dict[str, dict] = {
         ),
     },
     "vietnamese": {
-        "label": "Tiếng Việt (Ho Chi Minh City)",
+        "label": "베트남어 (호치민)",
         "lyric_language": "Vietnamese",
         "native_name": "Tiếng Việt",
         "city": "Ho Chi Minh City (Saigon)",

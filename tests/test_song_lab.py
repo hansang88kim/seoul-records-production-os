@@ -275,3 +275,59 @@ def test_generate_one_from_draft_uses_exclude_flag(monkeypatch, tmp_path):
     assert "sax" not in style_val
     assert isinstance(exclude_val, list)
     assert "sax lead" in exclude_val
+
+
+# ─── Single folder + keep longest mp3 ────────────────────────────────────────
+
+def test_download_dir_is_project_songs_folder(monkeypatch, tmp_path):
+    """All songs in a project download to the SAME songs/ folder (no subfolders)."""
+    import app.project_manager as pm
+    monkeypatch.setattr(pm, "OUTPUTS_DIR", tmp_path)
+    d1 = pm.song_project_download_dir("앨범1", "곡 하나")
+    d2 = pm.song_project_download_dir("앨범1", "곡 둘")
+    assert d1 == d2  # same folder
+    assert d1.name == "songs"
+
+
+def test_keep_longest_new_mp3(monkeypatch, tmp_path):
+    """Of newly-generated clips, only the longest is kept; shorter deleted."""
+    from app.tabs import song_lab
+    from unittest import mock
+
+    folder = tmp_path / "songs"
+    folder.mkdir()
+    # Pre-existing file (should be ignored)
+    old = folder / "old-song.mp3"
+    old.write_bytes(b"old")
+    before = song_lab._snapshot_mp3s(folder)
+
+    # Two new clips
+    short = folder / "new-short.mp3"
+    long = folder / "new-long.mp3"
+    short.write_bytes(b"s")
+    long.write_bytes(b"l")
+
+    # Mock durations: long=200s, short=150s
+    def fake_dur(p):
+        return 200.0 if "long" in str(p) else 150.0
+    monkeypatch.setattr(song_lab, "_mp3_duration", fake_dur)
+
+    kept = song_lab._keep_longest_new_mp3(folder, before)
+    assert kept == long  # longest kept
+    assert long.exists()
+    assert not short.exists()  # shorter deleted
+    assert old.exists()  # pre-existing untouched
+
+
+def test_keep_longest_ignores_preexisting(monkeypatch, tmp_path):
+    """If no new files, returns None and deletes nothing."""
+    from app.tabs import song_lab
+    folder = tmp_path / "songs"
+    folder.mkdir()
+    existing = folder / "a.mp3"
+    existing.write_bytes(b"x")
+    before = song_lab._snapshot_mp3s(folder)
+    # No new files added
+    kept = song_lab._keep_longest_new_mp3(folder, before)
+    assert kept is None
+    assert existing.exists()

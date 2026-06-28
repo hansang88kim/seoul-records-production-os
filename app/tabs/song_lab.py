@@ -34,6 +34,47 @@ def _save_generated_song(song: dict):
     st.session_state["generated_songs"].insert(0, song)
 
 
+def _mp3_duration(path) -> float:
+    """Get mp3 duration in seconds (0 if unreadable)."""
+    try:
+        import mutagen.mp3
+        return mutagen.mp3.MP3(str(path)).info.length or 0.0
+    except Exception:
+        return 0.0
+
+
+def _snapshot_mp3s(folder) -> set:
+    """Set of existing mp3 paths in a folder (before generation)."""
+    try:
+        return {str(p) for p in Path(folder).glob("*.mp3")}
+    except Exception:
+        return set()
+
+
+def _keep_longest_new_mp3(folder, before: set):
+    """
+    After generation, find NEW mp3s (not in `before`), keep only the LONGEST,
+    delete the rest. Suno makes 2 clips per request — we want just the longer.
+    Returns the kept mp3 Path, or None if no new files.
+    """
+    folder = Path(folder)
+    new_files = [p for p in folder.glob("*.mp3") if str(p) not in before]
+    if not new_files:
+        return None
+    if len(new_files) == 1:
+        return new_files[0]
+    # Pick the longest by duration
+    new_files.sort(key=_mp3_duration, reverse=True)
+    longest = new_files[0]
+    # Delete the shorter ones
+    for extra in new_files[1:]:
+        try:
+            extra.unlink()
+        except Exception:
+            pass
+    return longest
+
+
 def _project_selector(key_prefix: str) -> str:
     """
     Render a project name input/selector. Returns the chosen project name.
@@ -96,6 +137,9 @@ def _run_generation(params: dict, project: str = ""):
         "download_dir": str(dl_dir),
     }
 
+    # Snapshot existing mp3s so we can identify the NEW ones afterward
+    before_mp3s = _snapshot_mp3s(dl_dir)
+
     # Progress display
     progress_container = st.empty()
     status_container = st.empty()
@@ -125,16 +169,19 @@ def _run_generation(params: dict, project: str = ""):
 
         elapsed = int(time.time() - start_time)
 
-        # Find downloaded files — check both our dir and provider's actual dir
-        mp3s = sorted(dl_dir.glob("*.mp3"))
-        if not mp3s and getattr(provider, "_last_download_dir", None):
+        # Keep only the LONGEST of the newly-generated clips (Suno makes 2)
+        kept = _keep_longest_new_mp3(dl_dir, before_mp3s)
+        if not kept and getattr(provider, "_last_download_dir", None):
             actual_dir = Path(provider._last_download_dir)
-            mp3s = sorted(actual_dir.glob("*.mp3"))
-            if mp3s:
-                dl_dir = actual_dir
+            if str(actual_dir) != str(dl_dir):
+                kept = _keep_longest_new_mp3(actual_dir, before_mp3s)
+                if kept:
+                    dl_dir = actual_dir
+        mp3s = [kept] if kept else []
 
         if mp3s:
-            status_container.success(f"✅ 생성 완료! {len(mp3s)}곡 ({elapsed}초)")
+            dur = _mp3_duration(kept)
+            status_container.success(f"✅ 생성 완료! 더 긴 1곡 선택 ({int(dur)}초, {elapsed}초 소요)")
         else:
             status_container.warning(f"⚠️ Suno 생성은 됐지만 파일을 못 찾았습니다 ({elapsed}초). task_id: {task_id}")
 
@@ -313,13 +360,18 @@ def _generate_one_from_draft(draft: dict, base_params: dict, project: str = "기
             "download_dir": str(dl_dir),
         }
 
+        before_mp3s = _snapshot_mp3s(dl_dir)
         task_id = provider.create_song(title, style, lyrics, options)
 
-        mp3s = sorted(dl_dir.glob("*.mp3"))
-        if not mp3s and getattr(provider, "_last_download_dir", None):
-            mp3s = sorted(Path(provider._last_download_dir).glob("*.mp3"))
-            if mp3s:
-                dl_dir = Path(provider._last_download_dir)
+        # Keep only the longest of the 2 generated clips
+        kept = _keep_longest_new_mp3(dl_dir, before_mp3s)
+        if not kept and getattr(provider, "_last_download_dir", None):
+            actual = Path(provider._last_download_dir)
+            if str(actual) != str(dl_dir):
+                kept = _keep_longest_new_mp3(actual, before_mp3s)
+                if kept:
+                    dl_dir = actual
+        mp3s = [kept] if kept else []
 
         if mp3s:
             result["status"] = "generated"
@@ -394,11 +446,9 @@ def _generate_one_auto(concept: str, ai_provider_name: str, base_params: dict) -
 
     # ── Step 3: Suno generates (re-auths internally) ─────────────────────
     try:
+        from app.project_manager import song_project_download_dir
         provider = SunoCliProvider()
-        ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
-        safe_title = pkg.title.replace("/", "_").replace("\\", "_").replace(":", "_").replace(" ", "-")
-        dl_dir = _get_outputs_dir() / "suno_downloads" / f"{ts}_{safe_title}"
-        dl_dir.mkdir(parents=True, exist_ok=True)
+        dl_dir = song_project_download_dir(base_params.get("project", "기본"), pkg.title)
 
         options = dict(params)
         options["download_dir"] = str(dl_dir)
@@ -406,13 +456,17 @@ def _generate_one_auto(concept: str, ai_provider_name: str, base_params: dict) -
         options.pop("lyrics", None)
         options.pop("style", None)
 
+        before_mp3s = _snapshot_mp3s(dl_dir)
         task_id = provider.create_song(pkg.title, pkg.style, pkg.lyrics, options)
 
-        mp3s = sorted(dl_dir.glob("*.mp3"))
-        if not mp3s and getattr(provider, "_last_download_dir", None):
-            mp3s = sorted(Path(provider._last_download_dir).glob("*.mp3"))
-            if mp3s:
-                dl_dir = Path(provider._last_download_dir)
+        kept = _keep_longest_new_mp3(dl_dir, before_mp3s)
+        if not kept and getattr(provider, "_last_download_dir", None):
+            actual = Path(provider._last_download_dir)
+            if str(actual) != str(dl_dir):
+                kept = _keep_longest_new_mp3(actual, before_mp3s)
+                if kept:
+                    dl_dir = actual
+        mp3s = [kept] if kept else []
 
         if mp3s:
             result["status"] = "generated"

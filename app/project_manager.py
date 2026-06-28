@@ -312,13 +312,13 @@ def list_song_projects() -> list[dict]:
 
 
 def song_project_download_dir(project_name: str, title: str) -> Path:
-    """Download dir for a new song, inside the project's songs/ folder."""
+    """
+    Download dir for songs — the project's songs/ folder DIRECTLY.
+    All songs in a project download as mp3 files into this one folder
+    (no per-song subfolders), so they group together for upload.
+    """
     pdir = song_project_dir(project_name)
-    ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
-    safe = re.sub(r'[/\\:*?"<>|]', "_", title or "").strip().replace(" ", "-")[:40]
-    if not safe:  # empty/blank title → avoid trailing-underscore empty folder
-        safe = "song"
-    d = pdir / "songs" / f"{ts}_{safe}"
+    d = pdir / "songs"
     d.mkdir(parents=True, exist_ok=True)
     return d
 
