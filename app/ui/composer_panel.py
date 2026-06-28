@@ -44,6 +44,7 @@ def render_composer_panel() -> dict | None:
     # ── Title ────────────────────────────────────────────────────────────
     title = st.text_input(
         "제목",
+        value=ai_title if ai_title else "",
         placeholder="예: 밤이 지나면",
         key="composer_title",
         label_visibility="collapsed",
