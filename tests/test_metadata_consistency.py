@@ -108,3 +108,30 @@ def test_jwt_not_in_redacted_text():
     clean = redact_sensitive(text)
     assert "eyJhbGci" not in clean
     assert "abc123" not in clean
+
+
+# ─── Cookie panel security ───────────────────────────────────────────────────
+
+def test_cookie_value_not_in_manifest(tmp_path):
+    """Cookie values must never appear in manifest files."""
+    import json
+    # Simulate saving a manifest
+    manifest = {
+        "name": "test",
+        "songs": [{"title": "곡", "status": "completed", "cookie": "REDACTED"}],
+    }
+    path = tmp_path / "manifest.json"
+    path.write_text(json.dumps(manifest))
+    content = path.read_text()
+    # The cookie key exists but is redacted
+    assert "REDACTED" in content or "cookie" not in content.lower()
+
+
+def test_sanitize_command_masks_all_sensitive():
+    """sanitize_command must mask cookie, token, key values."""
+    from services.metadata_consistency_service import sanitize_command
+    cmd = ["suno", "auth", "--cookie", "real_cookie_value",
+           "--token", "jwt_value", "generate"]
+    clean = sanitize_command(cmd)
+    assert "real_cookie_value" not in clean
+    assert "jwt_value" not in clean

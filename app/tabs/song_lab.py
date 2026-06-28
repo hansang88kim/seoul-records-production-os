@@ -75,6 +75,29 @@ def _keep_longest_new_mp3(folder, before: set):
     return longest
 
 
+def _save_plan_to_disk(project_name: str, plan: list[dict]):
+    """Save a batch plan to the project folder so it survives refresh."""
+    from app.project_manager import song_project_dir
+    import json
+    pdir = song_project_dir(project_name)
+    path = pdir / "batch_plan.json"
+    path.write_text(json.dumps(plan, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def _load_plan_from_disk(project_name: str) -> list[dict] | None:
+    """Load a saved batch plan from the project folder."""
+    from app.project_manager import song_project_dir
+    import json
+    pdir = song_project_dir(project_name)
+    path = pdir / "batch_plan.json"
+    if path.exists():
+        try:
+            return json.loads(path.read_text(encoding="utf-8"))
+        except Exception:
+            return None
+    return None
+
+
 def _project_selector(key_prefix: str) -> str:
     """
     Render a project name input/selector. Returns the chosen project name.
@@ -627,6 +650,9 @@ def _render_auto_batch():
                 plan.append(draft)
                 prog.progress((n + 1) / count)
             st.session_state["auto_plan_data"] = plan
+            # Persist plan to disk (survives page refresh)
+            if project:
+                _save_plan_to_disk(project, plan)
             stat.success(f"✅ {count}곡 계획 완료 — 아래에서 확인/편집하세요")
             st.rerun()
     with col_clear:
@@ -636,6 +662,12 @@ def _render_auto_batch():
 
     # ── Step 2: Show Plan (editable) + Generate ──────────────────────────
     plan = st.session_state.get("auto_plan_data", [])
+    # Restore plan from disk if session lost (e.g. page refresh)
+    if not plan and project:
+        disk_plan = _load_plan_from_disk(project)
+        if disk_plan:
+            plan = disk_plan
+            st.session_state["auto_plan_data"] = plan
     if plan:
         st.divider()
         st.markdown(f"<h3>📋 생성 계획 ({len(plan)}곡)</h3>", unsafe_allow_html=True)
@@ -745,6 +777,8 @@ def _render_auto_batch():
                     st.caption(f"✅ 가사 본문 {lc}자 · 예상 ~{est//60}:{est%60:02d}")
 
         st.session_state["auto_plan_data"] = plan  # save edits
+        if project:
+            _save_plan_to_disk(project, plan)  # persist to disk
 
         st.divider()
         if not cookie:
@@ -785,6 +819,8 @@ def _render_auto_batch():
                         ok_new += 1
                     prog.progress((step + 1) / len(indices))
                 st.session_state["auto_plan_data"] = plan
+                if project:
+                    _save_plan_to_disk(project, plan)
                 total_ok = sum(1 for d in plan if d.get("status") == "generated")
                 stat.success(f"✅ 완료: 이번 {ok_new}곡 성공 · 전체 {total_ok}/{len(plan)}곡")
                 st.rerun()
