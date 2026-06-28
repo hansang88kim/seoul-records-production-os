@@ -234,7 +234,9 @@ def run_dry_run(mock: bool = False) -> dict:
     # ── Step 1: Submit ──────────────────────────────────────────────────
     log(f"Submitting: {TEST_TITLE}")
     try:
-        task_id = provider.create_song(TEST_TITLE, TEST_STYLE, TEST_LYRICS, TEST_OPTIONS)
+        opts = dict(TEST_OPTIONS)
+        opts["download_dir"] = str(cands_dir)
+        task_id = provider.create_song(TEST_TITLE, TEST_STYLE, TEST_LYRICS, opts)
         report["task_id"] = task_id
         log(f"Task ID: {task_id}")
     except Exception as e:
