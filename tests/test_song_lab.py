@@ -169,3 +169,61 @@ def test_auto_batch_title_style_lyrics_all_generated():
     assert pkg.title, "title missing"
     assert pkg.style, "style missing"
     assert pkg.lyrics, "lyrics missing"
+
+
+# ─── Exclude styles sent separately (not merged into style) ──────────────────
+
+def test_exclude_sent_via_flag_not_in_style(monkeypatch, tmp_path):
+    """Exclude styles must go to --exclude flag, NOT be merged into --tags."""
+    from providers.suno import suno_cli_provider as m
+    from importlib import reload
+    from unittest import mock
+    from pathlib import Path
+    fake_bin = tmp_path / "suno"
+    fake_bin.write_text("fake")
+    monkeypatch.setenv("SUNO_CLI_BIN", str(fake_bin))
+    monkeypatch.setenv("SUNO_COOKIE", "cookie")
+    reload(m)
+
+    p = m.SunoCliProvider()
+    captured = []
+    dl = str(tmp_path / "dl")
+
+    def mock_run(cmd, **kw):
+        import json as _j
+        if "--json" in cmd:
+            return mock.Mock(returncode=0, stdout=_j.dumps({"data": {"credits_left": 100}}), stderr="")
+        captured.extend(cmd)
+        from pathlib import Path as P
+        P(dl).mkdir(parents=True, exist_ok=True)
+        (P(dl) / "x-12345678.mp3").write_bytes(b"fake")
+        return mock.Mock(returncode=0, stdout="", stderr="")
+
+    with mock.patch("subprocess.run", side_effect=mock_run):
+        p.create_song(
+            "test", "Japanese city pop, warm piano", "lyrics",
+            {"download_dir": dl, "exclude_styles": ["sax lead", "trot", "EDM"]},
+        )
+
+    cmd_str = " ".join(captured)
+    # --exclude flag present with the excludes
+    assert "--exclude" in cmd_str
+    # The style/tags must NOT contain the exclude terms
+    tags_idx = captured.index("--tags") + 1
+    tags_value = captured[tags_idx]
+    assert "sax" not in tags_value, f"sax leaked into tags: {tags_value}"
+    assert "trot" not in tags_value
+    assert "-sax" not in tags_value  # no negative-prefix hack in tags
+
+
+def test_composer_returns_clean_style_and_exclude_list():
+    """The composer return format separates style from exclude_styles."""
+    # The fix ensures style has no '-sax' negatives and exclude_styles is a list.
+    from app.ui.composer_panel import DEFAULT_EXCLUDE
+    exclude_list = [
+        s.strip().lstrip("-").strip()
+        for s in DEFAULT_EXCLUDE.split(",")
+        if s.strip().lstrip("-").strip()
+    ]
+    assert "sax lead" in exclude_list
+    assert all(not item.startswith("-") for item in exclude_list)

@@ -231,8 +231,14 @@ def render_composer_panel() -> dict | None:
     else:
         st.caption(f"{style_len}/1000 · {lock_note} · 제외 스타일 자동 -prefix")
 
-    # Exclude
-    exclude = st.text_input("제외 스타일", value=DEFAULT_EXCLUDE, key="form_exclude")
+    # Exclude (→ Suno's More Options → Exclude styles box)
+    st.markdown("<div style='font-size:0.85rem;color:#9aa5b8;padding-top:4px'>🚫 제외 스타일 (Suno Exclude styles)</div>", unsafe_allow_html=True)
+    exclude = st.text_input(
+        "제외 스타일", value=DEFAULT_EXCLUDE, key="form_exclude",
+        label_visibility="collapsed",
+        help="여기 입력한 항목은 Suno의 'Exclude styles'로 전달됩니다 (스타일에 합쳐지지 않음). '-' 없이 입력하세요.",
+    )
+    st.caption("💡 '-' 기호 없이 입력하세요. Suno가 자동으로 제외 처리합니다.")
 
     # Controls
     col_m, col_v = st.columns(2)
@@ -275,17 +281,20 @@ def render_composer_panel() -> dict | None:
             use_container_width=True,
             key="btn_generate",
         ):
-            # Combine style + negative excludes into one tags string (Suno format)
-            negatives = _format_exclude_as_negatives(exclude)
-            combined_style = style.strip()
-            if negatives:
-                combined_style = f"{combined_style}, {negatives}"
+            # Send exclude styles SEPARATELY (→ Suno --exclude flag → Exclude styles box).
+            # Do NOT merge into the style text — that makes Suno ADD those instruments.
+            # Strip any leading "-" the user may have typed (the flag handles negation).
+            exclude_list = [
+                s.strip().lstrip("-").strip()
+                for s in exclude.split(",")
+                if s.strip().lstrip("-").strip()
+            ]
 
             return {
                 "title": title.strip(),
                 "lyrics": lyrics.strip(),
-                "style": combined_style,
-                "exclude_styles": [],  # already merged into style
+                "style": style.strip(),  # clean style only, no negatives
+                "exclude_styles": exclude_list,  # → --exclude flag
                 "model": model,
                 "vocal_gender": vocal if vocal != "Instrumental" else "Auto",
                 "instrumental": vocal == "Instrumental",

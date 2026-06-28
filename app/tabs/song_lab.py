@@ -243,16 +243,17 @@ def _generate_one_auto(concept: str, ai_provider_name: str, base_params: dict) -
         result["error"] = f"AI 생성 실패: {e}"
         return result
 
-    # ── Step 2: Build Suno params (style + negatives) ────────────────────
-    from app.ui.composer_panel import _format_exclude_as_negatives, DEFAULT_EXCLUDE
-    negatives = _format_exclude_as_negatives(DEFAULT_EXCLUDE)
-    combined_style = f"{pkg.style}, {negatives}" if negatives else pkg.style
+    # ── Step 2: Build Suno params ────────────────────────────────────────
+    # Exclude styles go to the --exclude flag (Suno's Exclude styles box),
+    # NOT merged into the style text (that would make Suno ADD them).
+    from app.ui.composer_panel import DEFAULT_EXCLUDE
+    exclude_list = [s.strip() for s in DEFAULT_EXCLUDE.split(",") if s.strip()]
 
     params = {
         "title": pkg.title,
         "lyrics": pkg.lyrics,
-        "style": combined_style,
-        "exclude_styles": [],
+        "style": pkg.style,  # clean style only
+        "exclude_styles": exclude_list,  # → --exclude flag
         "model": base_params.get("model", "v5.5"),
         "vocal_gender": base_params.get("vocal_gender", "Female"),
         "instrumental": base_params.get("instrumental", False),
@@ -274,7 +275,7 @@ def _generate_one_auto(concept: str, ai_provider_name: str, base_params: dict) -
         options.pop("lyrics", None)
         options.pop("style", None)
 
-        task_id = provider.create_song(pkg.title, combined_style, pkg.lyrics, options)
+        task_id = provider.create_song(pkg.title, pkg.style, pkg.lyrics, options)
 
         mp3s = sorted(dl_dir.glob("*.mp3"))
         if not mp3s and getattr(provider, "_last_download_dir", None):
