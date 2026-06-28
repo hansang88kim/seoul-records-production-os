@@ -341,7 +341,10 @@ def _verify_suno(cookie):
         ready = SunoCliProvider().verify_ready()
         return ready["ok"], ready["message"]
     except Exception as e:
-        return False, f"{type(e).__name__}"
+        import traceback
+        tb = traceback.format_exc()
+        # Surface the actual error location and message
+        return False, f"{type(e).__name__}: {e} (위치: {tb.strip().splitlines()[-2].strip() if len(tb.splitlines()) > 1 else '?'})"
 
 
 def _verify_openai(key):

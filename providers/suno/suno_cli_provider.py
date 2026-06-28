@@ -214,6 +214,38 @@ def _normalize_clip(clip: dict, candidate_id: str) -> CandidateInfo:
 
 # ─── Provider ───────────────────────────────────────────────────────────────
 
+def _extract_credits(data) -> int | None:
+    """
+    Safely extract credit balance from suno credits JSON.
+    Handles various shapes: {credits_left: N}, {data: {credits: N}},
+    {data: N}, or a bare int. Never raises AttributeError.
+    """
+    if data is None:
+        return None
+    if isinstance(data, (int, float)):
+        return int(data)
+    if not isinstance(data, dict):
+        return None
+
+    # Try top-level keys first
+    for key in ("credits_left", "credits", "balance", "remaining"):
+        val = data.get(key)
+        if isinstance(val, (int, float)):
+            return int(val)
+
+    # Try nested under "data"
+    inner = data.get("data")
+    if isinstance(inner, (int, float)):
+        return int(inner)
+    if isinstance(inner, dict):
+        for key in ("credits_left", "credits", "balance", "remaining"):
+            val = inner.get(key)
+            if isinstance(val, (int, float)):
+                return int(val)
+
+    return None
+
+
 class SunoCliProvider(ComposerProvider):
     """
     Subprocess adapter for paperfoot/suno-cli.
@@ -276,8 +308,7 @@ class SunoCliProvider(ComposerProvider):
         # (auth can return 0 but session still be invalid)
         try:
             data = _run_suno_json(["credits"], timeout=20, suno_bin=self._bin)
-            credits = data.get("data", data).get("credits_left",
-                       data.get("data", data).get("credits", None))
+            credits = _extract_credits(data)
             logger.info("Auth verified — credits: %s", credits)
             return True
         except ProviderError as e:
@@ -317,18 +348,17 @@ class SunoCliProvider(ComposerProvider):
         # Step 3: verify credits (proves the session actually works)
         try:
             data = _run_suno_json(["credits"], timeout=20, suno_bin=self._bin)
-            credits = data.get("data", data).get("credits_left",
-                       data.get("data", data).get("credits", None))
+            credits = _extract_credits(data)
             result["credits"] = credits
             result["ok"] = True
-            result["message"] = f"인증 완료 · 크레딧 {credits}"
+            result["message"] = f"인증 완료 · 크레딧 {credits}" if credits is not None else "인증 완료"
         except ProviderError as e:
             if e.status == "auth_required":
                 result["message"] = "세션 만료 — 새 쿠키를 입력하세요"
             else:
                 result["message"] = f"크레딧 확인 실패: {e}"
         except Exception as e:
-            result["message"] = f"크레딧 확인 오류: {type(e).__name__}"
+            result["message"] = f"크레딧 확인 오류: {type(e).__name__}: {e}"
 
         return result
 

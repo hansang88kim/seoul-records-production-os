@@ -425,3 +425,30 @@ def test_ensure_auth_verifies_via_credits(monkeypatch, tmp_path):
     with mock.patch("subprocess.run", side_effect=mock_run):
         result = p._ensure_auth()
     assert result is False  # auth cmd OK but session invalid
+
+
+# ─── Credit extraction (AttributeError fix) ──────────────────────────────────
+
+def test_extract_credits_various_shapes():
+    """_extract_credits handles all JSON shapes without AttributeError."""
+    from providers.suno.suno_cli_provider import _extract_credits
+    assert _extract_credits({"credits_left": 9970}) == 9970
+    assert _extract_credits({"data": {"credits": 100}}) == 100
+    assert _extract_credits({"balance": 200}) == 200
+
+
+def test_extract_credits_no_attribute_error_on_int():
+    """data under 'data' being an int must NOT raise AttributeError."""
+    from providers.suno.suno_cli_provider import _extract_credits
+    # These previously crashed with 'int has no attribute get'
+    assert _extract_credits({"data": 50}) == 50
+    assert _extract_credits(9970) == 9970
+
+
+def test_extract_credits_no_attribute_error_on_none_or_str():
+    """None/str/empty must return None, never crash."""
+    from providers.suno.suno_cli_provider import _extract_credits
+    assert _extract_credits(None) is None
+    assert _extract_credits("not a dict") is None
+    assert _extract_credits({}) is None
+    assert _extract_credits({"data": None}) is None
