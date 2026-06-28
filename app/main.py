@@ -29,7 +29,7 @@ st.markdown("""
         font-family: 'Inter', 'Noto Sans KR', -apple-system, sans-serif;
     }
     .block-container {
-        padding: 2rem 2rem 4rem;
+        padding: 4rem 2rem 4rem;
         max-width: 1280px;
     }
 

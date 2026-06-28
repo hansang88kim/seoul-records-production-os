@@ -2,6 +2,7 @@
 app/ui/composer_panel.py — Song Lab Composer Panel
 """
 from __future__ import annotations
+import os as _os
 import streamlit as st
 
 DEFAULT_EXCLUDE = (
@@ -40,8 +41,71 @@ LYRICS_PLACEHOLDER = """[Intro]
 
 def render_composer_panel() -> dict | None:
     """Render composer panel. Returns params dict on Generate click, else None."""
+    from app.ui.ai_songwriter import generate_song_concept, get_available_providers
+
+    # ── AI 자동 생성 ─────────────────────────────────────────────────────
+    ai_providers = get_available_providers()
+
+    with st.expander("🤖 AI 자동 생성 (ChatGPT / Gemini)", expanded=not ai_providers):
+        if not ai_providers:
+            st.caption("API 키를 입력하면 AI가 제목/가사/스타일을 자동 생성합니다")
+            col_k1, col_k2 = st.columns(2)
+            with col_k1:
+                openai_key = st.text_input(
+                    "OpenAI API Key", type="password",
+                    placeholder="sk-...", key="input_openai_key",
+                )
+                if openai_key.strip():
+                    _os.environ["OPENAI_API_KEY"] = openai_key.strip()
+                    ai_providers = get_available_providers()
+            with col_k2:
+                gemini_key = st.text_input(
+                    "Gemini API Key", type="password",
+                    placeholder="AI...", key="input_gemini_key",
+                )
+                if gemini_key.strip():
+                    _os.environ["GOOGLE_GEMINI_API_KEY"] = gemini_key.strip()
+                    ai_providers = get_available_providers()
+
+        if ai_providers:
+            st.caption("컨셉을 입력하면 Seoul Records 스타일에 맞게 자동 작곡합니다")
+            col_concept, col_provider = st.columns([3, 1])
+            with col_concept:
+                concept = st.text_input(
+                    "컨셉",
+                    placeholder="예: 비 오는 서울 밤, 이별 후 택시 안에서",
+                    key="ai_concept",
+                    label_visibility="collapsed",
+                )
+            with col_provider:
+                ai_provider = st.selectbox(
+                    "AI",
+                    ai_providers,
+                    format_func=lambda x: "ChatGPT" if x == "openai" else "Gemini",
+                    key="ai_provider",
+                    label_visibility="collapsed",
+                )
+
+            if st.button("✨ 자동 생성", use_container_width=True, key="btn_ai_gen"):
+                if concept.strip():
+                    with st.spinner("AI가 곡을 구상하고 있습니다..."):
+                        result = generate_song_concept(concept.strip(), ai_provider)
+                    if result:
+                        st.session_state["composer_title_ai"] = result.get("title", "")
+                        st.session_state["composer_lyrics"] = result.get("lyrics", "")
+                        st.session_state["composer_style"] = result.get("style", "")
+                        st.success("생성 완료!")
+                        st.rerun()
+                    else:
+                        st.error("생성 실패 — API 키 또는 네트워크 확인")
+                else:
+                    st.warning("컨셉을 입력하세요")
+
+    st.markdown("")
 
     # ── Title ────────────────────────────────────────────────────────────
+    ai_title = st.session_state.pop("composer_title_ai", "")
+    st.caption("🎵 제목")
     title = st.text_input(
         "제목",
         value=ai_title if ai_title else "",
@@ -49,7 +113,6 @@ def render_composer_panel() -> dict | None:
         key="composer_title",
         label_visibility="collapsed",
     )
-    st.caption("🎵 제목")
 
     # ── Lyrics ───────────────────────────────────────────────────────────
     st.markdown("")
@@ -121,7 +184,7 @@ def render_composer_panel() -> dict | None:
     with col_v:
         vocal = st.selectbox("보컬", ["Female", "Male", "Instrumental"], index=0, key="composer_vocal")
 
-    # ── Weirdness + Style Influence ──────────────────────────────────────
+    # ── Sliders ──────────────────────────────────────────────────────────
     col_w, col_i = st.columns(2)
     with col_w:
         weirdness = st.slider("Weirdness", 0, 100, 35, key="composer_weirdness")
