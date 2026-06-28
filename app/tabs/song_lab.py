@@ -34,21 +34,56 @@ def _save_generated_song(song: dict):
     st.session_state["generated_songs"].insert(0, song)
 
 
-def _run_generation(params: dict):
+def _project_selector(key_prefix: str) -> str:
+    """
+    Render a project name input/selector. Returns the chosen project name.
+    Existing projects can be picked from a dropdown, or a new name typed.
+    """
+    from app.project_manager import list_song_projects
+
+    existing = list_song_projects()
+    names = [p["name"] for p in existing]
+
+    col_mode, col_input = st.columns([1, 2])
+    with col_mode:
+        if names:
+            use_new = st.checkbox("새 프로젝트", value=False, key=f"{key_prefix}_newproj")
+        else:
+            use_new = True
+            st.caption("첫 프로젝트")
+
+    with col_input:
+        if use_new or not names:
+            project = st.text_input(
+                "프로젝트 이름",
+                placeholder="예: 서울 시티팝 Vol.1",
+                key=f"{key_prefix}_proj_new",
+                label_visibility="collapsed",
+            )
+        else:
+            project = st.selectbox(
+                "프로젝트",
+                names,
+                key=f"{key_prefix}_proj_sel",
+                label_visibility="collapsed",
+            )
+    return project.strip() if project else ""
+
+
+def _run_generation(params: dict, project: str = ""):
     """
     Run song generation via SunoCliProvider.
-    Shows progress in the UI instead of freezing.
+    Songs download into the project's folder (or a default folder).
     """
     from providers.suno.suno_cli_provider import SunoCliProvider
+    from app.project_manager import song_project_download_dir
 
     provider = SunoCliProvider()
     title = params["title"]
 
-    # Create output directory
-    ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
-    safe_title = title.replace("/", "_").replace("\\", "_").replace(":", "_").replace(" ", "-")
-    dl_dir = _get_outputs_dir() / "suno_downloads" / f"{ts}_{safe_title}"
-    dl_dir.mkdir(parents=True, exist_ok=True)
+    # Download into the project folder so songs group together
+    proj = project or "기본"
+    dl_dir = song_project_download_dir(proj, title)
 
     # Build options
     options = {
@@ -133,9 +168,16 @@ def _run_generation(params: dict):
                 "vocal": params.get("vocal_gender", ""),
                 "weirdness": params.get("weirdness", 35),
                 "style_influence": params.get("style_influence", 70),
+                "project": proj,
             }
             songs.append(song)
             _save_generated_song(song)
+            # Record in the project manifest so songs group by project
+            try:
+                from app.project_manager import add_song_to_project
+                add_song_to_project(proj, song)
+            except Exception:
+                pass
 
         # Save report
         report = {
@@ -202,7 +244,7 @@ def render_song_lab():
     # ── Mode Selector ────────────────────────────────────────────────────
     mode = st.radio(
         "모드",
-        ["⚡ Quick Single", "🤖 Auto Batch", "💿 Project Album", "📂 Manual Import"],
+        ["⚡ Quick Single", "🤖 Auto Batch", "💿 프로젝트 관리", "📂 Manual Import"],
         horizontal=True,
         key="song_lab_mode",
         label_visibility="collapsed",
@@ -214,7 +256,7 @@ def render_song_lab():
         _render_manual_import()
     elif "Auto Batch" in mode:
         _render_auto_batch()
-    elif "Project Album" in mode:
+    elif "프로젝트 관리" in mode:
         _render_project_album()
     else:
         _render_quick_single()
@@ -241,13 +283,14 @@ def _generate_plan_only(concept: str, ai_provider_name: str) -> dict:
     return draft
 
 
-def _generate_one_from_draft(draft: dict, base_params: dict) -> dict:
+def _generate_one_from_draft(draft: dict, base_params: dict, project: str = "기본") -> dict:
     """
     Generate ONE song in Suno from an already-prepared draft (title/style/lyrics).
-    Re-authenticates internally. Returns result dict with status.
+    Downloads into the project folder. Re-authenticates internally.
     """
     from providers.suno.suno_cli_provider import SunoCliProvider
     from app.ui.composer_panel import DEFAULT_EXCLUDE
+    from app.project_manager import song_project_download_dir
 
     result = dict(draft)
     title = draft.get("title", "제목 없음")
@@ -258,10 +301,7 @@ def _generate_one_from_draft(draft: dict, base_params: dict) -> dict:
 
     try:
         provider = SunoCliProvider()
-        ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
-        safe_title = title.replace("/", "_").replace("\\", "_").replace(":", "_").replace(" ", "-")
-        dl_dir = _get_outputs_dir() / "suno_downloads" / f"{ts}_{safe_title}"
-        dl_dir.mkdir(parents=True, exist_ok=True)
+        dl_dir = song_project_download_dir(project, title)
 
         options = {
             "exclude_styles": exclude_list,
@@ -284,16 +324,22 @@ def _generate_one_from_draft(draft: dict, base_params: dict) -> dict:
         if mp3s:
             result["status"] = "generated"
             result["file_count"] = len(mp3s)
+            from app.project_manager import add_song_to_project
             for i, mp3 in enumerate(mp3s):
                 cid = ["A", "B", "C", "D"][i] if i < 4 else str(i)
-                _save_generated_song({
+                song = {
                     "title": title, "candidate_id": cid, "status": "completed",
                     "provider": "suno_cli", "model": options["model"],
                     "duration": None, "file_type": "mp3", "file_path": str(mp3),
                     "distribution_eligible": False,
                     "created_at": datetime.now(timezone.utc).isoformat(),
-                    "style": style,
-                })
+                    "style": style, "project": project,
+                }
+                _save_generated_song(song)
+                try:
+                    add_song_to_project(project, song)
+                except Exception:
+                    pass
         else:
             result["status"] = "no_files"
             result["error"] = f"생성됐지만 파일 못 찾음 (task: {task_id})"
@@ -401,6 +447,11 @@ def _render_auto_batch():
     st.markdown("<h2 style='margin-bottom:0.5rem'>🤖 Auto Batch 생성</h2>", unsafe_allow_html=True)
     st.caption("① AI가 N곡의 제목/스타일/가사를 먼저 만듭니다 → ② 확인/편집 후 Suno로 순차 생성")
 
+    # Project selector — all songs in this batch go to one project folder
+    st.markdown("<div style='font-size:0.8rem;color:#9aa5b8;margin-bottom:4px'>📁 프로젝트 (이 배치의 곡들이 모일 폴더)</div>", unsafe_allow_html=True)
+    project = _project_selector("auto")
+    st.divider()
+
     providers = get_available_ai_providers()
     available = [p for p in providers if p["available"]]
 
@@ -497,7 +548,7 @@ def _render_auto_batch():
                 for n, draft in enumerate(plan):
                     stat.info(f"🎵 {n+1}/{len(plan)}곡 생성 중: {draft.get('title','?')} "
                               f"(인증 → Suno 생성, CAPTCHA 자동 재시도)")
-                    res = _generate_one_from_draft(draft, base_params)
+                    res = _generate_one_from_draft(draft, base_params, project=project or "기본")
                     plan[n] = res
                     if res["status"] == "generated":
                         ok += 1
@@ -510,12 +561,24 @@ def _render_auto_batch():
                 stat.success(f"✅ 완료: {ok}/{len(plan)}곡 생성 성공")
 
     st.divider()
-    st.markdown("<h3>🎵 생성된 곡</h3>", unsafe_allow_html=True)
-    render_song_list(_load_generated_songs())
+    if project:
+        st.markdown(f"<h3>🎵 '{project}' 곡</h3>", unsafe_allow_html=True)
+        from app.project_manager import get_song_project_songs
+        render_song_list(get_song_project_songs(project))
+    else:
+        st.markdown("<h3>🎵 생성된 곡</h3>", unsafe_allow_html=True)
+        render_song_list(_load_generated_songs())
 
 
 def _render_quick_single():
-    """Quick Single mode — generate 1 song without project setup."""
+    """Quick Single mode — generate 1 song into a project folder."""
+
+    # Project selector at the top
+    st.markdown("<div style='font-size:0.8rem;color:#9aa5b8;margin-bottom:4px'>📁 프로젝트 (곡이 저장될 폴더)</div>", unsafe_allow_html=True)
+    project = _project_selector("qs")
+    if not project:
+        st.caption("💡 프로젝트 이름을 입력하면 그 폴더에 곡이 모입니다 (유튜브 업로드 시 편리)")
+    st.divider()
 
     col_composer, col_results = st.columns([1, 1], gap="large")
 
@@ -524,39 +587,62 @@ def _render_quick_single():
         params = render_composer_panel()
 
         if params:
-            _run_generation(params)
-            st.rerun()
+            if not project:
+                st.warning("⚠️ 먼저 프로젝트 이름을 입력하세요 (위쪽).")
+            else:
+                _run_generation(params, project=project)
+                st.rerun()
 
     with col_results:
-        st.markdown("<h2 style='margin-bottom:0.5rem'>📋 생성 결과</h2>", unsafe_allow_html=True)
-        songs = _load_generated_songs()
+        # Show songs from the selected project
+        if project:
+            st.markdown(f"<h2 style='margin-bottom:0.5rem'>📋 '{project}' 곡</h2>", unsafe_allow_html=True)
+            from app.project_manager import get_song_project_songs
+            songs = get_song_project_songs(project)
+        else:
+            st.markdown("<h2 style='margin-bottom:0.5rem'>📋 생성 결과</h2>", unsafe_allow_html=True)
+            songs = _load_generated_songs()
         render_song_list(songs)
 
 
 def _render_project_album():
-    """Project Album mode — uses existing project system."""
-    if "current_project" not in st.session_state or st.session_state.current_project is None:
-        st.info("💿 프로젝트를 먼저 생성하거나 열어주세요.")
-        st.caption("왼쪽 사이드바에서 프로젝트를 선택하거나, 메인 화면에서 새 프로젝트를 만들 수 있습니다.")
+    """Project browser — view all projects and their songs, grouped by folder."""
+    from app.project_manager import (
+        list_song_projects, get_song_project_songs, delete_song_project,
+        song_project_dir,
+    )
+
+    st.markdown("<h2 style='margin-bottom:0.3rem'>💿 프로젝트 관리</h2>", unsafe_allow_html=True)
+    st.caption("프로젝트별로 곡이 폴더에 모여 있습니다. 유튜브 업로드/배포 시 프로젝트 단위로 관리하세요.")
+
+    projects = list_song_projects()
+    if not projects:
+        st.info("아직 프로젝트가 없습니다. Quick Single 또는 Auto Batch에서 프로젝트 이름을 입력해 곡을 생성하세요.")
         return
 
-    manifest = st.session_state.current_project
-    st.markdown(f"### 💿 {manifest.project_name}")
-    st.caption(f"트랙 {manifest.track_count}곡 · {manifest.production_mode} 모드")
+    # Project summary cards
+    st.markdown(f"**총 {len(projects)}개 프로젝트**")
+    for proj in projects:
+        name = proj["name"]
+        count = proj["song_count"]
+        with st.expander(f"📁 {name}  ·  {count}곡", expanded=False):
+            pdir = song_project_dir(name)
+            st.caption(f"폴더: `{pdir}`")
 
-    col_composer, col_results = st.columns([1, 1], gap="large")
+            col_open, col_del = st.columns([3, 1])
+            with col_open:
+                st.markdown(f"<div style='font-size:0.8rem;color:#7a8aa0'>songs/ 폴더에 {count}곡 저장됨</div>", unsafe_allow_html=True)
+            with col_del:
+                if st.button("🗑️ 삭제", key=f"delproj_{proj['slug']}", use_container_width=True):
+                    if delete_song_project(name):
+                        st.success(f"'{name}' 삭제됨")
+                        st.rerun()
 
-    with col_composer:
-        st.markdown("#### Song Composer")
-        params = render_composer_panel()
-        if params:
-            _run_generation(params)
-            st.rerun()
-
-    with col_results:
-        st.markdown("#### 생성 결과")
-        songs = _load_generated_songs()
-        render_song_list(songs)
+            songs = get_song_project_songs(name)
+            if songs:
+                render_song_list(songs)
+            else:
+                st.caption("이 프로젝트에 곡이 없습니다.")
 
 
 def _render_manual_import():

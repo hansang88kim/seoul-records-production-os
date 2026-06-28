@@ -237,3 +237,111 @@ def resume_project(output_folder: Path) -> ProjectManifest:
         project_id=manifest.project_id,
     )
     return manifest
+
+
+# ─── Lightweight Song-Project Layer (for Song Lab) ───────────────────────────
+# Simple project folders + JSON manifest for grouping generated songs.
+# Independent of the heavy ProjectManifest schema above.
+
+def _song_projects_root() -> Path:
+    d = OUTPUTS_DIR / "song_projects"
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+def _song_slug(name: str) -> str:
+    """Slug that preserves Korean characters for readable folder names."""
+    if not name or not name.strip():
+        return "default"
+    s = name.strip()
+    s = re.sub(r'[/\\:*?"<>|]', "_", s)
+    s = re.sub(r"\s+", "-", s)
+    return s[:60] or "default"
+
+
+def song_project_dir(project_name: str) -> Path:
+    """Get (and create) a song-project folder with a songs/ subfolder."""
+    d = _song_projects_root() / _song_slug(project_name)
+    (d / "songs").mkdir(parents=True, exist_ok=True)
+    return d
+
+
+def _song_manifest_path(project_name: str) -> Path:
+    return song_project_dir(project_name) / "manifest.json"
+
+
+def load_song_manifest(project_name: str) -> dict:
+    p = _song_manifest_path(project_name)
+    if p.exists():
+        try:
+            return json.loads(p.read_text(encoding="utf-8"))
+        except Exception:
+            pass
+    return {
+        "name": project_name,
+        "slug": _song_slug(project_name),
+        "created_at": datetime.now(timezone.utc).isoformat(),
+        "songs": [],
+    }
+
+
+def save_song_manifest(project_name: str, manifest: dict) -> None:
+    p = _song_manifest_path(project_name)
+    manifest["updated_at"] = datetime.now(timezone.utc).isoformat()
+    p.write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def list_song_projects() -> list[dict]:
+    """List all song projects with counts, newest first."""
+    out = []
+    root = _song_projects_root()
+    for d in sorted(root.iterdir(), key=lambda p: p.stat().st_mtime, reverse=True):
+        if not d.is_dir():
+            continue
+        name, songs = d.name, []
+        mp = d / "manifest.json"
+        if mp.exists():
+            try:
+                data = json.loads(mp.read_text(encoding="utf-8"))
+                name = data.get("name", d.name)
+                songs = data.get("songs", [])
+            except Exception:
+                pass
+        out.append({"name": name, "slug": d.name, "song_count": len(songs), "path": str(d)})
+    return out
+
+
+def song_project_download_dir(project_name: str, title: str) -> Path:
+    """Download dir for a new song, inside the project's songs/ folder."""
+    pdir = song_project_dir(project_name)
+    ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+    safe = re.sub(r'[/\\:*?"<>|]', "_", title).replace(" ", "-")[:40]
+    d = pdir / "songs" / f"{ts}_{safe}"
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+def add_song_to_project(project_name: str, song: dict) -> dict:
+    """Record a song in the project manifest (file already in project folder)."""
+    song = dict(song)
+    song["project"] = project_name
+    song["project_slug"] = _song_slug(project_name)
+    manifest = load_song_manifest(project_name)
+    manifest["songs"].insert(0, song)
+    save_song_manifest(project_name, manifest)
+    return song
+
+
+def get_song_project_songs(project_name: str) -> list[dict]:
+    return load_song_manifest(project_name).get("songs", [])
+
+
+def delete_song_project(project_name: str) -> bool:
+    pdir = _song_projects_root() / _song_slug(project_name)
+    if pdir.exists():
+        try:
+            shutil.rmtree(pdir)
+            return True
+        except Exception:
+            return False
+    return False
