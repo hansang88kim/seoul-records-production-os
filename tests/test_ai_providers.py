@@ -234,10 +234,11 @@ def test_mock_songs_under_440_chars():
 
 
 def test_system_prompt_has_char_limits():
-    """SYSTEM_PROMPT must specify line limits and total char target."""
+    """SYSTEM_PROMPT (Korean default) must specify line counts + char target."""
     from providers.ai.base import SYSTEM_PROMPT
-    assert "8-17" in SYSTEM_PROMPT or "4 lines" in SYSTEM_PROMPT
-    assert "380-420" in SYSTEM_PROMPT or "420" in SYSTEM_PROMPT
+    assert "4 lines" in SYSTEM_PROMPT
+    # Korean char target lives in the language config
+    assert "280-340" in SYSTEM_PROMPT or "Korean characters" in SYSTEM_PROMPT
 
 
 def test_user_prompt_emphasizes_length():

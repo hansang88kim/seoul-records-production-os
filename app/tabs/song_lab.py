@@ -262,7 +262,7 @@ def render_song_lab():
         _render_quick_single()
 
 
-def _generate_plan_only(concept: str, ai_provider_name: str) -> dict:
+def _generate_plan_only(concept: str, ai_provider_name: str, language: str = "korean") -> dict:
     """
     AI writes ONE song's title/style/lyrics (no Suno generation yet).
     Returns a draft dict for the plan preview.
@@ -272,7 +272,7 @@ def _generate_plan_only(concept: str, ai_provider_name: str) -> dict:
     draft = {"status": "drafted", "title": "", "style": "", "lyrics": "", "error": ""}
     try:
         ai = get_ai_provider(ai_provider_name)
-        pkg = ai.generate_song_package(concept)
+        pkg = ai.generate_song_package(concept, language=language)
         draft["title"] = pkg.title
         draft["style"] = pkg.style
         draft["lyrics"] = pkg.lyrics
@@ -471,6 +471,25 @@ def _render_auto_batch():
     with col_count:
         count = st.number_input("곡 수", min_value=1, max_value=20, value=5, step=1, key="auto_count")
 
+    # Language selector
+    from providers.ai.languages import language_choices, get_language
+    lang_opts = language_choices()
+    col_lang, col_langnote = st.columns([1, 3])
+    with col_lang:
+        lang_idx = st.selectbox(
+            "언어", range(len(lang_opts)),
+            format_func=lambda i: lang_opts[i][1],
+            key="auto_language_idx",
+        )
+    auto_language = lang_opts[lang_idx][0]
+    with col_langnote:
+        _lg = get_language(auto_language)
+        st.markdown(
+            f"<div style='font-size:0.78rem;color:#7a8aa0;padding-top:30px'>"
+            f"🌏 가사: {_lg['lyric_language']} · 도시 감성: {_lg['city']}</div>",
+            unsafe_allow_html=True,
+        )
+
     with st.expander("⚙️ 공통 설정 (모델 / 보컬)", expanded=False):
         col_m, col_v = st.columns(2)
         with col_m:
@@ -497,7 +516,7 @@ def _render_auto_batch():
             stat = st.empty()
             for n in range(int(count)):
                 stat.info(f"📝 {n+1}/{count}곡 작곡 중... (AI가 제목/스타일/가사 생성)")
-                draft = _generate_plan_only(concept.strip(), ai_provider_name)
+                draft = _generate_plan_only(concept.strip(), ai_provider_name, language=auto_language)
                 plan.append(draft)
                 prog.progress((n + 1) / count)
             st.session_state["auto_plan_data"] = plan

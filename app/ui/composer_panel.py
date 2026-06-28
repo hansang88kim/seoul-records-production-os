@@ -84,6 +84,28 @@ def render_composer_panel() -> dict | None:
             label_visibility="collapsed",
         )
 
+    # Language selector — picks the lyric language + city emotion
+    from providers.ai.languages import language_choices
+    lang_opts = language_choices()
+    col_lang, col_langnote = st.columns([1, 3])
+    with col_lang:
+        lang_idx = st.selectbox(
+            "언어", range(len(lang_opts)),
+            format_func=lambda i: lang_opts[i][1],
+            key="ai_language_idx",
+            label_visibility="collapsed",
+        )
+    selected_language = lang_opts[lang_idx][0]
+    with col_langnote:
+        from providers.ai.languages import get_language
+        _lg = get_language(selected_language)
+        st.markdown(
+            f"<div style='font-size:0.78rem;color:#7a8aa0;padding-top:6px'>"
+            f"🌏 가사: {_lg['lyric_language']} · 도시 감성: {_lg['city']} "
+            f"(스타일은 동일한 Japanese citypop)</div>",
+            unsafe_allow_html=True,
+        )
+
     # Availability warning
     if not selected_provider["available"] and selected_provider["name"] != "mock":
         key_name = "OPENAI_API_KEY" if selected_provider["name"] == "openai" else "GOOGLE_GEMINI_API_KEY"
@@ -104,7 +126,7 @@ def render_composer_panel() -> dict | None:
             if provider:
                 with st.spinner("AI 작곡 중..."):
                     try:
-                        pkg = provider.generate_song_package(concept.strip())
+                        pkg = provider.generate_song_package(concept.strip(), language=selected_language)
                         # Respect locks — don't overwrite locked fields
                         if not st.session_state.get("lock_title"):
                             st.session_state["form_title"] = pkg.title
@@ -122,7 +144,7 @@ def render_composer_panel() -> dict | None:
             if provider and not st.session_state.get("lock_title"):
                 with st.spinner("..."):
                     try:
-                        st.session_state["form_title"] = provider.generate_title(concept.strip())
+                        st.session_state["form_title"] = provider.generate_title(concept.strip(), language=selected_language)
                         st.session_state["prompt_confirmed"] = False
                         st.rerun()
                     except Exception as e:
@@ -133,7 +155,7 @@ def render_composer_panel() -> dict | None:
             if provider and not st.session_state.get("lock_style"):
                 with st.spinner("..."):
                     try:
-                        st.session_state["form_style"] = provider.generate_style(concept.strip())
+                        st.session_state["form_style"] = provider.generate_style(concept.strip(), language=selected_language)
                         st.session_state["prompt_confirmed"] = False
                         st.rerun()
                     except Exception as e:
@@ -144,7 +166,7 @@ def render_composer_panel() -> dict | None:
             if provider and not st.session_state.get("lock_lyrics"):
                 with st.spinner("..."):
                     try:
-                        st.session_state["form_lyrics"] = provider.generate_lyrics(concept.strip())
+                        st.session_state["form_lyrics"] = provider.generate_lyrics(concept.strip(), language=selected_language)
                         st.session_state["prompt_confirmed"] = False
                         st.rerun()
                     except Exception as e:
