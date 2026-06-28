@@ -105,9 +105,13 @@ def render_composer_panel() -> dict | None:
                 with st.spinner("AI 작곡 중..."):
                     try:
                         pkg = provider.generate_song_package(concept.strip())
-                        st.session_state["form_title"] = pkg.title
-                        st.session_state["form_lyrics"] = pkg.lyrics
-                        st.session_state["form_style"] = pkg.style
+                        # Respect locks — don't overwrite locked fields
+                        if not st.session_state.get("lock_title"):
+                            st.session_state["form_title"] = pkg.title
+                        if not st.session_state.get("lock_lyrics"):
+                            st.session_state["form_lyrics"] = pkg.lyrics
+                        if not st.session_state.get("lock_style"):
+                            st.session_state["form_style"] = pkg.style
                         st.session_state["prompt_confirmed"] = False
                         st.rerun()
                     except Exception as e:
@@ -179,36 +183,48 @@ def render_composer_panel() -> dict | None:
         st.checkbox("🔒", key="lock_lyrics", label_visibility="collapsed")
 
     # Lyric length + estimated duration indicator
-    if lyrics.strip():
-        lyric_chars = sum(
-            len(l.strip().replace("(", "").replace(")", ""))
-            for l in lyrics.split("\n")
-            if l.strip() and not l.strip().startswith("[")
-        )
-        # Reference: ~340 chars ≈ 3:30 at citypop tempo (calibrated)
-        est_sec = int(lyric_chars / 115 * 60) + 15  # +15 for intro/outro
-        est_min, est_s = divmod(est_sec, 60)
-        if lyric_chars > 360:
-            st.warning(f"⚠️ 가사 {lyric_chars}자 · 예상 ~{est_min}:{est_s:02d} (너무 김 — 340자 이하로)")
-        elif lyric_chars < 240:
-            st.caption(f"가사 {lyric_chars}자 · 예상 ~{est_min}:{est_s:02d} (조금 짧음)")
-        else:
-            st.caption(f"✅ 가사 {lyric_chars}자 · 예상 ~{est_min}:{est_s:02d} (3:30 적정)")
+    lyric_chars = sum(
+        len(l.strip().replace("(", "").replace(")", ""))
+        for l in lyrics.split("\n")
+        if l.strip() and not l.strip().startswith("[")
+    )
+    # Reference: ~400 chars ≈ 3:30 at citypop tempo (calibrated to 명동 블루스)
+    est_sec = int(lyric_chars / 118 * 60) + 15  # +15 for intro/outro instrumental
+    est_min, est_s = divmod(est_sec, 60)
+    if lyric_chars == 0:
+        st.caption("0/420 · 가사를 입력하세요")
+    elif lyric_chars > 440:
+        st.warning(f"⚠️ {lyric_chars}/420 · 예상 ~{est_min}:{est_s:02d} (너무 김 — 420자 이하 권장)")
+    elif lyric_chars < 340:
+        st.caption(f"{lyric_chars}/420 · 예상 ~{est_min}:{est_s:02d} (조금 짧을 수 있음)")
+    else:
+        st.caption(f"✅ {lyric_chars}/420 · 예상 ~{est_min}:{est_s:02d} (3:30 적정)")
 
     # Style
+    col_slabel, col_spreset = st.columns([3, 1])
+    with col_slabel:
+        st.markdown("<div style='font-size:0.85rem;color:#9aa5b8;padding-top:4px'>🎨 스타일 태그</div>", unsafe_allow_html=True)
+    with col_spreset:
+        if st.button("프리셋 적용", key="apply_preset", use_container_width=True,
+                     help="고정 시티팝 스타일로 되돌리기"):
+            st.session_state["form_style"] = CITYPOP_STYLE_PRESET
+            st.rerun()
+
     col_s, col_sl = st.columns([6, 1])
     with col_s:
         style = st.text_area(
-            "스타일 태그", height=60, key="form_style",
+            "스타일 태그", height=80, key="form_style",
+            label_visibility="collapsed",
         )
     with col_sl:
-        st.checkbox("🔒", key="lock_style", label_visibility="collapsed")
+        st.checkbox("🔒", key="lock_style", label_visibility="collapsed",
+                    help="잠그면 AI 생성 시 스타일이 바뀌지 않습니다")
 
     style_len = len(style)
     if style_len > 1000:
-        st.error(f"⚠️ 스타일 {style_len}자 — Suno 제한 1000자 초과")
+        st.error(f"⚠️ {style_len}/1000 — Suno 제한 초과")
     else:
-        st.caption(f"{style_len}/1000 · 제외 스타일은 생성 시 자동으로 -prefix 추가됨")
+        st.caption(f"{style_len}/1000 · 제외 스타일은 생성 시 자동 -prefix 추가")
 
     # Exclude
     exclude = st.text_input("제외 스타일", value=DEFAULT_EXCLUDE, key="form_exclude")
