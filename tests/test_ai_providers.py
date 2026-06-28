@@ -328,3 +328,53 @@ def test_system_prompt_bans_cues():
     from providers.ai.base import SYSTEM_PROMPT
     assert "WRONG" in SYSTEM_PROMPT or "CLEAN" in SYSTEM_PROMPT
     assert "[Bridge," in SYSTEM_PROMPT  # shows the banned example
+
+
+# ─── v0.5.4 Phase 2: Composer Variation Layer ───────────────────────────────
+
+def test_batch_variation_different_bpms():
+    """apply_batch_variation gives different BPMs for different tracks."""
+    from providers.ai.base import apply_batch_variation
+    from app.ui.composer_panel import CITYPOP_STYLE_PRESET
+    import re
+    bpms = set()
+    for i in range(5):
+        v = apply_batch_variation(CITYPOP_STYLE_PRESET, i)
+        m = re.search(r"BPM (\d+)", v)
+        assert m, f"Track {i} missing BPM"
+        bpms.add(m.group(1))
+    # At least 3 different BPMs in 5 tracks
+    assert len(bpms) >= 3, f"Only {len(bpms)} unique BPMs in 5 tracks"
+
+
+def test_batch_variation_different_keys():
+    """apply_batch_variation gives different keys for different tracks."""
+    from providers.ai.base import apply_batch_variation
+    from app.ui.composer_panel import CITYPOP_STYLE_PRESET
+    import re
+    keys = set()
+    for i in range(5):
+        v = apply_batch_variation(CITYPOP_STYLE_PRESET, i)
+        m = re.search(r"([A-G][#b]? (?:major|minor))", v)
+        assert m, f"Track {i} missing key"
+        keys.add(m.group(1))
+    assert len(keys) >= 3, f"Only {len(keys)} unique keys in 5 tracks"
+
+
+def test_batch_variation_preserves_core_genre():
+    """Variations keep the Japanese city pop core."""
+    from providers.ai.base import apply_batch_variation
+    from app.ui.composer_panel import CITYPOP_STYLE_PRESET
+    for i in range(5):
+        v = apply_batch_variation(CITYPOP_STYLE_PRESET, i)
+        assert "Japanese city pop" in v or "city pop" in v.lower()
+        assert "sax" not in v.lower()
+
+
+def test_batch_variation_under_900_chars():
+    """Style variation stays under 900 chars (Suno limit ~1000)."""
+    from providers.ai.base import apply_batch_variation
+    from app.ui.composer_panel import CITYPOP_STYLE_PRESET
+    for i in range(10):
+        v = apply_batch_variation(CITYPOP_STYLE_PRESET, i)
+        assert len(v) < 900, f"Track {i}: {len(v)} chars (max 900)"

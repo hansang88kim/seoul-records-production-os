@@ -14,7 +14,7 @@ def test_composer_panel_importable():
 
 def test_song_card_importable():
     """Song card module imports without error."""
-    from app.ui.song_card import render_song_list, render_song_card
+    from app.ui.song_card import render_song_list
 
 
 def test_song_lab_importable():

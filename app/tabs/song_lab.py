@@ -310,7 +310,7 @@ def render_song_lab():
 
 
 def _generate_plan_only(concept: str, ai_provider_name: str, language: str = "korean",
-                       locked_style: str = "") -> dict:
+                       locked_style: str = "", track_no: int = 0) -> dict:
     """
     AI writes ONE song's title/style/lyrics (no Suno generation yet).
     If locked_style is set, use it instead of AI-generated style.
@@ -324,6 +324,10 @@ def _generate_plan_only(concept: str, ai_provider_name: str, language: str = "ko
         pkg = ai.generate_song_package(concept, language=language)
         if locked_style:
             pkg.style = locked_style  # override with the locked preset
+        # Apply composer variation so each batch song is slightly different
+        from providers.ai.base import apply_batch_variation
+        draft["track_no"] = track_no
+        pkg.style = apply_batch_variation(pkg.style, track_no)
         draft["title"] = pkg.title
         draft["style"] = pkg.style
         draft["lyrics"] = pkg.lyrics
@@ -618,7 +622,8 @@ def _render_auto_batch():
                 stat.info(f"📝 {n+1}/{count}곡 작곡 중... (AI가 제목/스타일/가사 생성)")
                 locked = auto_style.strip() if st.session_state.get("auto_lock_style") else ""
                 draft = _generate_plan_only(concept.strip(), ai_provider_name,
-                                            language=auto_language, locked_style=locked)
+                                            language=auto_language, locked_style=locked,
+                                            track_no=n)
                 plan.append(draft)
                 prog.progress((n + 1) / count)
             st.session_state["auto_plan_data"] = plan
@@ -649,17 +654,81 @@ def _render_auto_batch():
             status = draft.get("status", "drafted")
             status_icon = {"drafted": "📝", "generated": "✅", "failed": "❌",
                             "no_files": "⚠️", "draft_failed": "❌"}.get(status, "•")
-            with st.expander(f"{status_icon} {i+1}. {title}  ·  가사 {chars}자", expanded=(status in ("failed", "draft_failed"))):
+            # Extract BPM and Key from style for display
+            import re as _re
+            _bpm_m = _re.search(r'BPM (\d+)', draft.get("style", ""))
+            _key_m = _re.search(r'([A-G][#b]? (?:major|minor))', draft.get("style", ""))
+            _info = f"가사 {chars}자"
+            if _bpm_m:
+                _info += f" · BPM {_bpm_m.group(1)}"
+            if _key_m:
+                _info += f" · {_key_m.group(1)}"
+            with st.expander(f"{status_icon} {i+1}. {title}  ·  {_info}", expanded=(status in ("failed", "draft_failed"))):
                 if draft.get("error"):
                     st.error(draft["error"])
-                # Per-song retry button for failed songs
+                # Per-song controls
                 if status in ("failed", "no_files", "draft_failed") and cookie:
-                    if st.button(f"🔄 {i+1}번 곡 재시도", key=f"retry_{i}", use_container_width=True):
+                    if st.button(f"🔄 {i+1}번 곡 Suno 재시도", key=f"retry_{i}", use_container_width=True):
                         with st.spinner(f"🎵 {title} 재생성 중..."):
                             res = _generate_one_from_draft(draft, base_params, project=project or "기본")
                             plan[i] = res
                             st.session_state["auto_plan_data"] = plan
                             st.rerun()
+
+                # Per-track AI regenerate controls
+                rg_cols = st.columns(4)
+                with rg_cols[0]:
+                    if st.button("🔄 전체", key=f"regen_all_{i}", help="제목+스타일+가사 재생성",
+                                 use_container_width=True):
+                        with st.spinner("재생성 중..."):
+                            ai_name = available[prov_idx]["name"] if available else "mock"
+                            new_draft = _generate_plan_only(
+                                concept.strip(), ai_name,
+                                language=auto_language, locked_style="", track_no=i)
+                            plan[i].update({
+                                "title": new_draft.get("title", ""),
+                                "style": new_draft.get("style", ""),
+                                "lyrics": new_draft.get("lyrics", ""),
+                                "lyric_chars": new_draft.get("lyric_chars", 0),
+                                "status": "drafted",
+                            })
+                            st.session_state["auto_plan_data"] = plan
+                            st.rerun()
+                with rg_cols[1]:
+                    if st.button("📝 제목만", key=f"regen_title_{i}", help="제목만 재생성",
+                                 use_container_width=True):
+                        with st.spinner("제목 재생성..."):
+                            from providers.ai.base import get_ai_provider
+                            ai_name = available[prov_idx]["name"] if available else "mock"
+                            ai = get_ai_provider(ai_name)
+                            plan[i]["title"] = ai.generate_title(concept.strip(), language=auto_language)
+                            plan[i]["status"] = "drafted"
+                            st.session_state["auto_plan_data"] = plan
+                            st.rerun()
+                with rg_cols[2]:
+                    if st.button("🎨 스타일", key=f"regen_style_{i}", help="스타일 변주",
+                                 use_container_width=True):
+                        with st.spinner("스타일 변주..."):
+                            from providers.ai.base import apply_batch_variation
+                            from app.ui.composer_panel import CITYPOP_STYLE_PRESET
+                            base = auto_style.strip() or CITYPOP_STYLE_PRESET
+                            plan[i]["style"] = apply_batch_variation(base, i + hash(plan[i].get("title", "")) % 8)
+                            st.session_state["auto_plan_data"] = plan
+                            st.rerun()
+                with rg_cols[3]:
+                    if st.button("✍️ 가사만", key=f"regen_lyrics_{i}", help="가사만 재생성",
+                                 use_container_width=True):
+                        with st.spinner("가사 재생성..."):
+                            from providers.ai.base import get_ai_provider
+                            ai_name = available[prov_idx]["name"] if available else "mock"
+                            ai = get_ai_provider(ai_name)
+                            plan[i]["lyrics"] = ai.generate_lyrics(concept.strip(), language=auto_language)
+                            from providers.ai.base import _lyrics_char_count
+                            plan[i]["lyric_chars"] = _lyrics_char_count(plan[i]["lyrics"])
+                            plan[i]["status"] = "drafted"
+                            st.session_state["auto_plan_data"] = plan
+                            st.rerun()
+
                 # Editable fields
                 draft["title"] = st.text_input("제목", value=draft.get("title", ""), key=f"plan_title_{i}")
                 draft["style"] = st.text_area("스타일", value=draft.get("style", ""), height=80, key=f"plan_style_{i}")
@@ -668,7 +737,12 @@ def _render_auto_batch():
                 from providers.ai.base import _lyrics_char_count
                 lc = _lyrics_char_count(draft["lyrics"])
                 est = int(lc / 118 * 60) + 15
-                st.caption(f"가사 {lc}자 · 예상 ~{est//60}:{est%60:02d}")
+                if lc > 420:
+                    st.warning(f"⚠️ 가사 본문 {lc}자 · 예상 ~{est//60}:{est%60:02d} (420자 이하로)")
+                elif lc < 360:
+                    st.caption(f"가사 본문 {lc}자 · 예상 ~{est//60}:{est%60:02d} (360자 이상 권장)")
+                else:
+                    st.caption(f"✅ 가사 본문 {lc}자 · 예상 ~{est//60}:{est%60:02d}")
 
         st.session_state["auto_plan_data"] = plan  # save edits
 

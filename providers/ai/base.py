@@ -297,6 +297,85 @@ def generate_style_variation(current_style: str, provider_name: str = "openai") 
         return current_style
 
 
+
+# ── Composer Variation Layer ─────────────────────────────────────────────────
+# Each song in a batch should have slightly different BPM, Key, and vocal tone.
+
+_BATCH_BPMS = [108, 110, 111, 112, 113, 114, 115, 116]
+_BATCH_KEYS = [
+    "A minor", "B minor", "C# minor", "D minor", "E minor",
+    "F# minor", "G# minor", "Ab major", "Bb minor", "Eb minor",
+]
+_BATCH_VOCAL_TONES = [
+    "emotional low female vocal with warm reverb and tender vibrato",
+    "husky low female vocal with vintage plate reverb and gentle vibrato",
+    "intimate mid-low female vocal with soft reverb and subtle warmth",
+    "calm smoky female vocal with warm analog reverb",
+    "breath-led low alto female vocal with vintage reverb and subtle vibrato",
+    "tender low female vocal with glossy reverb and soft vibrato",
+]
+_BATCH_KEYBOARD_TEXTURES = [
+    "lush warm electric piano", "glossy Rhodes electric piano",
+    "vintage Wurlitzer", "warm DX7 electric piano", "smooth CP-70 piano",
+    "FM bell-layered electric piano",
+]
+_BATCH_MOOD_SHADES = [
+    "the wistful loneliness of city nights",
+    "quiet taxi ride through empty streets",
+    "apartment window glow at midnight",
+    "last train mood, station lights fading",
+    "after-rain city lights reflecting on wet asphalt",
+    "weekend melancholy in an empty office",
+]
+
+
+def apply_batch_variation(base_style: str, track_no: int) -> str:
+    """
+    Apply deterministic variation to a base style for a specific track number.
+    Changes BPM, key, vocal tone, keyboard texture, and mood shade
+    while keeping the core genre and instruments.
+    """
+    import re
+
+    style = base_style
+    idx = track_no % len(_BATCH_BPMS)
+
+    # Replace BPM
+    bpm_new = _BATCH_BPMS[idx]
+    style = re.sub(r'BPM \d+', f'BPM {bpm_new}', style)
+
+    # Add/replace key
+    key_new = _BATCH_KEYS[track_no % len(_BATCH_KEYS)]
+    if re.search(r'[A-G][#b]? (?:major|minor)', style):
+        style = re.sub(r'[A-G][#b]? (?:major|minor)', key_new, style)
+    else:
+        style = style.replace(f'BPM {bpm_new}', f'{key_new}, BPM {bpm_new}')
+
+    # Replace vocal tone
+    vocal_new = _BATCH_VOCAL_TONES[track_no % len(_BATCH_VOCAL_TONES)]
+    for old_vocal in _BATCH_VOCAL_TONES + [
+        "emotional low female vocal with warm reverb and subtle vibrato",
+    ]:
+        if old_vocal in style:
+            style = style.replace(old_vocal, vocal_new)
+            break
+
+    # Replace keyboard texture (if present)
+    kb_new = _BATCH_KEYBOARD_TEXTURES[track_no % len(_BATCH_KEYBOARD_TEXTURES)]
+    for old_kb in _BATCH_KEYBOARD_TEXTURES:
+        if old_kb in style:
+            style = style.replace(old_kb, kb_new)
+            break
+
+    # Replace mood shade (if present)
+    mood_new = _BATCH_MOOD_SHADES[track_no % len(_BATCH_MOOD_SHADES)]
+    for old_mood in _BATCH_MOOD_SHADES:
+        if old_mood in style:
+            style = style.replace(old_mood, mood_new)
+            break
+
+    return style
+
 # Backward-compatible default (Korean) — some code/tests reference SYSTEM_PROMPT.
 SYSTEM_PROMPT = build_system_prompt(DEFAULT_LANGUAGE)
 
