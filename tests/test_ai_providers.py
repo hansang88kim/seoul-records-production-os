@@ -245,3 +245,34 @@ def test_user_prompt_emphasizes_length():
     from providers.ai.base import _make_user_prompt
     prompt = _make_user_prompt("test", "all")
     assert "3:30" in prompt
+
+
+# ─── Coerce list/None responses (fix 'list' has no attribute 'replace') ──────
+
+def test_coerce_str_handles_list():
+    """_coerce_str converts list → newline-joined string (lyrics case)."""
+    from providers.ai.base import _coerce_str
+    assert _coerce_str(["line1", "line2"]) == "line1\nline2"
+    assert _coerce_str(["청계천", "거리"]) == "청계천\n거리"
+
+
+def test_coerce_str_handles_none_and_str():
+    from providers.ai.base import _coerce_str
+    assert _coerce_str(None) == ""
+    assert _coerce_str("text") == "text"
+    assert _coerce_str(123) == "123"
+
+
+def test_format_lyrics_accepts_list():
+    """_format_lyrics no longer crashes when given a list (AI sometimes returns one)."""
+    from providers.ai.base import _format_lyrics
+    # This previously raised: 'list' object has no attribute 'replace'
+    result = _format_lyrics(["[Verse 1]", "가사 첫 줄", "가사 둘째 줄"])
+    assert "[Verse 1]" in result
+    assert "가사 첫 줄" in result
+
+
+def test_coerce_str_handles_dict():
+    from providers.ai.base import _coerce_str
+    out = _coerce_str({"a": "x", "b": "y"})
+    assert "x" in out and "y" in out

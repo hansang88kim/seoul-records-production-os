@@ -217,6 +217,27 @@ def _lyrics_char_count(lyrics: str) -> int:
     return total
 
 
+def _coerce_str(value) -> str:
+    """
+    Safely convert an AI response field to a string.
+    AI sometimes returns a list (e.g. lyrics as ["line1", "line2"]) or None.
+    - list/tuple → joined with newlines (lyrics) or spaces
+    - None → ""
+    - dict → its values joined
+    - str → as-is
+    """
+    if value is None:
+        return ""
+    if isinstance(value, str):
+        return value
+    if isinstance(value, (list, tuple)):
+        # Join list items (each coerced) with newlines — works for lyrics lines
+        return "\n".join(_coerce_str(v) for v in value)
+    if isinstance(value, dict):
+        return "\n".join(_coerce_str(v) for v in value.values())
+    return str(value)
+
+
 def _format_lyrics(lyrics: str) -> str:
     """
     Normalize lyrics formatting for clean aligned display:
@@ -225,6 +246,7 @@ def _format_lyrics(lyrics: str) -> str:
     - Collapse multiple blank lines into one
     - No leading/trailing blank lines
     """
+    lyrics = _coerce_str(lyrics)
     if not lyrics:
         return ""
 
@@ -479,13 +501,13 @@ class OpenAIProvider:
 
     def generate_song_package(self, concept: str, locked: dict | None = None) -> SongPromptPackage:
         data = self._call(concept, "all")
-        title = data.get("title", "").strip()
+        title = _coerce_str(data.get("title", "")).strip()
         lyrics = _format_lyrics(data.get("lyrics", ""))
         if not title:
             title = _title_from_lyrics(lyrics) or "제목 없음"
         return SongPromptPackage(
             title=title,
-            style=data.get("style", ""),
+            style=_coerce_str(data.get("style", "")).strip(),
             lyrics=lyrics,
             metadata={"ai_provider": "openai", "ai_model": self.MODEL_NAME,
                        "generated_at": datetime.now(timezone.utc).isoformat(),
@@ -493,13 +515,13 @@ class OpenAIProvider:
         )
 
     def generate_title(self, concept: str) -> str:
-        return self._call(concept, "title").get("title", "")
+        return _coerce_str(self._call(concept, "title").get("title", "")).strip()
 
     def generate_style(self, concept: str) -> str:
-        return self._call(concept, "style").get("style", "")
+        return _coerce_str(self._call(concept, "style").get("style", "")).strip()
 
     def generate_lyrics(self, concept: str) -> str:
-        return self._call(concept, "lyrics").get("lyrics", "")
+        return _format_lyrics(self._call(concept, "lyrics").get("lyrics", ""))
 
 
 # ─── Gemini Provider ─────────────────────────────────────────────────────────
@@ -655,13 +677,13 @@ class GeminiProvider:
 
     def generate_song_package(self, concept: str, locked: dict | None = None) -> SongPromptPackage:
         data = self._call(concept, "all")
-        title = data.get("title", "").strip()
+        title = _coerce_str(data.get("title", "")).strip()
         lyrics = _format_lyrics(data.get("lyrics", ""))
         if not title:
             title = _title_from_lyrics(lyrics) or "제목 없음"
         return SongPromptPackage(
             title=title,
-            style=data.get("style", ""),
+            style=_coerce_str(data.get("style", "")).strip(),
             lyrics=lyrics,
             metadata={"ai_provider": "gemini", "ai_model": self.MODEL_NAME,
                        "generated_at": datetime.now(timezone.utc).isoformat(),
@@ -669,13 +691,13 @@ class GeminiProvider:
         )
 
     def generate_title(self, concept: str) -> str:
-        return self._call(concept, "title").get("title", "")
+        return _coerce_str(self._call(concept, "title").get("title", "")).strip()
 
     def generate_style(self, concept: str) -> str:
-        return self._call(concept, "style").get("style", "")
+        return _coerce_str(self._call(concept, "style").get("style", "")).strip()
 
     def generate_lyrics(self, concept: str) -> str:
-        return self._call(concept, "lyrics").get("lyrics", "")
+        return _format_lyrics(self._call(concept, "lyrics").get("lyrics", ""))
 
 
 # ─── Provider Registry ──────────────────────────────────────────────────────
