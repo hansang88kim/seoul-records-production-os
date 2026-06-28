@@ -40,13 +40,10 @@ from pathlib import Path
 TEST_TITLE = "밤이 지나면"
 
 TEST_STYLE = (
-    "Key: A minor. Japanese nostalgic citypop with a late-1990s Seoul night mood, "
-    "smooth CP-70 electric piano, DX7 glassy keys, chorus guitar, warm bass, "
-    "soft synth layers, restrained drums entering after a 4-bar instrumental intro, "
-    "low thick Korean female vocal, intimate and calm. "
-    "No sax lead, no drum fill-ins, no tom fills, no snare rolls, "
-    "no trot, no enka, no EDM, no bleepy sounds, no toy percussion."
+    "Japanese citypop, A minor, CP-70 electric piano, DX7, chorus guitar, "
+    "warm bass, soft synth, low thick female vocal, calm, intimate, 1990s Seoul night"
 )
+# Suno tags field limit: 200 chars. Negative styles go to --exclude flag.
 
 TEST_LYRICS = """[Intro]
 (4마디 음원 (instrumental only))
