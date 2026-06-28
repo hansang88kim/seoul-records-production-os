@@ -405,8 +405,11 @@ with st.sidebar:
     # ── Job Status Panel ─────────────────────────────────────────────
     # Recover interrupted jobs on each render (detects dead workers)
     try:
-        from services.generation_job_manager import mark_interrupted_jobs
+        from services.generation_job_manager import mark_interrupted_jobs, start_next_queued_job
         mark_interrupted_jobs()
+        # Safety net: if nothing is running but jobs are queued, start the next
+        # (covers the case where a worker died before chaining the queue)
+        start_next_queued_job()
     except Exception:
         pass
 
@@ -418,10 +421,20 @@ with st.sidebar:
         if active:
             st.markdown("<div style='color:#6a7a94;font-size:0.7rem;font-weight:600;text-transform:uppercase;letter-spacing:1.5px;margin:0.3rem 0'>🔄 진행 중</div>", unsafe_allow_html=True)
             for j in active:
+                if j.get("status") != "running":
+                    continue
                 pct = j.get("progress_percent", 0) or 0
                 title = j.get("current_track_title", "")
                 st.progress(pct / 100)
                 st.caption(f"🎵 {title} · {j.get('completed_tracks',0)}/{j.get('total_tracks',0)}곡")
+
+        # Queued jobs
+        from services.generation_job_manager import get_queued_jobs
+        queued = get_queued_jobs()
+        if queued:
+            st.markdown("<div style='color:#6a7a94;font-size:0.7rem;font-weight:600;text-transform:uppercase;letter-spacing:1.5px;margin:0.3rem 0'>📋 대기열</div>", unsafe_allow_html=True)
+            for qi, j in enumerate(queued):
+                st.caption(f"⏳ {qi+1}. {j.get('project','?')} · {j.get('total_tracks',0)}곡 대기 중")
 
         completed = [j for j in recent if j.get("status") in ("completed", "partially_failed")]
         if completed:

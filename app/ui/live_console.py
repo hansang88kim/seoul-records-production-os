@@ -18,16 +18,42 @@ _STATUS_ICONS = {
 }
 
 
+def render_queue_panel():
+    """Show queued jobs waiting to start."""
+    from services.generation_job_manager import get_queued_jobs
+    queued = get_queued_jobs()
+    if not queued:
+        return
+    st.markdown("### 📋 대기열")
+    st.caption("현재 작업이 끝나면 아래 순서대로 자동 생성됩니다.")
+    for qi, j in enumerate(queued):
+        cols = st.columns([4, 1])
+        with cols[0]:
+            st.write(f"**{qi+1}.** {j.get('project','?')} · {j.get('total_tracks',0)}곡 ⏳ 대기 중")
+        with cols[1]:
+            if st.button("취소", key=f"cancel_queue_{j['job_id']}", use_container_width=True):
+                from services.job_store import update_job
+                update_job(j["job_id"], status="cancelled",
+                           last_message="사용자가 대기열에서 취소함")
+                st.rerun()
+
+
 def render_active_job_console():
     """
     Show the live console for the currently active job.
     Auto-detects the active job or uses the one from session_state.
     """
-    # Find active job
-    job_id = st.session_state.get("active_job_id")
-    active = get_active_jobs()
+    # Show the queue first
+    render_queue_panel()
 
-    if not job_id and active:
+    # Find active job (prefer a RUNNING one)
+    active = get_active_jobs()
+    running = [j for j in active if j.get("status") == "running"]
+    job_id = st.session_state.get("active_job_id")
+
+    if running:
+        job_id = running[0]["job_id"]
+    elif not job_id and active:
         job_id = active[0]["job_id"]
 
     if not job_id:

@@ -45,72 +45,33 @@ def start_generation_job(
     Returns the job state dict immediately (non-blocking).
     The actual generation runs in a separate process.
     """
-    # Check for duplicate — don't start if same project already running
+    # If a job is already running, QUEUE this one instead of blocking.
+    # The running job's worker will pick up queued jobs when it finishes.
     active = get_active_jobs()
-    for j in active:
-        if j.get("project") == project and j.get("status") == "running":
-            return {
-                "error": "duplicate",
-                "message": f"이미 '{project}'에 대한 생성 작업이 진행 중입니다.",
-                "existing_job_id": j["job_id"],
-            }
+    running = [j for j in active if j.get("status") == "running"]
 
-    # Create job
+    # Create the job
     job = create_job(project=project, mode=mode, total_tracks=len(plan), plan=plan)
     job_id = job["job_id"]
 
-    # Save settings
+    # Save settings (needed whether we run now or queue)
     jobs_dir = _job_store._jobs_dir() / job_id
     settings_path = jobs_dir / "settings.json"
     settings_path.write_text(
         json.dumps(settings, ensure_ascii=False, indent=2), encoding="utf-8"
     )
 
-    # Launch worker as a FULLY DETACHED process.
-    # On Windows we use pythonw.exe (no console at all) so the worker — and
-    # the suno.exe / Chrome it spawns — share NO console with Streamlit.
-    # This is the only reliable way to prevent suno.exe's Ctrl+C
-    # (STATUS_CONTROL_C_EXIT) from killing the Streamlit server.
-    import subprocess
+    if running:
+        # Mark as queued — a running worker will pick it up
+        update_job(job_id, status="queued",
+                   last_message=f"대기열에 추가됨 — 현재 작업 완료 후 자동 시작")
+        result = load_job(job_id) or job
+        result["queued"] = True
+        result["queued_behind"] = running[0]["job_id"]
+        return result
 
-    python_exe = sys.executable
-    if _sys_platform() == "win32":
-        # Prefer pythonw.exe (windowless) to fully break console association
-        pythonw = Path(python_exe).with_name("pythonw.exe")
-        if pythonw.exists():
-            python_exe = str(pythonw)
-
-    worker_cmd = [python_exe, "-m", "workers.suno_generation_worker", job_id]
-
-    # Windows: detach completely from parent console
-    popen_kwargs = {
-        "cwd": str(PROJECT_ROOT),
-        "stdin": subprocess.DEVNULL,
-        "stdout": subprocess.DEVNULL,
-        "stderr": subprocess.DEVNULL,
-    }
-    if _sys_platform() == "win32":
-        DETACHED_PROCESS = 0x00000008
-        CREATE_NEW_PROCESS_GROUP = 0x00000200
-        CREATE_NO_WINDOW = 0x08000000
-        CREATE_BREAKAWAY_FROM_JOB = 0x01000000
-        popen_kwargs["creationflags"] = (
-            DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP
-            | CREATE_NO_WINDOW | CREATE_BREAKAWAY_FROM_JOB
-        )
-        popen_kwargs["close_fds"] = True
-    else:
-        popen_kwargs["start_new_session"] = True  # POSIX: detach
-
-    try:
-        proc = subprocess.Popen(worker_cmd, **popen_kwargs)
-        update_job(job_id, pid=proc.pid, status="running",
-                   started_at=datetime.now(timezone.utc).isoformat())
-    except Exception as e:
-        update_job(job_id, status="failed",
-                   last_message=f"Worker 시작 실패: {e}")
-        return load_job(job_id) or job
-
+    # Launch worker as a fully detached process (no running job → start now)
+    _launch_worker_process(job_id)
     return load_job(job_id) or job
 
 
@@ -208,3 +169,73 @@ def retry_failed_tracks(job_id: str, settings: dict | None = None) -> dict | Non
 def list_job_history(limit: int = 20) -> list[dict]:
     """List all jobs with their current status for the history panel."""
     return list_jobs(limit=limit)
+
+def _launch_worker_process(job_id: str) -> bool:
+    """Launch the detached worker subprocess for a job. Returns True on success."""
+    import subprocess
+
+    python_exe = sys.executable
+    if _sys_platform() == "win32":
+        pythonw = Path(python_exe).with_name("pythonw.exe")
+        if pythonw.exists():
+            python_exe = str(pythonw)
+
+    worker_cmd = [python_exe, "-m", "workers.suno_generation_worker", job_id]
+
+    popen_kwargs = {
+        "cwd": str(PROJECT_ROOT),
+        "stdin": subprocess.DEVNULL,
+        "stdout": subprocess.DEVNULL,
+        "stderr": subprocess.DEVNULL,
+    }
+    if _sys_platform() == "win32":
+        DETACHED_PROCESS = 0x00000008
+        CREATE_NEW_PROCESS_GROUP = 0x00000200
+        CREATE_NO_WINDOW = 0x08000000
+        CREATE_BREAKAWAY_FROM_JOB = 0x01000000
+        popen_kwargs["creationflags"] = (
+            DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP
+            | CREATE_NO_WINDOW | CREATE_BREAKAWAY_FROM_JOB
+        )
+        popen_kwargs["close_fds"] = True
+    else:
+        popen_kwargs["start_new_session"] = True
+
+    try:
+        proc = subprocess.Popen(worker_cmd, **popen_kwargs)
+        update_job(job_id, pid=proc.pid, status="running",
+                   started_at=datetime.now(timezone.utc).isoformat())
+        return True
+    except Exception as e:
+        update_job(job_id, status="failed",
+                   last_message=f"Worker 시작 실패: {e}")
+        return False
+
+
+def get_queued_jobs() -> list[dict]:
+    """Get all jobs waiting in the queue (status=queued), oldest first."""
+    queued = [j for j in list_jobs(limit=50) if j.get("status") == "queued"]
+    queued.sort(key=lambda j: j.get("created_at", ""))
+    return queued
+
+
+def start_next_queued_job() -> dict | None:
+    """
+    Start the oldest queued job IF no job is currently running.
+    Called by a finishing worker (or the UI) to chain the queue.
+    Returns the started job, or None if nothing to start / one is running.
+    """
+    # Don't start if something is already running
+    active = get_active_jobs()
+    if any(j.get("status") == "running" for j in active):
+        return None
+
+    queued = get_queued_jobs()
+    if not queued:
+        return None
+
+    next_job = queued[0]
+    job_id = next_job["job_id"]
+    if _launch_worker_process(job_id):
+        return load_job(job_id)
+    return None

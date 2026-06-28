@@ -136,16 +136,66 @@ def test_start_generation_job_creates_settings():
     assert loaded["model"] == "v5.5"
 
 
-def test_duplicate_job_prevented():
+def test_second_job_queued_when_one_running():
+    """When a job is running, the next is QUEUED (not blocked)."""
     from services.job_store import create_job, update_job
     from services.generation_job_manager import start_generation_job
-    # Create a running job for the same project
-    j = create_job(project="dup_test")
+    from unittest import mock
+    # Create a running job
+    j = create_job(project="queue_test")
     update_job(j["job_id"], status="running")
-    # Try to start another
-    result = start_generation_job("dup_test", [{"title": "곡"}], {})
-    assert result.get("error") == "duplicate"
-    assert "진행 중" in result.get("message", "")
+    # Start another → should be queued
+    with mock.patch("subprocess.Popen", return_value=mock.Mock(pid=111)):
+        result = start_generation_job("queue_test2", [{"title": "곡", "status": "drafted"}], {})
+    assert result.get("queued") is True
+    assert result.get("queued_behind") == j["job_id"]
+    # Its status on disk should be 'queued'
+    from services.job_store import load_job
+    loaded = load_job(result["job_id"])
+    assert loaded["status"] == "queued"
+
+
+def test_get_queued_jobs():
+    from services.job_store import create_job, update_job
+    from services.generation_job_manager import get_queued_jobs
+    j1 = create_job(project="q1")
+    update_job(j1["job_id"], status="queued")
+    j2 = create_job(project="q2")
+    update_job(j2["job_id"], status="queued")
+    queued = get_queued_jobs()
+    assert len(queued) == 2
+    # Oldest first
+    assert queued[0]["project"] == "q1"
+
+
+def test_start_next_queued_job():
+    """start_next_queued_job launches the oldest queued job if none running."""
+    from services.job_store import create_job, update_job, load_job
+    from services.generation_job_manager import start_next_queued_job
+    from unittest import mock
+    j = create_job(project="next_test")
+    update_job(j["job_id"], status="queued")
+    # Need a plan + settings for the worker
+    import services.job_store as js, json
+    (js._jobs_dir() / j["job_id"] / "plan.json").write_text(json.dumps([{"title": "곡"}]))
+    (js._jobs_dir() / j["job_id"] / "settings.json").write_text(json.dumps({}))
+    with mock.patch("subprocess.Popen", return_value=mock.Mock(pid=222)):
+        started = start_next_queued_job()
+    assert started is not None
+    assert started["job_id"] == j["job_id"]
+    assert load_job(j["job_id"])["status"] == "running"
+
+
+def test_start_next_queued_skips_if_running():
+    """start_next_queued_job does nothing if a job is already running."""
+    from services.job_store import create_job, update_job
+    from services.generation_job_manager import start_next_queued_job
+    running = create_job(project="running_one")
+    update_job(running["job_id"], status="running")
+    queued = create_job(project="waiting_one")
+    update_job(queued["job_id"], status="queued")
+    result = start_next_queued_job()
+    assert result is None  # nothing started (one already running)
 
 
 def test_check_worker_alive():

@@ -861,11 +861,14 @@ def _render_auto_batch():
                     settings=settings,
                 )
 
-                if result.get("error") == "duplicate":
-                    st.warning(f"⚠️ {result['message']}")
-                    st.caption(f"기존 작업 ID: {result.get('existing_job_id', '?')}")
+                job_id = result.get("job_id", "?")
+                if result.get("queued"):
+                    st.session_state["active_job_id"] = job_id
+                    st.info(f"📋 대기열에 추가됨! (Job: {job_id})")
+                    st.caption("현재 생성 중인 작업이 끝나면 자동으로 이어서 시작됩니다. "
+                               "여러 곡을 미리 신청해두면 순서대로 처리됩니다.")
+                    st.rerun()
                 else:
-                    job_id = result.get("job_id", "?")
                     st.session_state["active_job_id"] = job_id
                     st.success(f"🚀 백그라운드 생성 시작! (Job: {job_id})")
                     st.caption("탭을 전환하거나 새로고침해도 생성이 계속됩니다. 아래에서 진행 상황을 확인하세요.")

@@ -255,6 +255,17 @@ def run_job(job_id: str):
     _log(job_id, f"완료: {ok}/{len(plan)}곡 성공, {fail}곡 실패")
     print(f"Job {job_id} finished: {final} ({ok} ok, {fail} fail)")
 
+    # ── Chain to the next QUEUED job (cue system) ────────────────────────
+    # If the user queued more songs while this batch ran, start the next one.
+    try:
+        from services.generation_job_manager import start_next_queued_job
+        next_job = start_next_queued_job()
+        if next_job:
+            _log(job_id, f"다음 대기 작업 시작: {next_job['job_id']}")
+            print(f"Chained to next queued job: {next_job['job_id']}")
+    except Exception as e:
+        print(f"Failed to chain next job: {e}")
+
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:
