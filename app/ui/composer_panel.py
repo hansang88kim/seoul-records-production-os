@@ -226,7 +226,7 @@ def render_composer_panel() -> dict | None:
         st.caption(f"✅ {lyric_chars}/420 · 예상 ~{est_min}:{est_s:02d} (3:30 적정)")
 
     # Style
-    col_slabel, col_spreset = st.columns([3, 1])
+    col_slabel, col_spreset, col_sregen = st.columns([3, 1, 1])
     with col_slabel:
         st.markdown("<div style='font-size:0.85rem;color:#9aa5b8;padding-top:4px'>🎨 스타일 태그</div>", unsafe_allow_html=True)
     with col_spreset:
@@ -234,6 +234,17 @@ def render_composer_panel() -> dict | None:
                      help="고정 시티팝 스타일로 되돌리기"):
             st.session_state["form_style"] = CITYPOP_STYLE_PRESET
             st.rerun()
+    with col_sregen:
+        if st.button("🔀 변주", key="style_regen", use_container_width=True,
+                     help="BPM/Key/보컬 톤만 살짝 변경 (장르 유지)"):
+            current = st.session_state.get("form_style", CITYPOP_STYLE_PRESET)
+            if current.strip():
+                with st.spinner("스타일 변주 중..."):
+                    from providers.ai.base import generate_style_variation, get_available_ai_providers
+                    avail = [p for p in get_available_ai_providers() if p["available"] and p["name"] != "mock"]
+                    pname = avail[0]["name"] if avail else "mock"
+                    st.session_state["form_style"] = generate_style_variation(current, pname)
+                    st.rerun()
 
     col_s, col_sl = st.columns([6, 1])
     with col_s:

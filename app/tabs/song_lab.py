@@ -517,13 +517,24 @@ def _render_auto_batch():
     if "auto_lock_style" not in st.session_state:
         st.session_state["auto_lock_style"] = True  # default ON
 
-    col_slabel, col_spreset = st.columns([3, 1])
+    col_slabel, col_spreset, col_sregen = st.columns([3, 1, 1])
     with col_slabel:
         st.markdown("<div style='font-size:0.85rem;color:#9aa5b8;padding-top:4px'>🎨 스타일 프리셋 (전 곡 공통)</div>", unsafe_allow_html=True)
     with col_spreset:
         if st.button("프리셋 적용", key="auto_apply_preset", use_container_width=True):
             st.session_state["auto_style"] = CITYPOP_STYLE_PRESET
             st.rerun()
+    with col_sregen:
+        if st.button("🔀 변주", key="auto_style_regen", use_container_width=True,
+                     help="BPM/Key/보컬 톤만 살짝 변경 (장르 유지)"):
+            current = st.session_state.get("auto_style", CITYPOP_STYLE_PRESET)
+            if current.strip():
+                with st.spinner("스타일 변주 중..."):
+                    from providers.ai.base import generate_style_variation, get_available_ai_providers
+                    avail = [p for p in get_available_ai_providers() if p["available"] and p["name"] != "mock"]
+                    pname = avail[0]["name"] if avail else "mock"
+                    st.session_state["auto_style"] = generate_style_variation(current, pname)
+                    st.rerun()
 
     col_s, col_sl = st.columns([6, 1])
     with col_s:

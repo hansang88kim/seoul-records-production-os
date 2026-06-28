@@ -163,6 +163,108 @@ Do NOT add a 5th line to any chorus or verse. More lines = song too long.
 Lyrics: realistic, lyrical, specific {city} places and scenes. Concrete imagery. Varied sentence endings, no instrument names in sung lines. Original only — never copy existing songs. Write naturally in {lyric_lang} as a native speaker would."""
 
 
+
+def _style_variation_prompt(current_style: str) -> str:
+    """
+    Build a prompt that asks the AI to make a SUBTLE variation of the current style.
+    Only BPM, key, and vocal tone should change slightly. The core genre,
+    instruments, and mood MUST stay the same.
+    """
+    return f"""You are given an existing music style description. Create a SUBTLE VARIATION of it.
+
+RULES — READ CAREFULLY:
+1. Keep the EXACT SAME genre, instruments, and mood. Do NOT change the genre.
+2. Change ONLY these three things (pick 1-3 to vary each time):
+   a. BPM: shift by ±2-4 (e.g. 112 → 110, or 112 → 115). Keep it 108-116.
+   b. Key: change to a different key (e.g. if no key stated, add one like "E minor" or "Ab major"; if already has a key, change it)
+   c. Vocal tone: keep "low female vocal" but vary the descriptor slightly
+      (e.g. "emotional" → "tender", "warm reverb" → "vintage plate reverb",
+       "subtle vibrato" → "gentle vibrato", add "breathy" or "intimate")
+3. You may also make TINY instrument texture changes (e.g. "lush warm electric piano" → "glossy Rhodes electric piano") but keep the same instruments.
+4. The output must be the SAME LENGTH and SAME FORMAT as the input.
+5. Do NOT add saxophone, brass, or any banned instruments.
+6. Do NOT change the mood words (nostalgic, bittersweet, wistful etc.)
+7. Return ONLY the new style text as a JSON: {{"style": "..."}}
+
+CURRENT STYLE:
+{current_style}
+
+Generate the variation now. Return JSON only."""
+
+
+def generate_style_variation(current_style: str, provider_name: str = "openai") -> str:
+    """
+    Generate a subtle variation of the given style using an AI provider.
+    Returns the new style string, or the original on failure.
+    """
+    provider = get_ai_provider(provider_name)
+    prompt = _style_variation_prompt(current_style)
+
+    try:
+        if hasattr(provider, '_call'):
+            # Use the provider's internal _call but with a custom prompt
+            import json as _json
+
+            if provider.PROVIDER_NAME == "openai":
+                import os, requests
+                api_key = os.getenv("OPENAI_API_KEY", "")
+                if not api_key:
+                    return current_style
+                resp = requests.post(
+                    "https://api.openai.com/v1/chat/completions",
+                    headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+                    json={
+                        "model": provider.MODEL_NAME,
+                        "messages": [{"role": "user", "content": prompt}],
+                        "max_tokens": 2000,
+                        "response_format": {"type": "json_object"},
+                    },
+                    timeout=30,
+                )
+                data = resp.json()
+                text = data["choices"][0]["message"]["content"]
+                parsed = _json.loads(text)
+                return _coerce_str(parsed.get("style", current_style)).strip() or current_style
+
+            elif provider.PROVIDER_NAME == "gemini":
+                import os, requests
+                api_key = os.getenv("GOOGLE_GEMINI_API_KEY", "")
+                if not api_key:
+                    return current_style
+                models = provider.list_models(api_key)
+                model = models[0] if models else "gemini-2.5-flash"
+                url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}"
+                resp = requests.post(url, json={
+                    "contents": [{"parts": [{"text": prompt}]}],
+                    "generationConfig": {"maxOutputTokens": 2000},
+                }, timeout=30)
+                data = resp.json()
+                text = ""
+                for c_item in data.get("candidates", []):
+                    for part in c_item.get("content", {}).get("parts", []):
+                        text += part.get("text", "")
+                text = text.replace("```json", "").replace("```", "").strip()
+                # Find JSON
+                import re
+                m = re.search(r'\{[^}]+\}', text, re.DOTALL)
+                if m:
+                    parsed = _json.loads(m.group())
+                    return _coerce_str(parsed.get("style", current_style)).strip() or current_style
+
+        # Mock or fallback — just tweak BPM
+        import re, random
+        bpm_match = re.search(r'BPM\s*(\d+)', current_style)
+        if bpm_match:
+            old_bpm = int(bpm_match.group(1))
+            new_bpm = old_bpm + random.choice([-3, -2, 2, 3])
+            new_bpm = max(108, min(116, new_bpm))
+            return current_style.replace(f"BPM {old_bpm}", f"BPM {new_bpm}")
+        return current_style
+
+    except Exception:
+        return current_style
+
+
 # Backward-compatible default (Korean) — some code/tests reference SYSTEM_PROMPT.
 SYSTEM_PROMPT = build_system_prompt(DEFAULT_LANGUAGE)
 
