@@ -80,8 +80,12 @@ def _run_suno_json(
     bin_path = suno_bin or _get_suno_bin()
     cmd = [bin_path] + args + ["--json"]
 
+    env = os.environ.copy()
+    env["PYTHONIOENCODING"] = "utf-8"
+
     try:
-        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+        proc = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8",
+                              errors="replace", timeout=timeout, env=env)
     except FileNotFoundError:
         raise ProviderError(
             "provider_unavailable",
@@ -126,12 +130,18 @@ def _run_suno_raw(
     """
     Run a suno CLI command WITHOUT --json. For generate + side-effect commands.
     Returns the raw CompletedProcess.
+    Uses UTF-8 encoding explicitly (Windows defaults to cp949 for Korean locale).
     """
     bin_path = suno_bin or _get_suno_bin()
     cmd = [bin_path] + args
 
+    # Set UTF-8 env for child process (Rust CLI expects UTF-8)
+    env = os.environ.copy()
+    env["PYTHONIOENCODING"] = "utf-8"
+
     try:
-        proc = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
+        proc = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8",
+                              errors="replace", timeout=timeout, env=env)
     except FileNotFoundError:
         raise ProviderError(
             "provider_unavailable",

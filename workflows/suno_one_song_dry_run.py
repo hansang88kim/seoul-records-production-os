@@ -242,7 +242,10 @@ def run_dry_run(mock: bool = False) -> dict:
         log(f"Task ID: {task_id}")
     except Exception as e:
         err_status = getattr(e, "status", "generation_failed")
+        err_details = getattr(e, "details", {})
         report["errors"].append(f"create_song: [{err_status}] {e}")
+        if err_details:
+            report["error_details"] = {k: str(v) for k, v in err_details.items()}
         report["status"] = err_status
         report["manual_import_required"] = err_status in (
             "captcha_required", "manual_import_required",
