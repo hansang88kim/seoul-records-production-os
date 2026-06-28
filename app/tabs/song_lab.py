@@ -66,12 +66,18 @@ def _run_generation(params: dict):
     status_container = st.empty()
     start_time = time.time()
 
-    status_container.info("🔐 Suno 인증 중...")
+    # Check SUNO_COOKIE before starting
+    cookie = os.getenv("SUNO_COOKIE", "").strip()
+    suno_bin = os.getenv("SUNO_CLI_BIN", "suno")
+    if not cookie:
+        status_container.error("❌ SUNO_COOKIE가 설정되지 않았습니다. 사이드바에서 쿠키를 입력하세요.")
+        return
+    status_container.info(f"🔐 Suno 인증 중... (쿠키 {len(cookie)}자, bin: {suno_bin})")
 
     try:
-        # Auto-auth
+        # Auto-auth — runs suno auth --cookie before every generate
         provider._ensure_auth()
-        status_container.info("🚀 Suno에 곡 생성 요청 중... CAPTCHA 해결이 필요할 수 있습니다.")
+        status_container.info("🚀 Suno에 곡 생성 요청 중... CAPTCHA 해결이 필요할 수 있습니다. (최대 10분 대기)")
 
         # Generate — this blocks until complete (--wait)
         # Start a timer display in a separate approach
@@ -146,7 +152,12 @@ def _run_generation(params: dict):
         err_status = getattr(e, "status", "generation_failed")
         err_msg = str(e)
 
+        # Show detailed error
+        err_details = getattr(e, "details", {})
         status_container.error(f"❌ 생성 실패 ({elapsed}초): {err_msg}")
+        if err_details:
+            with st.expander("에러 상세"):
+                st.json({k: str(v) for k, v in err_details.items()})
 
         song = {
             "title": title,

@@ -374,19 +374,29 @@ with st.sidebar:
     if st.button("🔗 Gemini 연결", key="btn_gemini_connect", use_container_width=True):
         if gemini_key.strip():
             _os.environ["GOOGLE_GEMINI_API_KEY"] = gemini_key.strip()
-            # Verify with a test call
             try:
                 import requests as _req
-                resp = _req.get(
-                    f"https://generativelanguage.googleapis.com/v1beta/models?key={gemini_key.strip()}",
-                    timeout=10,
-                )
+                # Try v1beta endpoint
+                url = f"https://generativelanguage.googleapis.com/v1beta/models?key={gemini_key.strip()}"
+                resp = _req.get(url, timeout=15)
                 if resp.status_code == 200:
                     st.success("✅ Gemini 인증 성공")
+                elif resp.status_code == 400:
+                    st.error("❌ API 키 형식이 올바르지 않습니다")
+                elif resp.status_code == 403:
+                    st.error("❌ API 키가 비활성화되었거나 권한이 없습니다. Google AI Studio에서 키를 확인하세요.")
                 else:
-                    st.error(f"❌ 인증 실패 (HTTP {resp.status_code})")
+                    try:
+                        err = resp.json().get("error", {}).get("message", "")
+                    except Exception:
+                        err = resp.text[:200]
+                    st.error(f"❌ HTTP {resp.status_code}: {err}")
+            except _req.exceptions.ConnectionError:
+                st.error("❌ 네트워크 연결 실패 — 인터넷 연결을 확인하세요")
+            except _req.exceptions.Timeout:
+                st.error("❌ 응답 시간 초과 — 다시 시도하세요")
             except Exception as e:
-                st.error(f"❌ 연결 실패: {type(e).__name__}")
+                st.error(f"❌ {type(e).__name__}: {e}")
         else:
             st.warning("키를 입력하세요")
 
