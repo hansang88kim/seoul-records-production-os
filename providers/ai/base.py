@@ -97,26 +97,27 @@ Example of correct formatting (study the line lengths):
 왜 오늘 따라
 그리운지 몰라
 
-STYLE FORMAT — write a RICH retro Seoul city pop style (300-500 chars). Match these examples closely:
+STYLE FORMAT — write a RICH J-pop-influenced Korean city pop style (300-500 chars). NO saxophone. Match these examples:
 
-Example 1: "Retro Seoul city pop (1970s-80s influence), dreamy analog synths, mellow funk guitars, slow groove rhythm (BPM 112), vintage tape warmth, androgynous female vocals with soft reverb and subtle vibrato"
+Example 1: "Classic Korean city pop (early 80s Seoul style) with J-pop nostalgic energy, rhythmic choppy funk guitar riffs, smooth clean jazz chords, analog tape saturation, mid-tempo groove (BPM 114), expressive female vocals with retro reverb, nostalgic Seoul street night feeling"
 
-Example 2: "Retro Korean city pop (late 70s Seoul), mellow tempo (BPM 111), lo-fi vinyl texture, vintage electric piano, soft brass hits, gentle funk guitar, nostalgic androgynous female vocals with light reverb and vibrato, emotional night-drive atmosphere"
+Example 2: "Japanese-style nostalgic city pop adapted to 1980s Seoul, glossy electric piano, lush analog synth pads, tight funk guitar comping, smooth jazz chord voicings, warm punchy bass, mid-tempo groove (BPM 112), expressive low female vocals with vintage reverb and subtle vibrato, dreamy city-night mood"
 
-Example 3: "Retro Seoul city pop (early 1980s vibe), melancholic electric piano, lo-fi synth textures, steady bassline groove (BPM 110), ambient train sounds, nostalgic androgynous female vocals with analog saturation, quiet night journey feeling"
+Example 3: "Korean city pop with J-pop sophistication (early 80s), choppy rhythmic funk guitar, clean jazzy chords, vintage Rhodes piano, warm analog synths, tape-saturated mix, steady mid-tempo groove (BPM 113), emotive female vocals with retro plate reverb, nostalgic Seoul boulevard night feeling"
 
 Required elements (vary each time):
-- "Retro Seoul/Korean city pop" + era (late 70s / early 80s / 1970s-80s)
-- Tempo: BPM 108-114 (state it explicitly)
-- Keys/piano: vintage electric piano, melancholic electric piano, Rhodes
-- Synths: dreamy analog synths, lo-fi synth textures
-- Guitar: mellow funk guitar, gentle funk guitar
-- Texture: lo-fi vinyl texture, vintage tape warmth, analog saturation
-- Vocal: "androgynous female vocals with soft reverb and subtle vibrato"
-- Atmosphere: emotional night-drive, quiet night journey, nostalgic Seoul night
-- Optional: soft brass hits, ambient train sounds, steady bassline groove
+- Genre: "Korean city pop with J-pop nostalgic energy/sophistication" + era (early 80s Seoul)
+- Tempo: BPM 110-114 (state explicitly)
+- Guitar: "rhythmic choppy funk guitar", "tight funk guitar comping" (signature J-citypop)
+- Chords: "smooth clean jazz chords", "jazzy chord voicings"
+- Keys: vintage electric piano, glossy electric piano, Rhodes
+- Synths: lush analog synth pads, warm analog synths
+- Texture: analog tape saturation, tape-saturated mix
+- Vocal: "expressive low female vocals with retro/vintage reverb and subtle vibrato"
+- Mood: nostalgic Seoul street/boulevard night feeling, dreamy city-night
 
-Always include "androgynous female vocals" and "BPM 108-114". Keep it evocative and cohesive like the examples.
+CRITICAL: NEVER mention saxophone, sax, brass solos, or horn leads. The vibe is guitar+keys driven Japanese-style citypop. Keep it sophisticated and nostalgic like the examples.
+
 
 Lyrics: realistic, lyrical, specific Seoul places and scenes. Concrete imagery (버스 정류장, 카페, 골목, 가로등, 네온). Varied sentence endings, no instrument names in sung lines. Original only — never copy existing songs."""
 
@@ -208,7 +209,7 @@ def _title_from_lyrics(lyrics: str) -> str:
 MOCK_SONGS = [
     SongPromptPackage(
         title="동대문에서 너를 떠올려",
-        style="Retro Korean city pop (late 70s Seoul), mellow tempo (BPM 111), lo-fi vinyl texture, vintage electric piano, soft brass hits, gentle funk guitar, dreamy analog synths, nostalgic androgynous female vocals with light reverb and subtle vibrato, vintage tape warmth, emotional night-drive atmosphere, quiet Seoul night journey feeling",
+        style="Classic Korean city pop (early 80s Seoul style) with J-pop nostalgic energy, rhythmic choppy funk guitar riffs, smooth clean jazz chords, vintage electric piano, lush analog synth pads, analog tape saturation, mid-tempo groove (BPM 113), expressive low female vocals with retro reverb and subtle vibrato, nostalgic Seoul street night feeling",
         lyrics="""[Intro, Guitar strums + busy city noise fade-in]
 
 [Verse 1]
@@ -268,7 +269,7 @@ MOCK_SONGS = [
     ),
     SongPromptPackage(
         title="을지로 새벽 골목",
-        style="Retro Seoul city pop (early 1980s vibe), melancholic electric piano, lo-fi synth textures, steady bassline groove (BPM 110), mellow funk guitar, ambient train sounds, dreamy analog synths, nostalgic androgynous female vocals with analog saturation and soft reverb, vintage tape warmth, quiet night journey feeling",
+        style="Japanese-style nostalgic city pop adapted to 1980s Seoul, glossy electric piano, tight funk guitar comping, smooth jazz chord voicings, warm analog synths, punchy warm bass, tape-saturated mix, mid-tempo groove (BPM 111), expressive low female vocals with vintage reverb and subtle vibrato, dreamy Seoul city-night mood",
         lyrics="""[Intro, Rhodes piano + distant traffic hum]
 
 [Verse 1]

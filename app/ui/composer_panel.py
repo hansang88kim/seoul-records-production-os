@@ -18,12 +18,13 @@ def _format_exclude_as_negatives(exclude_str: str) -> str:
     items = [s.strip() for s in exclude_str.split(",") if s.strip()]
     return ", ".join(f"-{item}" for item in items)
 CITYPOP_STYLE_PRESET = (
-    "Retro Seoul city pop (1970s-80s influence), dreamy analog synths, "
-    "mellow funk guitars, slow groove rhythm (BPM 112), vintage tape warmth, "
-    "androgynous female vocals with soft reverb and subtle vibrato, "
-    "lo-fi vinyl texture, vintage electric piano, soft brass hits, "
-    "nostalgic emotional night-drive atmosphere"
+    "Classic Korean city pop (early 80s Seoul style) with J-pop nostalgic energy, "
+    "rhythmic choppy funk guitar riffs, smooth clean jazz chords, vintage electric "
+    "piano, warm analog synths, analog tape saturation, mid-tempo groove (BPM 113), "
+    "expressive low female vocals with retro reverb and subtle vibrato, "
+    "nostalgic Seoul street night feeling"
 )
+
 SUNO_MODELS = ["v5.5", "v5", "v4.5", "v4", "v3.5"]
 LYRICS_PLACEHOLDER = """[Intro]
 (4마디 음원 (instrumental only))
