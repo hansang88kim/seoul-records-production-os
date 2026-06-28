@@ -217,9 +217,9 @@ def render_composer_panel() -> dict | None:
     est_sec = int(lyric_chars / 118 * 60) + 15  # +15 for intro/outro instrumental
     est_min, est_s = divmod(est_sec, 60)
     if lyric_chars == 0:
-        st.caption("0자 · 가사를 입력하세요 (목표: 360~420자)")
-    elif lyric_chars > 420:
-        st.warning(f"⚠️ 가사 본문 {lyric_chars}자 · 예상 ~{est_min}:{est_s:02d} (420자 이하로 줄이세요)")
+        st.caption("0자 · 가사를 입력하세요 (목표: 360~400자)")
+    elif lyric_chars > 400:
+        st.warning(f"⚠️ 가사 본문 {lyric_chars}자 · 예상 ~{est_min}:{est_s:02d} (400자 이하로 줄이세요)")
     elif lyric_chars < 360:
         st.caption(f"가사 본문 {lyric_chars}자 · 예상 ~{est_min}:{est_s:02d} (360자 이상 권장)")
     else:

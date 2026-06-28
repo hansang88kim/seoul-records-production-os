@@ -815,8 +815,8 @@ def _render_auto_batch():
                 from providers.ai.base import _lyrics_char_count
                 lc = _lyrics_char_count(draft["lyrics"])
                 est = int(lc / 118 * 60) + 15
-                if lc > 420:
-                    st.warning(f"⚠️ 가사 본문 {lc}자 · 예상 ~{est//60}:{est%60:02d} (420자 이하로)")
+                if lc > 400:
+                    st.warning(f"⚠️ 가사 본문 {lc}자 · 예상 ~{est//60}:{est%60:02d} (400자 이하로)")
                 elif lc < 360:
                     st.caption(f"가사 본문 {lc}자 · 예상 ~{est//60}:{est%60:02d} (360자 이상 권장)")
                 else:

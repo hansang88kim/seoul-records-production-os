@@ -131,14 +131,14 @@ LYRICS THEME/MOOD:
 - Avoid clichés. Make it real, specific to {city}, and deeply felt.
 
 LYRICS FORMAT — follow this EXACT structure for natural 3:30 duration.
-Lyrics must be 360-420 characters (sung text only, excluding section headers). Target duration: 3:30-3:50.
-If over 420 chars, CUT words until under 420. If under 360 chars, ADD lines.
+Lyrics must be 360-400 characters (sung text only, excluding section headers). HARD CAP: 400 chars MAX. Target duration: 3:30-3:50.
+If over 400 chars, CUT words until under 400. NEVER exceed 400. If under 360 chars, ADD lines.
 If under 360 chars, ADD natural phrases to reach 360.
 
 STRUCTURE (10 sections — this length produces ~3:30-3:50):
 
 [Intro]
-(4마디 음원 (instrumental only))
+(2마디 음원 (instrumental only))
 
 [Verse 1]
 ← exactly 4 lines
@@ -551,13 +551,13 @@ MOCK_SONGS = [
         title="밤이 지나면",
         style="Authentic 1980s-1990s Japanese city pop, golden-age Tokyo sound, lush warm electric piano, glossy analog synths, smooth jazzy chord changes, silky funk guitar, melodic fretless bass, tight clean drums, A minor, BPM 112, emotional low female vocal with warm reverb and tender vibrato, deeply nostalgic and bittersweet, sophisticated mellow groove, the wistful loneliness of city nights, vintage tape warmth",
         lyrics="""[Intro]
-(4마디 음원 (instrumental only))
+(2마디 음원 (instrumental only))
 
 [Verse 1]
 사람들 웃음 속에
 난 조용히 멈춰 있었어
 거리엔 음악이 흐르는데
-내 맘은 아무것도 울리지 않아
+내 맘만 멈춰 있어
 
 [Pre-Chorus]
 쇼윈도에 비친 내 모습
@@ -568,7 +568,7 @@ MOCK_SONGS = [
 [Chorus]
 그대가 떠난 거리
 불빛 아래 홀로 선 나
-이별도 사랑도 다 잊은 듯한 밤
+다 잊은 듯한 이 밤
 너만이 여전히 선명해
 
 [Verse 2]
@@ -609,7 +609,7 @@ MOCK_SONGS = [
         title="늦은 대답",
         style="Classic Japanese city pop (late 80s golden age), warm Rhodes electric piano, lush analog synth pads, sophisticated jazzy chords, smooth funk guitar comping, melodic bass lines, gentle tight drums, B minor, BPM 110, husky low female vocal with vintage plate reverb and gentle vibrato, deeply nostalgic mellow groove, bittersweet late-night city melancholy, vintage tape warmth",
         lyrics="""[Intro]
-(4마디 음원 (instrumental only))
+(2마디 음원 (instrumental only))
 
 [Verse 1]
 좁은 골목 불빛 아래

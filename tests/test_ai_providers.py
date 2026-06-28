@@ -210,7 +210,7 @@ def test_mock_songs_lyric_length_for_330():
     from providers.ai.base import MOCK_SONGS, _lyrics_char_count
     for song in MOCK_SONGS:
         chars = _lyrics_char_count(song.lyrics)
-        assert 300 <= chars <= 430, f"{song.title} has {chars} chars (target 360-420)"
+        assert 300 <= chars <= 400, f"{song.title} has {chars} chars (target 360-420)"
 
 
 # ─── Lyric length control for 3:30 ───────────────────────────────────────────
@@ -228,7 +228,7 @@ def test_mock_songs_in_target_range():
     from providers.ai.base import MOCK_SONGS, _lyrics_char_count
     for song in MOCK_SONGS:
         chars = _lyrics_char_count(song.lyrics)
-        assert 320 <= chars <= 430, f"{song.title} has {chars} chars (target 360-420)"
+        assert 320 <= chars <= 400, f"{song.title} has {chars} chars (target 360-420)"
 
 
 def test_system_prompt_has_char_limits():
