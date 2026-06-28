@@ -24,7 +24,7 @@ st.markdown("""
 <style>
     /* Base */
     .stApp { background-color: #0b1120; }
-    .block-container { padding-top: 1.5rem; max-width: 1200px; }
+    .block-container { padding-top: 2.5rem; max-width: 1200px; }
 
     /* Typography */
     h1 { color: #d4c48a; font-weight: 700; letter-spacing: -0.5px; }

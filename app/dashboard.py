@@ -63,18 +63,8 @@ def render_dashboard():
         st.session_state.current_output_folder = None
 
     if st.session_state.current_project is None:
-        # Show mode selector: Song Lab or Project Setup
-        lab_mode = st.radio(
-            "",
-            ["🎵 Song Lab", "📁 프로젝트 관리"],
-            horizontal=True,
-            key="home_mode",
-            label_visibility="collapsed",
-        )
-        if "Song Lab" in lab_mode:
-            render_song_lab()
-        else:
-            render_project_screen()
+        # No project open — show Song Lab with project creation integrated
+        render_home_tabs()
     else:
         render_production_tabs()
 
@@ -114,3 +104,14 @@ def render_production_tabs():
         render_tab_youtube()
     with tab5:
         render_tab_distribution()
+
+
+def render_home_tabs():
+    """Home screen: Song Lab + Project management in tabs."""
+    tab_lab, tab_project = st.tabs(["🎵 Song Lab", "📁 프로젝트 관리"])
+
+    with tab_lab:
+        render_song_lab()
+
+    with tab_project:
+        render_project_screen()
