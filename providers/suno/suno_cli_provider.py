@@ -383,22 +383,68 @@ class SunoCliProvider(ComposerProvider):
 
         self._last_download_dir = str(download_path)
 
-        # Parse clip IDs from downloaded filenames
-        # Format: title-slug-CLIPID8.mp3
+        # ── Find downloaded MP3s ─────────────────────────────────────────
+        # suno-cli saves to --download dir. Check there first, then fall back
+        # to the CLI's default Documents/suno folder.
         mp3s = sorted(download_path.glob("*.mp3"))
-        clip_ids = []
-        for mp3 in mp3s:
-            # Last 8 chars before .mp3 extension are the clip ID fragment
-            stem = mp3.stem
-            if len(stem) >= 8:
-                clip_ids.append(stem)  # full stem as ID reference
+
+        if not mp3s:
+            # Fallback 1: CLI default download location (~/Documents/suno/)
+            default_dirs = [
+                Path.home() / "Documents" / "suno",
+                Path.home() / "Documents" / "Suno",
+                Path.home() / "suno",
+            ]
+            for ddir in default_dirs:
+                if ddir.exists():
+                    # Find MP3s modified in the last 5 minutes
+                    import time as _t
+                    recent = [
+                        f for f in ddir.glob("*.mp3")
+                        if (_t.time() - f.stat().st_mtime) < 300
+                    ]
+                    if recent:
+                        # Copy them into our download_path
+                        import shutil as _sh
+                        for f in sorted(recent):
+                            dest = download_path / f.name
+                            if not dest.exists():
+                                _sh.copy2(f, dest)
+                        mp3s = sorted(download_path.glob("*.mp3"))
+                        logger.info("Found %d MP3s in CLI default dir %s", len(recent), ddir)
+                        break
+
+        # Parse clip IDs from filenames (format: title-slug-CLIPID8.mp3)
+        clip_ids = [mp3.stem for mp3 in mp3s if len(mp3.stem) >= 4]
 
         if not clip_ids:
-            # Try parsing stdout for clip IDs
-            stdout = proc.stdout or ""
-            import re
-            uuids = re.findall(r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}', stdout)
-            clip_ids = uuids if uuids else ["unknown"]
+            # Fallback 2: query suno list for the most recent clips
+            try:
+                list_data = _run_suno_json(["list", "--limit", "4"], timeout=30, suno_bin=self._bin)
+                clips = list_data.get("data", [])
+                if isinstance(clips, dict):
+                    clips = clips.get("clips", clips.get("songs", []))
+                # Match by title
+                matching = [c for c in clips if c.get("title", "") == title]
+                if matching:
+                    clip_ids = [c.get("id", "")[:8] for c in matching[:2] if c.get("id")]
+                    # Download these clips
+                    if clip_ids:
+                        full_ids = [c.get("id", "") for c in matching[:2] if c.get("id")]
+                        try:
+                            _run_suno_raw(
+                                ["download"] + full_ids + ["--output", str(download_path)],
+                                timeout=120, suno_bin=self._bin,
+                            )
+                            mp3s = sorted(download_path.glob("*.mp3"))
+                            clip_ids = [mp3.stem for mp3 in mp3s] or clip_ids
+                        except Exception:
+                            pass
+            except Exception as e:
+                logger.warning("suno list fallback failed: %s", type(e).__name__)
+
+        if not clip_ids:
+            clip_ids = ["generated"]  # at least mark as attempted
 
         task_id = ",".join(clip_ids)
         self._last_clip_ids = clip_ids

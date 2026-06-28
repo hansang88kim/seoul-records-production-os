@@ -11,10 +11,16 @@ DEFAULT_EXCLUDE = (
     "sax lead, strong sax, drum fill-ins, tom fills, snare rolls, "
     "trot, enka, EDM, bleepy sounds, toy percussion"
 )
+
+# Suno-style negative prompt: prepend "-" to each exclude term
+def _format_exclude_as_negatives(exclude_str: str) -> str:
+    """Convert 'sax lead, trot' → '-sax lead, -trot' for inline style use."""
+    items = [s.strip() for s in exclude_str.split(",") if s.strip()]
+    return ", ".join(f"-{item}" for item in items)
 CITYPOP_STYLE_PRESET = (
-    "Retro Seoul city pop (1970s-80s influence), dreamy analog synths, "
-    "mellow funk guitars, slow groove (BPM 112), vintage tape warmth, "
-    "androgynous female vocals with soft reverb and subtle vibrato"
+    "Japanese citypop, A minor, CP-70 electric piano, DX7, chorus guitar, "
+    "warm bass, soft synth, low thick female vocal, calm, intimate, "
+    "1990s Seoul night, female vocals"
 )
 SUNO_MODELS = ["v5.5", "v5", "v4.5", "v4", "v3.5"]
 LYRICS_PLACEHOLDER = """[Intro]
@@ -178,9 +184,9 @@ def render_composer_panel() -> dict | None:
 
     style_len = len(style)
     if style_len > 200:
-        st.error(f"⚠️ {style_len}자 — 200자 이하로")
+        st.warning(f"⚠️ 스타일 {style_len}자 — Suno 권장 200자. 제외 스타일(-prefix)은 자동 추가됩니다")
     else:
-        st.caption(f"{style_len}/200")
+        st.caption(f"{style_len}/200 · 제외 스타일은 생성 시 자동으로 -prefix 추가됨")
 
     # Exclude
     exclude = st.text_input("제외 스타일", value=DEFAULT_EXCLUDE, key="form_exclude")
@@ -203,7 +209,7 @@ def render_composer_panel() -> dict | None:
     # ═══════════════════════════════════════════════════════════════════════
     # CONFIRM + GENERATE
     # ═══════════════════════════════════════════════════════════════════════
-    has_content = bool(title.strip()) and bool(lyrics.strip()) and style_len <= 200
+    has_content = bool(title.strip()) and bool(lyrics.strip()) and bool(style.strip())
     is_confirmed = st.session_state.get("prompt_confirmed", False)
 
     col_confirm, col_generate = st.columns(2)
@@ -226,11 +232,17 @@ def render_composer_panel() -> dict | None:
             use_container_width=True,
             key="btn_generate",
         ):
+            # Combine style + negative excludes into one tags string (Suno format)
+            negatives = _format_exclude_as_negatives(exclude)
+            combined_style = style.strip()
+            if negatives:
+                combined_style = f"{combined_style}, {negatives}"
+
             return {
                 "title": title.strip(),
                 "lyrics": lyrics.strip(),
-                "style": style.strip(),
-                "exclude_styles": [s.strip() for s in exclude.split(",") if s.strip()],
+                "style": combined_style,
+                "exclude_styles": [],  # already merged into style
                 "model": model,
                 "vocal_gender": vocal if vocal != "Instrumental" else "Auto",
                 "instrumental": vocal == "Instrumental",

@@ -73,10 +73,13 @@ LYRICS FORMAT — section headers carry production cues (Korean or English mix):
 [Outro, 한강 소리 + 페이드아웃 피아노]
 ((2 lines Korean in parentheses — a specific Seoul spot))
 
-STYLE EXAMPLES (vary each time, keep under 200 chars):
-- "Retro Seoul city pop (1970s-80s influence), dreamy analog synths, mellow funk guitars, slow groove (BPM 112), vintage tape warmth, androgynous female vocals with soft reverb"
-- "Classic Seoul city pop (early 80s), smooth jazz-influenced chords, analog synth flourishes, light wah guitar, BPM 113 mid-tempo groove, wistful androgynous female vocals"
-- "Soulful Korean city pop (BPM 110), mellow disco rhythms, analog synth pads, LP-era mastering, low mature female vocal, nostalgic 1980s Seoul nightlife tone"
+STYLE FORMAT (vary instruments/key each time, keep positive part ~160 chars):
+Pattern: "Japanese citypop, [KEY] minor, [keyboard], [synth], [guitar], [bass], low thick female vocal, [mood adjectives], 1990s Seoul night, female vocals"
+Examples:
+- "Japanese citypop, A minor, CP-70 electric piano, DX7, chorus guitar, warm bass, soft synth, low thick female vocal, calm, intimate, 1990s Seoul night, female vocals"
+- "Japanese citypop, F# minor, Rhodes piano, analog synth pad, nylon guitar, mellow bass, low warm female vocal, nostalgic, dreamy, 1980s Seoul night, female vocals"
+- "Japanese citypop, D minor, Wurlitzer, FM bell synth, clean guitar, slap bass, low female vocal, wistful, late-night, 1990s Seoul city, female vocals"
+Vary the key (A/D/F#/E/G minor), keyboard (CP-70/Rhodes/Wurlitzer/DX7), and mood each time.
 
 Lyrics: realistic, lyrical, specific Seoul places and scenes. Concrete imagery (버스 정류장, 카페, 골목, 가로등, 네온). Varied sentence endings, no instrument names in sung lines. Original only — never copy existing songs."""
 
@@ -102,7 +105,7 @@ def _make_user_prompt(concept: str, generate: str = "all") -> str:
 MOCK_SONGS = [
     SongPromptPackage(
         title="뚝섬 가는 밤",
-        style="Retro Seoul city pop (1970s-80s influence), dreamy analog synths, mellow funk guitars, slow groove (BPM 112), vintage tape warmth, androgynous female vocals with soft reverb",
+        style="Japanese citypop, A minor, CP-70 electric piano, DX7, chorus guitar, warm bass, soft synth, low thick female vocal, calm, intimate, 1990s Seoul night, female vocals",
         lyrics="""[Intro, 한강 바람 소리 + 로즈 피아노]
 
 [Verse 1]
@@ -162,7 +165,7 @@ MOCK_SONGS = [
     ),
     SongPromptPackage(
         title="삼각지에서의 마지막 밤",
-        style="Classic Seoul city pop (early 80s), smooth jazz-influenced chords, analog synth flourishes, light wah guitar, BPM 113 mid-tempo groove, wistful androgynous female vocals with delicate falsetto",
+        style="Japanese citypop, F# minor, Rhodes piano, analog synth pad, nylon guitar, mellow bass, low warm female vocal, nostalgic, dreamy, 1980s Seoul night, female vocals",
         lyrics="""[Intro, 트래픽 노이즈 & 잔잔한 전자피아노]
 
 [Verse 1]

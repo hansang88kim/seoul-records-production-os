@@ -92,10 +92,20 @@ def _run_generation(params: dict):
         )
 
         elapsed = int(time.time() - start_time)
-        status_container.success(f"✅ 생성 완료! ({elapsed}초 소요)")
 
-        # Find downloaded files
+        # Find downloaded files — check both our dir and provider's actual dir
         mp3s = sorted(dl_dir.glob("*.mp3"))
+        if not mp3s and getattr(provider, "_last_download_dir", None):
+            actual_dir = Path(provider._last_download_dir)
+            mp3s = sorted(actual_dir.glob("*.mp3"))
+            if mp3s:
+                dl_dir = actual_dir
+
+        if mp3s:
+            status_container.success(f"✅ 생성 완료! {len(mp3s)}곡 ({elapsed}초)")
+        else:
+            status_container.warning(f"⚠️ Suno 생성은 됐지만 파일을 못 찾았습니다 ({elapsed}초). task_id: {task_id}")
+
         songs = []
         labels = ["A", "B", "C", "D"]
 
@@ -129,9 +139,6 @@ def _run_generation(params: dict):
             }
             songs.append(song)
             _save_generated_song(song)
-
-        if not mp3s:
-            status_container.warning("⚠️ 생성은 됐지만 MP3 파일을 찾지 못했습니다.")
 
         # Save report
         report = {

@@ -103,7 +103,12 @@ def test_suno_cli_command_does_not_include_json_for_generate():
             pass  # May fail on file ops, but command is captured
 
     if captured:
-        assert "--json" not in captured, f"--json in generate: {captured}"
+        # Only check the generate command portion (before any fallback 'list' call)
+        if "generate" in captured:
+            gen_start = captured.index("generate")
+            gen_end = captured.index("list") if "list" in captured else len(captured)
+            generate_cmd = captured[gen_start:gen_end]
+            assert "--json" not in generate_cmd, f"--json in generate: {generate_cmd}"
 
 
 def test_provider_status_does_not_show_cookie():
