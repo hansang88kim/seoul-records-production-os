@@ -1,11 +1,8 @@
 """
 app/ui/composer_panel.py — Song Lab Composer Panel
-All song generation inputs in one screen.
 """
 from __future__ import annotations
 import streamlit as st
-
-# ─── Seoul Records Defaults ────────────────────────────────────────────────
 
 DEFAULT_EXCLUDE = (
     "sax lead, strong sax, drum fill-ins, tom fills, snare rolls, "
@@ -42,34 +39,37 @@ LYRICS_PLACEHOLDER = """[Intro]
 
 
 def render_composer_panel() -> dict | None:
-    """
-    Render the Song Lab composer panel.
-    Returns dict of generation params when Generate is clicked, else None.
-    """
+    """Render composer panel. Returns params dict on Generate click, else None."""
 
     # ── Title ────────────────────────────────────────────────────────────
     title = st.text_input(
-        "🎵 제목",
+        "제목",
         placeholder="예: 밤이 지나면",
         key="composer_title",
+        label_visibility="collapsed",
     )
+    st.caption("🎵 제목")
 
     # ── Lyrics ───────────────────────────────────────────────────────────
-    st.markdown("<p style='color:#8a98b4;font-size:0.8rem;font-weight:500;text-transform:uppercase;letter-spacing:1px;margin:1rem 0 0.3rem'>📝 가사</p>", unsafe_allow_html=True)
-    col_lyrics_btns = st.columns([1, 1, 1, 3])
-    with col_lyrics_btns[0]:
-        if st.button("📋 예시", key="lyrics_example", use_container_width=True):
-            st.session_state["composer_lyrics"] = LYRICS_PLACEHOLDER
-    with col_lyrics_btns[1]:
-        if st.button("🗑️ 지우기", key="lyrics_clear", use_container_width=True):
-            st.session_state["composer_lyrics"] = ""
-    with col_lyrics_btns[2]:
-        lock_lyrics = st.checkbox("🔒", key="lock_lyrics", help="가사 잠금")
+    st.markdown("")
+    col_lbl, col_btns = st.columns([1, 2])
+    with col_lbl:
+        st.caption("📝 가사")
+    with col_btns:
+        c1, c2, c3 = st.columns([1, 1, 1])
+        with c1:
+            if st.button("예시 불러오기", key="lyrics_example"):
+                st.session_state["composer_lyrics"] = LYRICS_PLACEHOLDER
+        with c2:
+            if st.button("전체 지우기", key="lyrics_clear"):
+                st.session_state["composer_lyrics"] = ""
+        with c3:
+            lock_lyrics = st.checkbox("잠금", key="lock_lyrics")
 
     lyrics = st.text_area(
-        "가사",
+        "lyrics",
         value=st.session_state.get("composer_lyrics", ""),
-        height=250,
+        height=220,
         placeholder=LYRICS_PLACEHOLDER,
         key="composer_lyrics",
         disabled=lock_lyrics,
@@ -77,73 +77,75 @@ def render_composer_panel() -> dict | None:
     )
 
     # ── Style ────────────────────────────────────────────────────────────
-    st.markdown("<p style='color:#8a98b4;font-size:0.8rem;font-weight:500;text-transform:uppercase;letter-spacing:1px;margin:1rem 0 0.3rem'>🎨 스타일</p>", unsafe_allow_html=True)
-    col_style_btns = st.columns([1, 1, 3])
-    with col_style_btns[0]:
-        if st.button("🏙️ 시티팝", key="style_preset", use_container_width=True):
-            st.session_state["composer_style"] = CITYPOP_STYLE_PRESET
-    with col_style_btns[1]:
-        lock_style = st.checkbox("🔒", key="lock_style", help="스타일 잠금")
+    st.markdown("")
+    col_slbl, col_sbtns = st.columns([1, 2])
+    with col_slbl:
+        st.caption("🎨 스타일 태그")
+    with col_sbtns:
+        c1, c2 = st.columns([1, 1])
+        with c1:
+            if st.button("시티팝 프리셋", key="style_preset"):
+                st.session_state["composer_style"] = CITYPOP_STYLE_PRESET
+        with c2:
+            lock_style = st.checkbox("잠금", key="lock_style")
 
     style = st.text_area(
-        "스타일 태그 (200자 이내)",
+        "style",
         value=st.session_state.get("composer_style", CITYPOP_STYLE_PRESET),
-        height=80,
+        height=70,
         key="composer_style",
         disabled=lock_style,
         label_visibility="collapsed",
     )
-
     style_len = len(style)
     if style_len > 200:
-        st.error(f"⚠️ 스타일 {style_len}자 — 200자 이내로 줄여야 합니다")
+        st.error(f"⚠️ {style_len}자 — 200자 이하로 줄이세요")
     else:
-        st.caption(f"{style_len}/200자")
+        st.caption(f"{style_len}/200")
 
     # ── Exclude ──────────────────────────────────────────────────────────
+    st.caption("🚫 제외할 스타일")
     exclude = st.text_input(
-        "🚫 제외 스타일",
+        "exclude",
         value=DEFAULT_EXCLUDE,
         key="composer_exclude",
+        label_visibility="collapsed",
     )
 
-    # ── Controls Row 1: Model / Vocal ────────────────────────────────────
-    col_model, col_vocal = st.columns(2)
-    with col_model:
-        model = st.selectbox("🤖 모델", SUNO_MODELS, index=0, key="composer_model")
-    with col_vocal:
-        vocal = st.selectbox("🎤 보컬", ["Female", "Male", "Instrumental"], index=0, key="composer_vocal")
+    # ── Model + Vocal ────────────────────────────────────────────────────
+    st.markdown("")
+    col_m, col_v = st.columns(2)
+    with col_m:
+        model = st.selectbox("모델", SUNO_MODELS, index=0, key="composer_model")
+    with col_v:
+        vocal = st.selectbox("보컬", ["Female", "Male", "Instrumental"], index=0, key="composer_vocal")
 
-    # ── Controls Row 2: Weirdness / Style Influence ──────────────────────
-    col_weird, col_influence = st.columns(2)
-    with col_weird:
-        weirdness = st.slider("🌀 Weirdness", 0, 100, 35, key="composer_weirdness")
-    with col_influence:
-        style_influence = st.slider("🎯 Style Influence", 0, 100, 70, key="composer_influence")
+    # ── Weirdness + Style Influence ──────────────────────────────────────
+    col_w, col_i = st.columns(2)
+    with col_w:
+        weirdness = st.slider("Weirdness", 0, 100, 35, key="composer_weirdness")
+    with col_i:
+        style_influence = st.slider("Style Influence", 0, 100, 70, key="composer_influence")
 
-    # ── Controls Row 3: Duration target / Variation ──────────────────────
-    col_dur, col_var = st.columns(2)
-    with col_dur:
+    # ── Duration + Variation ─────────────────────────────────────────────
+    col_d, col_var = st.columns(2)
+    with col_d:
         duration_target = st.selectbox(
-            "⏱️ 목표 길이",
-            ["3:00-3:30", "3:30-4:00", "4:00+"],
-            index=1,
-            key="composer_duration",
+            "목표 길이", ["3:00-3:30", "3:30-4:00", "4:00+"],
+            index=1, key="composer_duration",
         )
     with col_var:
         variation = st.selectbox(
-            "🎲 Variation",
-            ["normal", "subtle", "high"],
-            index=0,
-            key="composer_variation",
+            "Variation", ["normal", "subtle", "high"],
+            index=0, key="composer_variation",
         )
 
-    # ── Generate Button ──────────────────────────────────────────────────
+    # ── Generate ─────────────────────────────────────────────────────────
     st.markdown("")
     can_generate = bool(title.strip()) and bool(lyrics.strip()) and style_len <= 200
 
     if st.button(
-        "🚀 Generate 1 Song",
+        "🚀 Generate",
         type="primary",
         use_container_width=True,
         disabled=not can_generate,
@@ -170,8 +172,7 @@ def render_composer_panel() -> dict | None:
         if not lyrics.strip():
             missing.append("가사")
         if style_len > 200:
-            missing.append("스타일 200자 초과")
-        if missing:
-            st.caption(f"💡 필요: {', '.join(missing)}")
+            missing.append("스타일 초과")
+        st.caption(f"💡 {', '.join(missing)}")
 
     return None

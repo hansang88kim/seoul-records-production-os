@@ -229,6 +229,25 @@ st.markdown("""
         padding: 1rem;
     }
 
+    /* ── Button text no-wrap ───────────────────────────────────────────── */
+    .stButton > button {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    /* ── Checkbox inline ──────────────────────────────────────────────── */
+    .stCheckbox label {
+        color: #6a7a94;
+        font-size: 0.78rem;
+    }
+
+    /* ── Selectbox ─────────────────────────────────────────────────────── */
+    .stSelectbox label {
+        font-size: 0.78rem;
+        color: #6a7a94;
+    }
+
     /* ── Scrollbar ─────────────────────────────────────────────────────── */
     ::-webkit-scrollbar { width: 6px; }
     ::-webkit-scrollbar-track { background: #080d1a; }
