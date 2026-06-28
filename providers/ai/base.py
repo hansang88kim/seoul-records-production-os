@@ -35,42 +35,50 @@ class SongPromptPackage:
 
 # ─── System Prompt ───────────────────────────────────────────────────────────
 
-SYSTEM_PROMPT = """You are the A&R director and songwriter for Seoul Records, a Korean city pop label.
+SYSTEM_PROMPT = """You are the A&R director and songwriter for Seoul Records, a Korean retro city pop label.
 
-GENRE: Classic Korean city pop (late 70s-early 80s Seoul style), warm Rhodes piano, analog synths with tape noise, vintage slow groove, sentimental female vocals with lo-fi warmth, nostalgic Seoul street mood.
+GENRE: Retro Seoul city pop (1970s-80s influence), dreamy analog synths, mellow funk guitars, slow groove rhythm, vintage tape warmth, androgynous female vocals with soft reverb and subtle vibrato.
 
 CRITICAL RULES:
-- Language: Korean lyrics only (section labels in English)
-- Vocal: Low, thick, sentimental female vocal with lo-fi warmth
+- Language: Korean lyrics only (section labels + production cues in headers)
+- Vocal: Low, mature, androgynous female vocal, nostalgic tone, soft reverb
 - BPM: 108-116 (usually 112)
-- Duration: TARGET exactly 3:30 (3 minutes 30 seconds). Keep lyrics tight.
-- BANNED: sax lead, drum fill-ins, tom fills, snare rolls, EDM risers, trot, enka, toy percussion
-- Title: Short natural Korean (like "남산타워에서 보낸 편지", "밤이 지나면")
-- Original lyrics only, no copying
+- Key: often minor
+- Duration: TARGET 3:30 exactly. Keep lyrics tight (~150-180 words).
+- BANNED inside sung lines: sax lead, drum fill-ins, tom fills, snare rolls, EDM, trot, enka
 
-LYRICS FORMAT (use inline production cues in section headers like the example):
-[Intro, Synth brass hit + City FX]
+TITLE STYLE (Seoul place-name based, like the user's favorites):
+- "명동에서 종로까지", "을지로 밤길에서", "서울의 밤", "청계천 거리"
+- Use REAL Seoul locations: 명동, 종로, 을지로, 청계천, 뚝섬, 삼각지, 마포, 한강, 남산, 건대, 성수, 압구정, 신촌, 홍대, 이태원
+- Natural, evocative, place + mood. Short.
+
+LYRICS FORMAT — section headers carry production cues (Korean or English mix):
+[Intro, 한강 바람 소리 + 로즈 피아노]
 [Verse 1]
+(4 lines Korean — concrete Seoul scene, real places)
+[Pre-Chorus, 레트로 패드 + 드라이브 기타]
 (4 lines Korean)
-[Pre-Chorus, Bright synth build]
+[Chorus, 따뜻한 리듬 + 코러스 하모니]
+(5 lines Korean — hook references the Seoul place from the title)
+[Verse 2, Nylon guitar + soft percussion]
+(4 lines Korean — another Seoul location detail)
+[Pre-Chorus, 섬세한 신스 레이어]
 (4 lines Korean)
-[Chorus, Hooky groove + Vocal layering]
-(5 lines Korean, memorable hook)
-[Verse 2, Funk guitar loop + Light percussion]
-(4 lines Korean)
-[Pre-Chorus, Arpeggio synth flow]
-(4 lines Korean)
-[Chorus, Expanded harmony + Brass stabs]
-(5 lines Korean, same hook with slight variation)
-[Bridge, Emotional synth solo]
-((4 lines Korean in parentheses, soft))
-[Final Chorus, Full band + Bright climax]
-(5 lines Korean, climactic)
-[Outro, Rhodes piano + Fade FX]
-((2 lines Korean in parentheses))
+[Chorus, 감정이 쌓이는 진행]
+(5 lines Korean — hook variation)
+[Bridge, Electric piano solo + dreamy fade]
+((4 lines Korean in parentheses, soft confession))
+[Final Chorus, Emotional climax]
+(5 lines Korean — climactic)
+[Outro, 한강 소리 + 페이드아웃 피아노]
+((2 lines Korean in parentheses — a specific Seoul spot))
 
-Total lyrics ~150-180 words to fit 3:30. Natural lyrical Korean, varied endings.
-No instrument names inside the sung lyric lines themselves (only in section headers)."""
+STYLE EXAMPLES (vary each time, keep under 200 chars):
+- "Retro Seoul city pop (1970s-80s influence), dreamy analog synths, mellow funk guitars, slow groove (BPM 112), vintage tape warmth, androgynous female vocals with soft reverb"
+- "Classic Seoul city pop (early 80s), smooth jazz-influenced chords, analog synth flourishes, light wah guitar, BPM 113 mid-tempo groove, wistful androgynous female vocals"
+- "Soulful Korean city pop (BPM 110), mellow disco rhythms, analog synth pads, LP-era mastering, low mature female vocal, nostalgic 1980s Seoul nightlife tone"
+
+Lyrics: realistic, lyrical, specific Seoul places and scenes. Concrete imagery (버스 정류장, 카페, 골목, 가로등, 네온). Varied sentence endings, no instrument names in sung lines. Original only — never copy existing songs."""
 
 
 def _make_user_prompt(concept: str, generate: str = "all") -> str:
@@ -85,7 +93,7 @@ def _make_user_prompt(concept: str, generate: str = "all") -> str:
     return (
         f"Concept: {concept}\n\n"
         "Create a Seoul Records citypop song. Return JSON only:\n"
-        '{"title": "Korean title", "style": "Classic Korean city pop style description, MUST include BPM 108-116", "lyrics": "full lyrics with sections"}'
+        '{"title": "Korean title", "style": "Retro Seoul city pop style, MUST include BPM 108-116", "lyrics": "full lyrics with sections"}'
     )
 
 
@@ -93,124 +101,124 @@ def _make_user_prompt(concept: str, generate: str = "all") -> str:
 
 MOCK_SONGS = [
     SongPromptPackage(
-        title="남산타워에서 보낸 편지",
-        style="Classic Korean city pop (early 80s Seoul), warm Rhodes piano, analog synths with tape noise, slow vintage groove (BPM 112), sentimental female vocals, nostalgic Seoul street mood",
-        lyrics="""[Intro, Synth brass hit + City FX]
+        title="뚝섬 가는 밤",
+        style="Retro Seoul city pop (1970s-80s influence), dreamy analog synths, mellow funk guitars, slow groove (BPM 112), vintage tape warmth, androgynous female vocals with soft reverb",
+        lyrics="""[Intro, 한강 바람 소리 + 로즈 피아노]
 
 [Verse 1]
-서울 밤하늘 아래
-붉게 빛나던 그 타워
-너와 나란히 올랐던
-그날의 기억이 선명해
+네가 먼저 웃어준 그날 밤
+뚝섬 가는 길은 짧았지
+손끝에 닿은 온기 하나로
+모든 게 선명했던 계절
 
-[Pre-Chorus, Bright synth build]
-손을 놓을까 말까
-숨이 막히던 순간들
-그 짧은 망설임이
-이별이 될 줄 몰랐어
+[Pre-Chorus, 레트로 패드 + 드라이브 기타]
+네 말투, 네 걸음
+아직 내 안에 살아
+그때는 몰랐던 마음
+이제서야 느껴져
 
-[Chorus, Hooky groove + Vocal layering]
-남산타워에서 보낸 편지
-그 안에 담긴 내 맘을
-별빛보다 더 조용히
-너에게 보내고 있어
-잊지 못할 그 밤처럼
+[Chorus, 따뜻한 리듬 + 코러스 하모니]
+뚝섬 가는 밤
+우리의 마지막 여름
+아무도 없는 강변에
+너의 향기만 남았어
+서울의 밤이 조용히 물들어
 
-[Verse 2, Funk guitar loop + Light percussion]
-네가 좋아하던 노래
-지금 라디오에 나와
-우연히 들은 그 멜로디
-너를 향해 되돌아가
+[Verse 2, Nylon guitar + soft percussion]
+다정했던 목소리
+버스 정류장 너머로 퍼지고
+말없이 걷던 그 거리
+이제는 나 혼자야
 
-[Pre-Chorus, Arpeggio synth flow]
-헤어졌던 그날 밤
-웃으면서 인사했지
-근데 마음은 아직
-너를 놓지 못했어
+[Pre-Chorus, 섬세한 신스 레이어]
+지나간 계절 속
+네가 머문 자리를
+천천히 돌아보며
+나는 너를 부르고 있어
 
-[Chorus, Expanded harmony + Brass stabs]
-남산타워에서 보낸 편지
-조금 늦은 후회지만
-이 노래를 들었다면
-한 번쯤은 생각해 줘
-우리가 걸었던 그 밤을
+[Chorus, 감정이 쌓이는 진행]
+뚝섬 가는 밤
+조용히 너를 그리워해
+멀어진 두 발자국 사이로
+흔들리는 내 마음
+다시 널 보내고 있어
 
-[Bridge, Emotional synth solo]
-(가을 바람에 실려)
-(너의 향기가 떠올라)
-(잊은 줄 알았던 마음이)
-(다시 피어나고 있어)
+[Bridge, Electric piano solo + dreamy fade]
+(조금만 더 곁에 있었다면)
+(우리의 시간은 달랐을까)
+(이젠 모든 게 흐릿해져도)
+(그 밤은 그대로 남아)
 
-[Final Chorus, Full band + Bright climax]
-남산타워에서 보낸 편지
-밤하늘을 닮은 그날
-한 줄씩 적어 내려간
-내 진심을 기억해 줘
-영원히 간직할 너라는 계절
+[Final Chorus, Emotional climax]
+뚝섬 가는 밤
+잊지 못할 그 장면
+강물처럼 흘러가도
+네 미소만은 선명해
+이 밤은 너로 가득 차
 
-[Outro, Rhodes piano + Fade FX]
-(남산타워 위에서 쓴 편지 한 장)
-(너에게 도착하길 바래)""",
+[Outro, 한강 소리 + 페이드아웃 피아노]
+(건대입구역 출구 앞)
+(그 자리에 멈춰 선 나)""",
     ),
     SongPromptPackage(
-        title="늦은 골목 불빛",
-        style="Classic Korean city pop (early 80s Seoul style), warm Rhodes piano, mellow analog synth pads with tape warmth, slow vintage groove (BPM 110), soft sentimental female vocals, late-night Seoul alley mood",
-        lyrics="""[Intro, Warm Rhodes + Vinyl crackle]
+        title="삼각지에서의 마지막 밤",
+        style="Classic Seoul city pop (early 80s), smooth jazz-influenced chords, analog synth flourishes, light wah guitar, BPM 113 mid-tempo groove, wistful androgynous female vocals with delicate falsetto",
+        lyrics="""[Intro, 트래픽 노이즈 & 잔잔한 전자피아노]
 
 [Verse 1]
-골목 끝 작은 불빛
-혼자 켜져 있던 그곳
-너를 기다리던 밤이
-아직도 거기 멈춰 있어
+지하철 4호선 종착역 근처
+네 손을 놓고 말았던 순간
+불 꺼진 다방 유리창 너머
+우리의 그림자만 남았어
 
-[Pre-Chorus, Soft synth swell]
-지나간 계절처럼
-너도 멀어져 갔지만
-이 거리 어딘가엔
-우리 흔적이 남아
+[Pre-Chorus, 따뜻한 브라스 톤]
+너의 뒷모습을 바라보다
+한참을 서 있던 그 골목
+말 한마디 못한 채
+시간에 묻혔던 사랑
 
-[Chorus, Smooth groove + Layered vocals]
-늦은 골목 불빛 아래
-나는 아직 서성여
-돌아올 리 없는 너를
-오늘도 그려보고 있어
-식지 않는 그 밤처럼
+[Chorus, 감성 코러스 + 베이스 드라이브]
+삼각지에서의 마지막 밤
+그때 넌 울지 않았지만
+네가 없는 이 거리는
+지금도 내 맘을 울려
+가로등만 너를 알고 있어
 
-[Verse 2, Chorus guitar + Light brush drums]
-편의점 창에 비친
-흐릿한 내 얼굴 위로
-너의 미소가 겹쳐져
-자꾸만 멈춰 서게 해
+[Verse 2, 빈티지 기타 리프]
+통닭집 앞 혼잣말처럼
+자꾸만 네 이름을 부르고
+사라진 웃음, 젖은 기억
+밤마다 나를 흔들어
 
-[Pre-Chorus, Rising arpeggio]
-잊으려 애써봐도
-발걸음은 이곳으로
-마음이 기억하는
-그 골목 그 불빛
+[Pre-Chorus, 피아노 + 신스 배킹]
+이 골목엔 아직
+너의 발자국이 살아
+누가 대신 그 길을 걸어도
+난 널 잊지 못할 거야
 
-[Chorus, Expanded harmony + Warm brass]
-늦은 골목 불빛 아래
-나는 아직 서성여
-돌아올 리 없는 너를
-오늘도 그려보고 있어
-식지 않는 그 밤처럼
+[Chorus, 가창감 있는 리드 & 하모니]
+삼각지에서의 마지막 밤
+마음은 아직 그 자리에
+돌아갈 수는 없지만
+기억은 떠나지 않아
+그날 너와 멈춘 시간
 
-[Bridge, Tender synth solo]
-(차가운 밤공기 속에)
-(너의 온기를 찾아)
-(꺼지지 않는 불빛처럼)
-(나는 여기 남아있어)
+[Bridge, 아날로그 베이스 + 드리미 신스]
+(마지막이라도 안아줄 걸)
+(그 말 한마디를 왜 못 했을까)
+(지금이라도 말하고 싶어)
+(삼각지의 밤은 길었어)
 
-[Final Chorus, Full band + Bright climax]
-늦은 골목 불빛 아래
-이제는 알 것 같아
-놓지 못한 그 마음이
-오늘도 나를 붙잡아
-영원히 빛날 너라는 밤
+[Final Chorus, 감정 폭발 하이라이트]
+삼각지에서의 마지막 밤
+우리의 계절은 끝났지만
+그날의 그 노래는
+아직도 내 안에서 흐르고 있어
+서울의 밤, 널 품고 있어
 
-[Outro, Rhodes piano + Fade FX]
-(골목 끝 그 불빛 하나)
-(아직도 너를 비춰)""",
+[Outro, 도시 소음 + 로즈 피아노 페이드]
+(삼각지 사거리 불빛 아래)
+(혼자 남은 나만의 밤)""",
     ),
 ]
 
