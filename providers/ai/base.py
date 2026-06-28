@@ -112,6 +112,28 @@ def _make_user_prompt(concept: str, generate: str = "all") -> str:
 
 # ─── Mock Provider ───────────────────────────────────────────────────────────
 
+def _title_from_lyrics(lyrics: str) -> str:
+    """Extract a fallback title from the chorus hook if AI didn't provide one."""
+    if not lyrics:
+        return ""
+    lines = [l.strip() for l in lyrics.split("\n") if l.strip()]
+    # Find first [Chorus] section and use its first sung line
+    in_chorus = False
+    for line in lines:
+        if line.startswith("[Chorus"):
+            in_chorus = True
+            continue
+        if in_chorus and not line.startswith("["):
+            # Use first chorus line, truncate to reasonable title length
+            t = line.replace("(", "").replace(")", "").strip()
+            return t[:20] if t else ""
+    # Fallback: first non-section line
+    for line in lines:
+        if not line.startswith("[") and not line.startswith("("):
+            return line[:20]
+    return ""
+
+
 MOCK_SONGS = [
     SongPromptPackage(
         title="뚝섬 가는 밤",
@@ -314,10 +336,14 @@ class OpenAIProvider:
 
     def generate_song_package(self, concept: str, locked: dict | None = None) -> SongPromptPackage:
         data = self._call(concept, "all")
+        title = data.get("title", "").strip()
+        lyrics = data.get("lyrics", "")
+        if not title:
+            title = _title_from_lyrics(lyrics) or "제목 없음"
         return SongPromptPackage(
-            title=data.get("title", ""),
+            title=title,
             style=data.get("style", ""),
-            lyrics=data.get("lyrics", ""),
+            lyrics=lyrics,
             metadata={"ai_provider": "openai", "ai_model": self.MODEL_NAME,
                        "generated_at": datetime.now(timezone.utc).isoformat(), "concept": concept},
         )
@@ -377,15 +403,13 @@ class GeminiProvider:
 
         prompt_text = SYSTEM_PROMPT + "\n\n" + _make_user_prompt(concept, generate)
 
-        # Build model list: configured → live-queried available models → fallbacks
-        models_to_try = [self.MODEL_NAME]
+        # Build model list: live-queried available models first, then fallbacks
         available = self.list_models(api_key)
-        # Prefer flash models (faster, cheaper), then any available
-        flash_models = [m for m in available if "flash" in m and "lite" not in m]
-        models_to_try += flash_models + available
+        flash = [m for m in available if "flash" in m and "lite" not in m]
+        models_to_try = flash + [m for m in available if m not in flash]
         models_to_try += [
-            "gemini-flash-latest", "gemini-3-flash", "gemini-3.5-flash",
-            "gemini-2.5-flash", "gemini-2.0-flash", "gemini-1.5-flash",
+            "gemini-flash-latest", "gemini-2.5-flash", "gemini-2.0-flash",
+            "gemini-1.5-flash", self.MODEL_NAME,
         ]
 
         seen = set()
@@ -403,12 +427,13 @@ class GeminiProvider:
                     json={
                         "contents": [{"parts": [{"text": prompt_text}]}],
                         "generationConfig": {
-                            "temperature": 0.9,
-                            "maxOutputTokens": 4000,
-                            "responseMimeType": "application/json",
+                            "temperature": 0.95,
+                            # High limit — Gemini 3 spends tokens on thinking,
+                            # so 4000 was too low (output got truncated).
+                            "maxOutputTokens": 16000,
                         },
                     },
-                    timeout=60,
+                    timeout=90,
                 )
 
                 if resp.status_code != 200:
@@ -416,7 +441,7 @@ class GeminiProvider:
                         last_error = resp.json().get("error", {}).get("message", "")[:150]
                     except Exception:
                         last_error = f"HTTP {resp.status_code}"
-                    logger.warning("Gemini model %s: %s", model, last_error)
+                    logger.warning("Gemini %s: %s", model, last_error)
                     continue
 
                 data = resp.json()
@@ -425,35 +450,64 @@ class GeminiProvider:
                     last_error = "안전 필터 차단 (candidates 없음)"
                     continue
 
-                parts = candidates[0].get("content", {}).get("parts", [])
+                cand = candidates[0]
+                finish = cand.get("finishReason", "")
+                parts = cand.get("content", {}).get("parts", [])
+
                 if not parts:
-                    fr = candidates[0].get("finishReason", "")
-                    last_error = f"응답 비어있음 (finishReason: {fr})"
+                    if finish == "MAX_TOKENS":
+                        last_error = "토큰 한도 초과 (thinking에 소모) — 재시도"
+                    else:
+                        last_error = f"빈 응답 (finishReason: {finish})"
                     continue
 
-                content = parts[0].get("text", "").strip()
-                if content.startswith("```"):
-                    content = content.split("```")[1]
-                    if content.startswith("json"):
-                        content = content[4:]
-                logger.info("Gemini success with model: %s", model)
-                return json.loads(content)
+                # Concatenate all text parts (Gemini 3 may split)
+                content = "".join(p.get("text", "") for p in parts).strip()
+                if not content:
+                    last_error = f"텍스트 없음 (finishReason: {finish})"
+                    continue
+
+                # Strip markdown code fences
+                if "```" in content:
+                    # Extract content between first ``` and last ```
+                    import re
+                    m = re.search(r"```(?:json)?\s*(\{.*\})\s*```", content, re.DOTALL)
+                    if m:
+                        content = m.group(1)
+                    else:
+                        content = content.replace("```json", "").replace("```", "").strip()
+
+                # Find the JSON object if there is surrounding text
+                if not content.startswith("{"):
+                    start_brace = content.find("{")
+                    end_brace = content.rfind("}")
+                    if start_brace >= 0 and end_brace > start_brace:
+                        content = content[start_brace:end_brace + 1]
+
+                result = json.loads(content)
+                logger.info("Gemini success: model=%s", model)
+                return result
 
             except requests.exceptions.RequestException as e:
                 last_error = f"네트워크: {type(e).__name__}"
                 continue
             except json.JSONDecodeError as e:
-                last_error = f"JSON 파싱 실패: {str(e)[:80]}"
+                last_error = f"JSON 파싱 실패: {str(e)[:60]} | 내용: {content[:80]}"
+                logger.warning("Gemini JSON error: %s", last_error)
                 continue
 
         raise RuntimeError(f"Gemini 생성 실패 — {last_error}")
 
     def generate_song_package(self, concept: str, locked: dict | None = None) -> SongPromptPackage:
         data = self._call(concept, "all")
+        title = data.get("title", "").strip()
+        lyrics = data.get("lyrics", "")
+        if not title:
+            title = _title_from_lyrics(lyrics) or "제목 없음"
         return SongPromptPackage(
-            title=data.get("title", ""),
+            title=title,
             style=data.get("style", ""),
-            lyrics=data.get("lyrics", ""),
+            lyrics=lyrics,
             metadata={"ai_provider": "gemini", "ai_model": self.MODEL_NAME,
                        "generated_at": datetime.now(timezone.utc).isoformat(), "concept": concept},
         )
