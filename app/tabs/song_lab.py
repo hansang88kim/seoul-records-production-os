@@ -818,7 +818,7 @@ def _render_auto_batch():
                 if lc > 400:
                     st.warning(f"⚠️ 가사 본문 {lc}자 · 예상 ~{est//60}:{est%60:02d} (400자 이하로)")
                 elif lc < 360:
-                    st.caption(f"가사 본문 {lc}자 · 예상 ~{est//60}:{est%60:02d} (360자 이상 권장)")
+                    st.caption(f"가사 본문 {lc}자 · 예상 ~{est//60}:{est%60:02d} (320자 이상 권장)")
                 else:
                     st.caption(f"✅ 가사 본문 {lc}자 · 예상 ~{est//60}:{est%60:02d}")
 

@@ -131,8 +131,9 @@ LYRICS THEME/MOOD:
 - Avoid clichés. Make it real, specific to {city}, and deeply felt.
 
 LYRICS FORMAT — follow this EXACT structure for natural 3:30 duration.
-Lyrics must be 360-400 characters (sung text only, excluding section headers). HARD CAP: 400 chars MAX. Target duration: 3:30-3:50.
-If over 400 chars, CUT words until under 400. NEVER exceed 400. If under 360 chars, ADD lines.
+Lyrics must be 320-400 characters (sung text only, excluding section headers). HARD CAP: 400 chars MAX. HARD FLOOR: 320 chars MIN. Target duration: 3:30-3:50.
+If over 400 chars, CUT words until under 400. NEVER exceed 400.
+If under 320 chars, ADD natural phrases until at least 320. NEVER go below 320.
 If under 360 chars, ADD natural phrases to reach 360.
 
 STRUCTURE (10 sections — this length produces ~3:30-3:50):
