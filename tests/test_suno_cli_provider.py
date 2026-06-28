@@ -499,3 +499,60 @@ def test_config_error_maps_to_captcha():
     from providers.suno.suno_cli_provider import _map_error_code
     assert _map_error_code("config_error") == "captcha_required"
     assert _map_error_code("hcaptcha") == "captcha_required"
+
+
+# ─── CAPTCHA retry count + empty style guard ─────────────────────────────────
+
+def test_captcha_retries_configurable(monkeypatch, tmp_path):
+    """SUNO_CAPTCHA_RETRIES controls the retry count (clamped 1-30)."""
+    from providers.suno import suno_cli_provider as m
+    from importlib import reload
+    fake_bin = tmp_path / "suno"
+    fake_bin.write_text("fake")
+    monkeypatch.setenv("SUNO_CLI_BIN", str(fake_bin))
+    monkeypatch.setenv("SUNO_COOKIE", "cookie")
+    monkeypatch.setenv("SUNO_CAPTCHA_RETRIES", "10")
+    reload(m)
+
+    p = m.SunoCliProvider()
+    dl = str(tmp_path / "dl")
+    attempts = [0]
+
+    def mock_run(cmd, **kw):
+        if "--json" in cmd:
+            return mock.Mock(returncode=0, stdout=json.dumps({"data": {"credits_left": 100}}), stderr="")
+        if "generate" in cmd:
+            attempts[0] += 1
+            # Always fail with CAPTCHA to count attempts
+            return mock.Mock(returncode=2, stdout="", stderr="")
+        return mock.Mock(returncode=0)
+
+    with mock.patch("subprocess.run", side_effect=mock_run), mock.patch("time.sleep"):
+        try:
+            p.create_song("t", "Japanese citypop", "lyrics", {"download_dir": dl})
+        except Exception:
+            pass
+
+    # Should have tried 10 times before giving up
+    assert attempts[0] == 10
+
+
+def test_empty_style_rejected(monkeypatch, tmp_path):
+    """Empty style raises an error (prevents ', female vocals' junk tags)."""
+    from providers.suno import suno_cli_provider as m
+    from importlib import reload
+    fake_bin = tmp_path / "suno"
+    fake_bin.write_text("fake")
+    monkeypatch.setenv("SUNO_CLI_BIN", str(fake_bin))
+    monkeypatch.setenv("SUNO_COOKIE", "cookie")
+    reload(m)
+
+    p = m.SunoCliProvider()
+    def mock_run(cmd, **kw):
+        if "--json" in cmd:
+            return mock.Mock(returncode=0, stdout=json.dumps({"data": {"credits_left": 100}}), stderr="")
+        return mock.Mock(returncode=0)
+
+    with mock.patch("subprocess.run", side_effect=mock_run):
+        with pytest.raises(m.ProviderError):
+            p.create_song("title", "   ", "lyrics", {"download_dir": str(tmp_path)})

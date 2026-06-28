@@ -315,7 +315,9 @@ def song_project_download_dir(project_name: str, title: str) -> Path:
     """Download dir for a new song, inside the project's songs/ folder."""
     pdir = song_project_dir(project_name)
     ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
-    safe = re.sub(r'[/\\:*?"<>|]', "_", title).replace(" ", "-")[:40]
+    safe = re.sub(r'[/\\:*?"<>|]', "_", title or "").strip().replace(" ", "-")[:40]
+    if not safe:  # empty/blank title → avoid trailing-underscore empty folder
+        safe = "song"
     d = pdir / "songs" / f"{ts}_{safe}"
     d.mkdir(parents=True, exist_ok=True)
     return d

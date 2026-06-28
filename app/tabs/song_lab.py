@@ -113,7 +113,7 @@ def _run_generation(params: dict, project: str = ""):
         # then generates. It raises ProviderError('auth_required') if auth fails.
         status_container.info(
             "🔐 인증 + 크레딧 확인 → 🚀 생성 중... "
-            "(CAPTCHA 자동 3회 재시도, Chrome 창에서 해결 대기, 최대 10분)"
+            "(CAPTCHA 자동 10회 재시도, Chrome 창에서 해결 대기, 최대 10분)"
         )
 
         task_id = provider.create_song(
@@ -227,7 +227,7 @@ def _run_generation(params: dict, project: str = ""):
             st.info("사이드바 🔑 Suno → [편집] → 새 쿠키 입력 → 연결 후 다시 생성하세요.")
         elif err_status == "captcha_required":
             st.warning(
-                "🧩 CAPTCHA 로딩 실패 (자동 3회 재시도했으나 실패)\n\n"
+                "🧩 CAPTCHA 로딩 실패 (자동 10회 재시도했으나 실패)\n\n"
                 "Suno 서버의 hCaptcha가 간헐적으로 로딩되지 않는 문제입니다. "
                 "**해결 방법:**\n"
                 "1. Chrome에서 suno.com/create 를 직접 열어 로그인 상태와 CAPTCHA가 뜨는지 확인\n"

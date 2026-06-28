@@ -400,6 +400,15 @@ class SunoCliProvider(ComposerProvider):
 
         opts = options or {}
 
+        # Guard: empty style produces ", female vocals" junk tags in Suno.
+        # Require a non-empty style so songs get the proper citypop tags.
+        style = (style or "").strip()
+        if not style:
+            raise ProviderError(
+                "generation_failed",
+                "스타일이 비어 있습니다 — 스타일 태그를 입력하거나 '프리셋 적용'을 누르세요.",
+            )
+
         # Write lyrics to temp file
         lyrics_file = Path(tempfile.mktemp(suffix=".txt", prefix="suno_lyrics_"))
         lyrics_file.write_text(lyrics, encoding="utf-8")
@@ -458,10 +467,13 @@ class SunoCliProvider(ComposerProvider):
 
         # ── Generate with CAPTCHA auto-retry ─────────────────────────────
         # CAPTCHA loading on suno.com is intermittent (server-side). Retry
-        # up to 3 times, re-authenticating before each attempt.
-        max_attempts = 3
+        # many times, re-authenticating before each attempt. The retry count
+        # is configurable via SUNO_CAPTCHA_RETRIES (default 10).
+        max_attempts = int(os.getenv("SUNO_CAPTCHA_RETRIES", "10"))
+        max_attempts = max(1, min(max_attempts, 30))  # clamp 1-30
         proc = None
         last_err = None
+        import time as _t
         try:
             for attempt in range(1, max_attempts + 1):
                 try:
@@ -469,15 +481,19 @@ class SunoCliProvider(ComposerProvider):
                         logger.info("CAPTCHA retry %d/%d — re-authenticating", attempt, max_attempts)
                         # Re-auth before retry (session may need refresh)
                         self._ensure_auth()
-                        import time as _t
-                        _t.sleep(2)  # brief pause before retry
+                        # Progressive backoff: 2s, 3s, 4s... capped at 8s
+                        delay = min(2 + (attempt - 2), 8)
+                        _t.sleep(delay)
                     proc = _run_suno_raw(cmd, timeout=_GENERATE_TIMEOUT, suno_bin=self._bin)
                     break  # success
                 except ProviderError as e:
                     last_err = e
                     # Only retry on CAPTCHA failures; re-raise others immediately
                     if e.status == "captcha_required" and attempt < max_attempts:
-                        logger.warning("CAPTCHA failed (attempt %d/%d), retrying...", attempt, max_attempts)
+                        logger.warning(
+                            "CAPTCHA failed (attempt %d/%d), retrying in a moment...",
+                            attempt, max_attempts,
+                        )
                         continue
                     raise
         finally:
