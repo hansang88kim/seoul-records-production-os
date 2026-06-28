@@ -344,18 +344,33 @@ def render_song_lab():
 
 
 def _generate_plan_only(concept: str, ai_provider_name: str, language: str = "korean",
-                       locked_style: str = "", track_no: int = 0) -> dict:
+                       locked_style: str = "", track_no: int = 0,
+                       existing_titles: list[str] | None = None) -> dict:
     """
     AI writes ONE song's title/style/lyrics (no Suno generation yet).
     If locked_style is set, use it instead of AI-generated style.
-    Returns a draft dict for the plan preview.
+    existing_titles: titles already generated in this batch (AI must avoid them).
     """
-    from providers.ai.base import get_ai_provider, _lyrics_char_count
+    from providers.ai.base import get_ai_provider, _lyrics_char_count, _format_lyrics
 
     draft = {"status": "drafted", "title": "", "style": "", "lyrics": "", "error": ""}
     try:
         ai = get_ai_provider(ai_provider_name)
-        pkg = ai.generate_song_package(concept, language=language)
+        # Diversify: tell AI what titles to AVOID (already used in this batch)
+        diversified_concept = concept
+        if existing_titles:
+            avoid_str = ", ".join(f'"{t}"' for t in existing_titles)
+            diversified_concept = (
+                f"{concept}\n\n"
+                f"IMPORTANT — This is song {track_no + 1} in a batch. "
+                f"The following titles are ALREADY USED: {avoid_str}. "
+                f"You MUST create a COMPLETELY DIFFERENT title and lyrics. "
+                f"Do NOT use the same location or similar phrasing. "
+                f"Each song should feel like it's from a different album."
+            )
+        pkg = ai.generate_song_package(diversified_concept, language=language)
+        # Ensure lyrics are properly formatted with line breaks
+        pkg.lyrics = _format_lyrics(pkg.lyrics)
         if locked_style:
             pkg.style = locked_style  # override with the locked preset
         # Apply composer variation so each batch song is slightly different
@@ -655,9 +670,11 @@ def _render_auto_batch():
             for n in range(int(count)):
                 stat.info(f"📝 {n+1}/{count}곡 작곡 중... (AI가 제목/스타일/가사 생성)")
                 locked = auto_style.strip() if st.session_state.get("auto_lock_style") else ""
+                # Collect already-generated titles for diversity
+                existing_titles = [d.get("title", "") for d in plan if d.get("title")]
                 draft = _generate_plan_only(concept.strip(), ai_provider_name,
                                             language=auto_language, locked_style=locked,
-                                            track_no=n)
+                                            track_no=n, existing_titles=existing_titles)
                 plan.append(draft)
                 prog.progress((n + 1) / count)
             st.session_state["auto_plan_data"] = plan

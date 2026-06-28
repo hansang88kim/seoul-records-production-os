@@ -472,8 +472,16 @@ def _format_lyrics(lyrics: str) -> str:
     if not lyrics:
         return ""
 
-    # Strip production cues from section headers: [Chorus, Hook + Harmony] → [Chorus]
     import re as _re
+
+    # If all sections are on one line, split before each [Section] header
+    if lyrics.count("\n") < 5 and "[" in lyrics:
+        lyrics = _re.sub(r'\s*\[', '\n[', lyrics).strip()
+    # Split text that follows a section header on the same line
+    # [Verse 1] 가사 텍스트 → [Verse 1]\n가사 텍스트
+    lyrics = _re.sub(r'(\[[^\]]+\])\s+([^(\n])', r'\1\n\2', lyrics)
+
+    # Strip production cues from section headers: [Chorus, Hook + Harmony] → [Chorus]
     def _clean_header(line: str) -> str:
         m = _re.match(r'^(\[\w[\w\s-]*?)\s*,.*\]$', line.strip())
         if m:
