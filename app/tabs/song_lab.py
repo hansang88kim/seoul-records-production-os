@@ -678,6 +678,10 @@ def _render_auto_batch():
                 plan.append(draft)
                 prog.progress((n + 1) / count)
             st.session_state["auto_plan_data"] = plan
+            # Clear old widget keys so new plan values show correctly
+            for k in list(st.session_state.keys()):
+                if k.startswith("plan_title_") or k.startswith("plan_style_") or k.startswith("plan_lyrics_"):
+                    del st.session_state[k]
             # Persist plan to disk (survives page refresh)
             if project:
                 _save_plan_to_disk(project, plan)
@@ -753,6 +757,9 @@ def _render_auto_batch():
                                 "status": "drafted",
                             })
                             st.session_state["auto_plan_data"] = plan
+                            # Clear widget keys so new values show
+                            for _k in [f"plan_title_{i}", f"plan_style_{i}", f"plan_lyrics_{i}"]:
+                                st.session_state.pop(_k, None)
                             st.rerun()
                 with rg_cols[1]:
                     if st.button("📝 제목만", key=f"regen_title_{i}", help="제목만 재생성",
@@ -764,6 +771,7 @@ def _render_auto_batch():
                             plan[i]["title"] = ai.generate_title(concept.strip(), language=auto_language)
                             plan[i]["status"] = "drafted"
                             st.session_state["auto_plan_data"] = plan
+                            st.session_state.pop(f"plan_title_{i}", None)
                             st.rerun()
                 with rg_cols[2]:
                     if st.button("🎨 스타일", key=f"regen_style_{i}", help="스타일 변주",
@@ -774,6 +782,7 @@ def _render_auto_batch():
                             base = auto_style.strip() or CITYPOP_STYLE_PRESET
                             plan[i]["style"] = apply_batch_variation(base, i + hash(plan[i].get("title", "")) % 8)
                             st.session_state["auto_plan_data"] = plan
+                            st.session_state.pop(f"plan_style_{i}", None)
                             st.rerun()
                 with rg_cols[3]:
                     if st.button("✍️ 가사만", key=f"regen_lyrics_{i}", help="가사만 재생성",
@@ -787,12 +796,21 @@ def _render_auto_batch():
                             plan[i]["lyric_chars"] = _lyrics_char_count(plan[i]["lyrics"])
                             plan[i]["status"] = "drafted"
                             st.session_state["auto_plan_data"] = plan
+                            st.session_state.pop(f"plan_lyrics_{i}", None)
                             st.rerun()
 
+                # Sync plan data → widget keys (so new values show after regeneration)
+                if f"plan_title_{i}" not in st.session_state:
+                    st.session_state[f"plan_title_{i}"] = draft.get("title", "")
+                if f"plan_style_{i}" not in st.session_state:
+                    st.session_state[f"plan_style_{i}"] = draft.get("style", "")
+                if f"plan_lyrics_{i}" not in st.session_state:
+                    st.session_state[f"plan_lyrics_{i}"] = draft.get("lyrics", "")
+
                 # Editable fields
-                draft["title"] = st.text_input("제목", value=draft.get("title", ""), key=f"plan_title_{i}")
-                draft["style"] = st.text_area("스타일", value=draft.get("style", ""), height=80, key=f"plan_style_{i}")
-                draft["lyrics"] = st.text_area("가사", value=draft.get("lyrics", ""), height=200, key=f"plan_lyrics_{i}")
+                draft["title"] = st.text_input("제목", key=f"plan_title_{i}")
+                draft["style"] = st.text_area("스타일", height=80, key=f"plan_style_{i}")
+                draft["lyrics"] = st.text_area("가사", height=200, key=f"plan_lyrics_{i}")
                 # Recompute char count
                 from providers.ai.base import _lyrics_char_count
                 lc = _lyrics_char_count(draft["lyrics"])
