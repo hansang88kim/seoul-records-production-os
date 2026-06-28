@@ -21,66 +21,219 @@ st.set_page_config(
 
 # ─── Global CSS ──────────────────────────────────────────────────────────────
 st.markdown("""
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+KR:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
-    /* Base */
-    .stApp { background-color: #0b1120; }
-    .block-container { padding-top: 2.5rem; max-width: 1200px; }
-
-    /* Typography */
-    h1 { color: #d4c48a; font-weight: 700; letter-spacing: -0.5px; }
-    h2 { color: #c8b97a; font-weight: 600; }
-    h3 { color: #b0a06a; font-weight: 600; font-size: 1.1rem; }
-
-    /* Tabs */
-    .stTabs [data-baseweb="tab-list"] { gap: 0.5rem; }
-    .stTabs [data-baseweb="tab"] {
-        color: #6b7fa0;
-        font-size: 0.9rem;
-        padding: 0.6rem 1rem;
-        border-radius: 8px 8px 0 0;
+    /* ── Base ──────────────────────────────────────────────────────────── */
+    .stApp {
+        background: #080d1a;
+        font-family: 'Inter', 'Noto Sans KR', -apple-system, sans-serif;
     }
-    .stTabs [aria-selected="true"] {
+    .block-container {
+        padding: 2rem 2rem 4rem;
+        max-width: 1280px;
+    }
+
+    /* ── Typography ───────────────────────────────────────────────────── */
+    h1 {
+        color: #e8dcc0;
+        font-weight: 700;
+        font-size: 1.6rem;
+        letter-spacing: -0.5px;
+        margin-bottom: 0.25rem;
+    }
+    h2 {
         color: #d4c48a;
-        background: rgba(212, 196, 138, 0.08);
-        border-bottom: 2px solid #d4c48a;
-    }
-
-    /* Sidebar */
-    [data-testid="stSidebar"] {
-        background: #0d1529;
-        border-right: 1px solid #1a2744;
-    }
-    [data-testid="stSidebar"] h1,
-    [data-testid="stSidebar"] h2,
-    [data-testid="stSidebar"] h3 { font-size: 0.95rem; }
-
-    /* Cards */
-    [data-testid="stExpander"] {
-        background: #111b30;
-        border: 1px solid #1a2744;
-        border-radius: 10px;
-    }
-
-    /* Buttons */
-    .stButton > button[kind="primary"] {
-        background: linear-gradient(135deg, #c8b97a, #a89050);
-        color: #0b1120;
         font-weight: 600;
+        font-size: 1.25rem;
+        letter-spacing: -0.3px;
+    }
+    h3 {
+        color: #c0b070;
+        font-weight: 600;
+        font-size: 1.05rem;
+    }
+    h5 {
+        color: #9a8d6a;
+        font-weight: 500;
+        font-size: 0.85rem;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        margin-bottom: 0.5rem;
+    }
+    p, span, label, .stMarkdown {
+        color: #b0bcd0;
+        font-size: 0.88rem;
+        line-height: 1.5;
+    }
+    .stCaption, small {
+        color: #5a6a84 !important;
+        font-size: 0.78rem;
+    }
+
+    /* ── Tabs ─────────────────────────────────────────────────────────── */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 0;
+        background: #0c1224;
+        border-radius: 10px;
+        padding: 3px;
+        border: 1px solid #151f38;
+    }
+    .stTabs [data-baseweb="tab"] {
+        color: #4a5a78;
+        font-size: 0.82rem;
+        font-weight: 500;
+        padding: 0.5rem 1.2rem;
+        border-radius: 8px;
         border: none;
     }
-    .stButton > button[kind="primary"]:hover {
-        background: linear-gradient(135deg, #d4c48a, #b8a060);
+    .stTabs [aria-selected="true"] {
+        color: #e8dcc0;
+        background: rgba(200, 185, 122, 0.12);
+        border: 1px solid rgba(200, 185, 122, 0.2);
     }
 
-    /* Metrics */
-    [data-testid="stMetricValue"] { color: #e0d9c0; font-size: 1.4rem; }
-    [data-testid="stMetricLabel"] { color: #6b7fa0; }
+    /* ── Sidebar ──────────────────────────────────────────────────────── */
+    [data-testid="stSidebar"] {
+        background: #0a1020;
+        border-right: 1px solid #131c32;
+    }
+    [data-testid="stSidebar"] h2 {
+        font-size: 1.1rem;
+        color: #e8dcc0;
+    }
+    [data-testid="stSidebar"] h5 {
+        font-size: 0.72rem;
+        color: #6a7a94;
+    }
 
-    /* Progress */
-    .stProgress > div > div { background: #c8b97a; }
+    /* ── Inputs ────────────────────────────────────────────────────────── */
+    .stTextInput > div > div > input,
+    .stTextArea > div > div > textarea,
+    .stSelectbox > div > div {
+        background: #0e1628;
+        border: 1px solid #1a2540;
+        border-radius: 8px;
+        color: #c8d0e0;
+        font-size: 0.85rem;
+        font-family: 'Inter', 'Noto Sans KR', sans-serif;
+    }
+    .stTextInput > div > div > input:focus,
+    .stTextArea > div > div > textarea:focus {
+        border-color: #c8b97a;
+        box-shadow: 0 0 0 1px rgba(200, 185, 122, 0.3);
+    }
+    .stTextInput > label,
+    .stTextArea > label,
+    .stSelectbox > label {
+        color: #8090a8;
+        font-size: 0.8rem;
+        font-weight: 500;
+    }
 
-    /* Divider */
-    hr { border-color: #1a2744 !important; }
+    /* ── Buttons ───────────────────────────────────────────────────────── */
+    .stButton > button {
+        font-family: 'Inter', 'Noto Sans KR', sans-serif;
+        font-size: 0.82rem;
+        font-weight: 500;
+        border-radius: 8px;
+        padding: 0.45rem 1rem;
+        transition: all 0.15s ease;
+    }
+    .stButton > button[kind="primary"] {
+        background: linear-gradient(135deg, #c8b97a 0%, #9a8650 100%);
+        color: #080d1a;
+        font-weight: 600;
+        border: none;
+        box-shadow: 0 2px 8px rgba(200, 185, 122, 0.2);
+    }
+    .stButton > button[kind="primary"]:hover {
+        background: linear-gradient(135deg, #ddd0a0 0%, #b8a060 100%);
+        box-shadow: 0 4px 16px rgba(200, 185, 122, 0.3);
+        transform: translateY(-1px);
+    }
+    .stButton > button[kind="secondary"] {
+        background: #111b30;
+        color: #8a98b4;
+        border: 1px solid #1e2e4a;
+    }
+    .stButton > button[kind="secondary"]:hover {
+        background: #162040;
+        color: #b0bcd0;
+        border-color: #2a3e60;
+    }
+
+    /* ── Expander ──────────────────────────────────────────────────────── */
+    [data-testid="stExpander"] {
+        background: #0c1224;
+        border: 1px solid #151f38;
+        border-radius: 10px;
+    }
+    [data-testid="stExpander"] summary {
+        color: #8a98b4;
+        font-size: 0.85rem;
+    }
+
+    /* ── Metrics ───────────────────────────────────────────────────────── */
+    [data-testid="stMetricValue"] {
+        color: #e8dcc0;
+        font-size: 1.3rem;
+        font-weight: 600;
+    }
+    [data-testid="stMetricLabel"] {
+        color: #5a6a84;
+        font-size: 0.72rem;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    /* ── Slider ────────────────────────────────────────────────────────── */
+    .stSlider > div > div > div > div {
+        background: #c8b97a;
+    }
+    .stSlider label {
+        color: #8090a8;
+        font-size: 0.8rem;
+    }
+
+    /* ── Radio ─────────────────────────────────────────────────────────── */
+    .stRadio > label {
+        color: #8090a8;
+        font-size: 0.82rem;
+    }
+    .stRadio > div {
+        gap: 0.3rem;
+    }
+
+    /* ── Progress ──────────────────────────────────────────────────────── */
+    .stProgress > div > div {
+        background: linear-gradient(90deg, #c8b97a, #a89050);
+        border-radius: 4px;
+    }
+
+    /* ── Divider ───────────────────────────────────────────────────────── */
+    hr {
+        border-color: #131c32 !important;
+        margin: 0.75rem 0;
+    }
+
+    /* ── Alert boxes ──────────────────────────────────────────────────── */
+    .stAlert {
+        border-radius: 8px;
+        font-size: 0.83rem;
+    }
+
+    /* ── File uploader ────────────────────────────────────────────────── */
+    [data-testid="stFileUploader"] {
+        border: 1px dashed #1e2e4a;
+        border-radius: 10px;
+        padding: 1rem;
+    }
+
+    /* ── Scrollbar ─────────────────────────────────────────────────────── */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: #080d1a; }
+    ::-webkit-scrollbar-thumb { background: #1e2e4a; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #2a3e60; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -89,12 +242,16 @@ suno_bin = _os.getenv("SUNO_CLI_BIN", "suno")
 
 with st.sidebar:
     # Logo area
-    st.markdown("## 🎵 Seoul Records")
-    st.caption(f"Production OS v{APP_VERSION}")
+    st.markdown(f"""
+    <div style="text-align:center;padding:0.5rem 0 0.2rem">
+        <div style="font-size:1.3rem;font-weight:700;color:#e8dcc0;letter-spacing:-0.5px">🎵 Seoul Records</div>
+        <div style="font-size:0.65rem;color:#4a5a78;letter-spacing:2px;text-transform:uppercase;margin-top:2px">Production OS v{APP_VERSION}</div>
+    </div>
+    """, unsafe_allow_html=True)
     st.divider()
 
     # Suno Auth
-    st.markdown("##### 🔑 Suno 인증")
+    st.markdown("<div style='color:#6a7a94;font-size:0.7rem;font-weight:500;text-transform:uppercase;letter-spacing:1.5px;margin:0.5rem 0 0.3rem'>🔑 Suno 인증</div>", unsafe_allow_html=True)
 
     current_cookie = _os.getenv("SUNO_COOKIE", "")
     if current_cookie:

@@ -55,7 +55,7 @@ def render_composer_panel() -> dict | None:
     )
 
     # ── Lyrics ───────────────────────────────────────────────────────────
-    st.markdown("##### 📝 가사")
+    st.markdown("<p style='color:#8a98b4;font-size:0.8rem;font-weight:500;text-transform:uppercase;letter-spacing:1px;margin:1rem 0 0.3rem'>📝 가사</p>", unsafe_allow_html=True)
     col_lyrics_btns = st.columns([1, 1, 1, 3])
     with col_lyrics_btns[0]:
         if st.button("📋 예시", key="lyrics_example", use_container_width=True):
@@ -77,7 +77,7 @@ def render_composer_panel() -> dict | None:
     )
 
     # ── Style ────────────────────────────────────────────────────────────
-    st.markdown("##### 🎨 스타일")
+    st.markdown("<p style='color:#8a98b4;font-size:0.8rem;font-weight:500;text-transform:uppercase;letter-spacing:1px;margin:1rem 0 0.3rem'>🎨 스타일</p>", unsafe_allow_html=True)
     col_style_btns = st.columns([1, 1, 3])
     with col_style_btns[0]:
         if st.button("🏙️ 시티팝", key="style_preset", use_container_width=True):

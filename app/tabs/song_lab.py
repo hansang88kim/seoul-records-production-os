@@ -197,7 +197,7 @@ def _render_quick_single():
     col_composer, col_results = st.columns([1, 1], gap="large")
 
     with col_composer:
-        st.markdown("### 🎵 Song Composer")
+        st.markdown("<h2 style='margin-bottom:0.5rem'>🎵 Song Composer</h2>", unsafe_allow_html=True)
         params = render_composer_panel()
 
         if params:
@@ -205,7 +205,7 @@ def _render_quick_single():
             st.rerun()
 
     with col_results:
-        st.markdown("### 📋 생성 결과")
+        st.markdown("<h2 style='margin-bottom:0.5rem'>📋 생성 결과</h2>", unsafe_allow_html=True)
         songs = _load_generated_songs()
         render_song_list(songs)
 
