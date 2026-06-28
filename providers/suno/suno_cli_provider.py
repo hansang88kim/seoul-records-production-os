@@ -27,6 +27,17 @@ from providers.suno.base import (
 )
 
 logger = logging.getLogger(__name__)
+import sys as _sys
+
+def _win_creation_flags() -> dict:
+    """On Windows, isolate child process from parent's console signals."""
+    if _sys.platform == "win32":
+        CREATE_NEW_PROCESS_GROUP = 0x00000200
+        return {"creationflags": CREATE_NEW_PROCESS_GROUP}
+    return {}
+
+
+
 
 _DEFAULT_TIMEOUT = 300
 _GENERATE_TIMEOUT = 600  # 10 min for --wait
@@ -146,7 +157,8 @@ def _run_suno_raw(
     cmd = [bin_path] + args
 
     try:
-        proc = subprocess.run(cmd, timeout=timeout, encoding="utf-8")
+        proc = subprocess.run(cmd, timeout=timeout, encoding="utf-8",
+                              errors="replace", **_win_creation_flags())
     except FileNotFoundError:
         raise ProviderError(
             "provider_unavailable",
