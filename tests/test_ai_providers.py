@@ -378,3 +378,36 @@ def test_batch_variation_under_900_chars():
     for i in range(10):
         v = apply_batch_variation(CITYPOP_STYLE_PRESET, i)
         assert len(v) < 900, f"Track {i}: {len(v)} chars (max 900)"
+
+
+# ─── Major + Minor keys ──────────────────────────────────────────────────────
+
+def test_batch_keys_include_major_and_minor():
+    """Key list has both major and minor keys."""
+    from providers.ai.base import _BATCH_KEYS
+    majors = [k for k in _BATCH_KEYS if "major" in k]
+    minors = [k for k in _BATCH_KEYS if "minor" in k]
+    assert len(majors) >= 3, f"Only {len(majors)} major keys"
+    assert len(minors) >= 3, f"Only {len(minors)} minor keys"
+
+
+def test_batch_variation_produces_major_keys():
+    """Across a batch, some songs get major keys."""
+    from providers.ai.base import apply_batch_variation
+    from app.ui.composer_panel import CITYPOP_STYLE_PRESET
+    import re
+    keys = []
+    for i in range(8):
+        v = apply_batch_variation(CITYPOP_STYLE_PRESET, i)
+        m = re.search(r"([A-G][#b]? (?:major|minor))", v)
+        if m:
+            keys.append(m.group(1))
+    majors = [k for k in keys if "major" in k]
+    assert len(majors) >= 2, f"Expected major keys in batch, got {keys}"
+
+
+def test_default_preset_has_key():
+    """The default style preset includes a key."""
+    from app.ui.composer_panel import CITYPOP_STYLE_PRESET
+    import re
+    assert re.search(r"[A-G][#b]? (?:major|minor)", CITYPOP_STYLE_PRESET)

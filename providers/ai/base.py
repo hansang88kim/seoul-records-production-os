@@ -96,7 +96,7 @@ CRITICAL RULES:
 - Language: {lyric_lang} lyrics only (section labels + production cues in headers stay in English)
 - Vocal: Low, mature, expressive female vocal with retro reverb and subtle vibrato
 - BPM: 108-116 (usually 112)
-- Key: often minor
+- Key: BOTH major and minor are good (major = brighter nostalgic, minor = wistful bittersweet)
 - Duration: MUST be 3:30 or SHORTER. Keep lyrics SHORT.
 - Too many lines runs 4:00-4:30 — TOO LONG. Cut ruthlessly.
 - Total lyric content: {char_target} (not counting section headers).
@@ -307,8 +307,12 @@ def generate_style_variation(current_style: str, provider_name: str = "openai") 
 
 _BATCH_BPMS = [108, 110, 111, 112, 113, 114, 115, 116]
 _BATCH_KEYS = [
-    "A minor", "B minor", "C# minor", "D minor", "E minor",
-    "F# minor", "G# minor", "Ab major", "Bb minor", "Eb minor",
+    # Mix of MAJOR and MINOR — golden-age city pop uses both.
+    # Major keys give brighter, uplifting nostalgia; minor keys give
+    # the wistful bittersweet mood. Alternated for variety.
+    "C major", "A minor", "F major", "D minor", "G major",
+    "E minor", "Bb major", "C# minor", "Eb major", "F# minor",
+    "Ab major", "B minor", "D major", "G# minor",
 ]
 _BATCH_VOCAL_TONES = [
     "emotional low female vocal with warm reverb and tender vibrato",
@@ -550,7 +554,7 @@ def _title_from_lyrics(lyrics: str) -> str:
 MOCK_SONGS = [
     SongPromptPackage(
         title="밤이 지나면",
-        style="Authentic 1980s-1990s Japanese city pop, golden-age Tokyo sound, lush warm electric piano, glossy analog synths, smooth jazzy chord changes, silky funk guitar, melodic fretless bass, tight clean drums, A minor, BPM 112, emotional low female vocal with warm reverb and tender vibrato, deeply nostalgic and bittersweet, sophisticated mellow groove, the wistful loneliness of city nights, vintage tape warmth",
+        style="Authentic 1980s-1990s Japanese city pop, golden-age Tokyo sound, lush warm electric piano, glossy analog synths, smooth jazzy chord changes, silky funk guitar, melodic fretless bass, tight clean drums, C major, BPM 112, emotional low female vocal with warm reverb and tender vibrato, deeply nostalgic and bittersweet, sophisticated mellow groove, the wistful loneliness of city nights, vintage tape warmth",
         lyrics="""[Intro]
 (2마디 음원 (instrumental only))
 

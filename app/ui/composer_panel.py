@@ -20,7 +20,7 @@ def _format_exclude_as_negatives(exclude_str: str) -> str:
 CITYPOP_STYLE_PRESET = (
     "Authentic 1980s-1990s Japanese city pop, golden-age Tokyo sound, "
     "lush warm electric piano, glossy analog synths, smooth jazzy chord changes, "
-    "silky funk guitar, melodic fretless bass, tight clean drums, BPM 112, "
+    "silky funk guitar, melodic fretless bass, tight clean drums, C major, BPM 112, "
     "emotional low female vocal with warm reverb and tender vibrato, "
     "deeply nostalgic and bittersweet, sophisticated mellow groove, "
     "the wistful loneliness of city nights, vintage tape warmth"
