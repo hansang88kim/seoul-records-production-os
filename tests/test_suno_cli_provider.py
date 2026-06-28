@@ -223,3 +223,40 @@ def test_all_providers_still_importable():
         p = get_composer_provider(name)
         caps = p.get_capabilities()
         assert isinstance(caps, ProviderCapabilities)
+
+
+def test_suno_cli_bin_env_respected(monkeypatch):
+    """SUNO_CLI_BIN env var overrides default binary name."""
+    from providers.suno.suno_cli_provider import _get_suno_bin
+    monkeypatch.setenv('SUNO_CLI_BIN', 'C:/tools/suno/suno.exe')
+    result = _get_suno_bin()
+    assert 'suno' in result.lower()
+    assert result == 'C:/tools/suno/suno.exe'
+
+
+def test_suno_cli_bin_fallback_to_path(monkeypatch):
+    """Without SUNO_CLI_BIN, falls back to suno on PATH."""
+    from providers.suno.suno_cli_provider import _get_suno_bin
+    monkeypatch.delenv('SUNO_CLI_BIN', raising=False)
+    result = _get_suno_bin()
+    assert isinstance(result, str)
+
+
+def test_create_song_includes_wait_and_download():
+    """create_song command must include --wait and --download."""
+    from providers.suno.suno_cli_provider import SunoCliProvider
+    import json as _json
+
+    p = SunoCliProvider()
+    captured = []
+
+    def mock_run(cmd, **kw):
+        captured.extend(cmd)
+        return mock.Mock(returncode=0, stdout=_json.dumps({"data": [{"id": "clip-1"}]}), stderr="")
+
+    with mock.patch("providers.suno.suno_cli_provider._suno_available", return_value=True),          mock.patch("subprocess.run", side_effect=mock_run):
+        p.create_song("Test", "pop", "lyrics", {"download_dir": "/tmp/test_dl"})
+
+    cmd_str = " ".join(captured)
+    assert "--wait" in cmd_str, f"--wait missing from: {cmd_str}"
+    assert "--download" in cmd_str, f"--download missing from: {cmd_str}"
