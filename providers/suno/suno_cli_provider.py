@@ -235,30 +235,71 @@ class SunoCliProvider(ComposerProvider):
 
     # ─── auto-auth ───────────────────────────────────────────────────────
 
-    def _ensure_auth(self):
+    def _ensure_auth(self) -> bool:
         """
-        Auto-authenticate before generation using SUNO_COOKIE from .env.
-        Runs: suno auth --cookie <cookie>
-        Output goes to console (no capture — same as manual CLI run).
-        Never logs the cookie value.
+        Auto-authenticate using SUNO_COOKIE from env.
+        Runs: suno auth --cookie <cookie>  (no capture — like manual CLI)
+        Returns True on success, False otherwise. Never logs the cookie.
         """
         cookie = os.getenv("SUNO_COOKIE", "").strip()
         if not cookie:
-            logger.warning("SUNO_COOKIE not set in .env — skipping auto-auth")
-            return
+            logger.warning("SUNO_COOKIE not set — skipping auto-auth")
+            return False
 
         try:
-            # No capture_output — let auth run exactly like manual CLI
             proc = subprocess.run(
                 [self._bin, "auth", "--cookie", cookie],
                 timeout=30,
             )
             if proc.returncode == 0:
                 logger.info("Auto-auth succeeded")
-            else:
-                logger.warning("Auto-auth returned code %d", proc.returncode)
+                return True
+            logger.warning("Auto-auth returned code %d", proc.returncode)
+            return False
         except Exception as e:
             logger.warning("Auto-auth failed: %s", type(e).__name__)
+            return False
+
+    def verify_ready(self) -> dict:
+        """
+        Full pre-generation check, mirrors the manual CLI workflow:
+          1. suno auth --cookie <cookie>   (authenticate)
+          2. suno credits --json           (verify session + get balance)
+        Returns: {"ok": bool, "authenticated": bool, "credits": int|None, "message": str}
+        Never exposes the cookie value.
+        """
+        result = {"ok": False, "authenticated": False, "credits": None, "message": ""}
+
+        # Step 1: cookie present?
+        cookie = os.getenv("SUNO_COOKIE", "").strip()
+        if not cookie:
+            result["message"] = "SUNO_COOKIE 미설정 — 사이드바에서 쿠키를 입력하세요"
+            return result
+
+        # Step 2: authenticate
+        authed = self._ensure_auth()
+        result["authenticated"] = authed
+        if not authed:
+            result["message"] = "쿠키 인증 실패 — 쿠키가 만료되었을 수 있습니다. 새 쿠키를 입력하세요"
+            return result
+
+        # Step 3: verify credits (proves the session actually works)
+        try:
+            data = _run_suno_json(["credits"], timeout=20, suno_bin=self._bin)
+            credits = data.get("data", data).get("credits_left",
+                       data.get("data", data).get("credits", None))
+            result["credits"] = credits
+            result["ok"] = True
+            result["message"] = f"인증 완료 · 크레딧 {credits}"
+        except ProviderError as e:
+            if e.status == "auth_required":
+                result["message"] = "세션 만료 — 새 쿠키를 입력하세요"
+            else:
+                result["message"] = f"크레딧 확인 실패: {e}"
+        except Exception as e:
+            result["message"] = f"크레딧 확인 오류: {type(e).__name__}"
+
+        return result
 
     # ─── create_song ─────────────────────────────────────────────────────
 

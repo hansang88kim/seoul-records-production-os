@@ -284,3 +284,68 @@ def test_all_providers_importable():
     for name in ["mock", "manual_import", "local_unofficial", "suno_cli", "playwright_web"]:
         caps = get_composer_provider(name).get_capabilities()
         assert isinstance(caps, ProviderCapabilities)
+
+
+# ─── verify_ready (auth + credits) ───────────────────────────────────────────
+
+def test_verify_ready_no_cookie(monkeypatch):
+    """verify_ready fails clearly when no cookie."""
+    from providers.suno.suno_cli_provider import SunoCliProvider
+    monkeypatch.delenv("SUNO_COOKIE", raising=False)
+    p = SunoCliProvider()
+    result = p.verify_ready()
+    assert result["ok"] is False
+    assert result["authenticated"] is False
+    assert "쿠키" in result["message"] or "SUNO_COOKIE" in result["message"]
+
+
+def test_verify_ready_success(monkeypatch, tmp_path):
+    """verify_ready succeeds with valid cookie + credits."""
+    from providers.suno import suno_cli_provider as m
+    from importlib import reload
+    fake_bin = tmp_path / "suno"
+    fake_bin.write_text("fake")
+    monkeypatch.setenv("SUNO_CLI_BIN", str(fake_bin))
+    monkeypatch.setenv("SUNO_COOKIE", "fake_cookie_value")
+    reload(m)
+
+    p = m.SunoCliProvider()
+    call_count = [0]
+
+    def mock_run(cmd, **kw):
+        call_count[0] += 1
+        # First call: auth (no --json). Second: credits (--json)
+        if "--json" in cmd:
+            return mock.Mock(returncode=0, stdout=json.dumps({"data": {"credits_left": 9970}}), stderr="")
+        return mock.Mock(returncode=0)
+
+    with mock.patch("subprocess.run", side_effect=mock_run):
+        result = p.verify_ready()
+
+    assert result["ok"] is True
+    assert result["authenticated"] is True
+    assert result["credits"] == 9970
+
+
+def test_verify_ready_does_not_expose_cookie(monkeypatch, tmp_path):
+    """verify_ready message must never contain the cookie value."""
+    from providers.suno import suno_cli_provider as m
+    from importlib import reload
+    fake_bin = tmp_path / "suno"
+    fake_bin.write_text("fake")
+    secret = "SUPER_SECRET_COOKIE_xyz789"
+    monkeypatch.setenv("SUNO_CLI_BIN", str(fake_bin))
+    monkeypatch.setenv("SUNO_COOKIE", secret)
+    reload(m)
+
+    p = m.SunoCliProvider()
+
+    def mock_run(cmd, **kw):
+        if "--json" in cmd:
+            return mock.Mock(returncode=0, stdout=json.dumps({"data": {"credits_left": 100}}), stderr="")
+        return mock.Mock(returncode=0)
+
+    with mock.patch("subprocess.run", side_effect=mock_run):
+        result = p.verify_ready()
+
+    assert secret not in str(result)

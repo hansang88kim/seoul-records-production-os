@@ -66,17 +66,19 @@ def _run_generation(params: dict):
     status_container = st.empty()
     start_time = time.time()
 
-    # Check SUNO_COOKIE before starting
-    cookie = os.getenv("SUNO_COOKIE", "").strip()
-    suno_bin = os.getenv("SUNO_CLI_BIN", "suno")
-    if not cookie:
-        status_container.error("❌ SUNO_COOKIE가 설정되지 않았습니다. 사이드바에서 쿠키를 입력하세요.")
+    # ── Step 1: Verify ready (auth + credits) — mirrors manual CLI workflow ──
+    status_container.info("🔐 Suno 인증 + 크레딧 확인 중...")
+    ready = provider.verify_ready()
+
+    if not ready["ok"]:
+        status_container.error(f"❌ {ready['message']}")
+        st.warning("사이드바에서 Suno 쿠키를 다시 입력하고 🔐 인증을 눌러주세요.")
         return
-    status_container.info(f"🔐 Suno 인증 중... (쿠키 {len(cookie)}자, bin: {suno_bin})")
+
+    status_container.success(f"✅ {ready['message']}")
+    time.sleep(0.5)
 
     try:
-        # Auto-auth — runs suno auth --cookie before every generate
-        provider._ensure_auth()
         status_container.info("🚀 Suno에 곡 생성 요청 중... CAPTCHA 해결이 필요할 수 있습니다. (최대 10분 대기)")
 
         # Generate — this blocks until complete (--wait)

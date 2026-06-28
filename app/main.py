@@ -286,53 +286,38 @@ with st.sidebar:
         label_visibility="collapsed",
     )
 
-    col_auth, col_credits = st.columns(2)
-    with col_auth:
-        if st.button("🔐 인증", key="sidebar_auth", use_container_width=True):
-            if new_cookie.strip():
-                _os.environ["SUNO_COOKIE"] = new_cookie.strip()
-                env_path = Path(__file__).resolve().parent.parent / ".env"
-                if env_path.exists():
-                    lines = env_path.read_text(encoding="utf-8").splitlines()
-                    updated = False
-                    for i, line in enumerate(lines):
-                        if line.startswith("SUNO_COOKIE="):
-                            lines[i] = f"SUNO_COOKIE={new_cookie.strip()}"
-                            updated = True
-                            break
-                    if not updated:
-                        lines.append(f"SUNO_COOKIE={new_cookie.strip()}")
-                    env_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
-                else:
-                    env_path.write_text(f"SUNO_COOKIE={new_cookie.strip()}\n", encoding="utf-8")
-                try:
-                    proc = _sp.run([suno_bin, "auth", "--cookie", new_cookie.strip()], timeout=30)
-                    if proc.returncode == 0:
-                        st.success("✅ 완료")
-                    else:
-                        st.error("❌ 실패")
-                except FileNotFoundError:
-                    st.error(f"suno 없음")
+    if st.button("🔐 인증 + 크레딧 확인", key="sidebar_auth", use_container_width=True):
+        if new_cookie.strip():
+            _os.environ["SUNO_COOKIE"] = new_cookie.strip()
+            # Persist to .env
+            env_path = Path(__file__).resolve().parent.parent / ".env"
+            if env_path.exists():
+                lines = env_path.read_text(encoding="utf-8").splitlines()
+                updated = False
+                for i, line in enumerate(lines):
+                    if line.startswith("SUNO_COOKIE="):
+                        lines[i] = f"SUNO_COOKIE={new_cookie.strip()}"
+                        updated = True
+                        break
+                if not updated:
+                    lines.append(f"SUNO_COOKIE={new_cookie.strip()}")
+                env_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
             else:
-                st.warning("쿠키 입력 필요")
+                env_path.write_text(f"SUNO_COOKIE={new_cookie.strip()}\n", encoding="utf-8")
 
-    with col_credits:
-        if st.button("💰 크레딧", key="sidebar_credits", use_container_width=True):
-            try:
-                proc = _sp.run(
-                    [suno_bin, "credits", "--json"],
-                    capture_output=True, text=True, encoding="utf-8",
-                    errors="replace", timeout=15,
-                )
-                if proc.returncode == 0 and proc.stdout.strip():
-                    import json as _json
-                    data = _json.loads(proc.stdout)
-                    credits = data.get("data", data).get("credits_left", "?")
-                    st.success(f"💰 {credits}")
-                else:
-                    st.error("확인 실패")
-            except Exception:
-                st.error("연결 실패")
+            # Full verify: auth + credits (same as manual CLI workflow)
+            with st.spinner("인증 + 크레딧 확인 중..."):
+                try:
+                    from providers.suno.suno_cli_provider import SunoCliProvider
+                    ready = SunoCliProvider().verify_ready()
+                    if ready["ok"]:
+                        st.success(f"✅ {ready['message']}")
+                    else:
+                        st.error(f"❌ {ready['message']}")
+                except Exception as e:
+                    st.error(f"❌ 오류: {type(e).__name__}")
+        else:
+            st.warning("쿠키를 입력하세요")
 
     # ── AI Composer API Keys ──────────────────────────────────────────────
     st.markdown("<div style='color:#6a7a94;font-size:0.7rem;font-weight:500;text-transform:uppercase;letter-spacing:1.5px;margin:0.5rem 0 0.3rem'>🤖 AI Composer</div>", unsafe_allow_html=True)
