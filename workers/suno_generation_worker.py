@@ -76,8 +76,12 @@ def run_job(job_id: str):
             status="running",
             started_at=datetime.now(timezone.utc).isoformat(),
             pid=os.getpid())
-    _log(job_id, f"Worker started (PID {os.getpid()}): {len(plan)}곡")
+    _log(job_id, f"백그라운드 Worker 시작 (PID {os.getpid()}) — {len(plan)}곡 연속 생성")
+    _log(job_id, "이 Worker는 전체 배치가 끝날 때까지 계속 실행됩니다 (Streamlit과 독립)")
 
+    # Single provider instance reused for the whole batch.
+    # Note: suno.exe itself spawns a fresh Chrome per command — that's
+    # suno-cli's design and is expected; the Worker process stays alive.
     provider = SunoCliProvider()
     ok = 0
     fail = 0
@@ -152,10 +156,22 @@ def run_job(job_id: str):
             except Exception:
                 pass
 
-            task_id = provider.create_song(title, style, lyrics, options)
+            # Progress callback — records CAPTCHA retries to job_state
+            def _on_progress(msg, attempt=1, max_attempts=10, failed=False):
+                _update(job_id,
+                        current_track_no=idx + 1,
+                        current_track_title=title,
+                        captcha_attempt=attempt,
+                        captcha_max=max_attempts)
+                _log(job_id, f"Track {idx+1}: {msg}", "error" if failed else "info")
 
-            # Keep longest new mp3
+            task_id = provider.create_song(title, style, lyrics, options,
+                                           progress_callback=_on_progress)
+
+            # Keep BOTH generated clips (user chooses later). Suno makes 2.
             new_files = [p for p in dl_dir.glob("*.mp3") if str(p) not in before]
+            # Sort longest-first so the "primary" file_path is the longer one,
+            # but keep ALL files on disk (don't delete the shorter clip).
             if len(new_files) > 1:
                 try:
                     import mutagen.mp3
@@ -165,11 +181,6 @@ def run_job(job_id: str):
                     )
                 except Exception:
                     new_files.sort(key=lambda p: p.stat().st_size, reverse=True)
-                for extra in new_files[1:]:
-                    try:
-                        extra.unlink()
-                    except Exception:
-                        pass
 
             kept = new_files[0] if new_files else None
 
@@ -200,8 +211,12 @@ def run_job(job_id: str):
             if kept:
                 draft["status"] = "generated"
                 draft["file_path"] = str(kept)
+                draft["all_files"] = [str(f) for f in new_files]  # both clips
                 ok += 1
-                _log(job_id, f"Track {idx+1}: {title} ✅ 완료 → {kept.name}")
+                if len(new_files) > 1:
+                    _log(job_id, f"Track {idx+1}: {title} ✅ 완료 → {len(new_files)}곡 다운로드 (둘 다 보관)")
+                else:
+                    _log(job_id, f"Track {idx+1}: {title} ✅ 완료 → {kept.name}")
 
                 # Record in project manifest
                 try:

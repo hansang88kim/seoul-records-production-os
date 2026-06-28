@@ -441,6 +441,7 @@ class SunoCliProvider(ComposerProvider):
         style: str,
         lyrics: str,
         options: dict | None = None,
+        progress_callback=None,
     ) -> str:
         """
         Full generation flow (mirrors the working manual CLI workflow):
@@ -557,11 +558,22 @@ class SunoCliProvider(ComposerProvider):
                 try:
                     if attempt > 1:
                         logger.info("CAPTCHA retry %d/%d — re-authenticating", attempt, max_attempts)
+                        if progress_callback:
+                            progress_callback(
+                                f"🔄 hCaptcha 재시도 {attempt}/{max_attempts}회 — 재인증 중...",
+                                attempt=attempt, max_attempts=max_attempts,
+                            )
                         # Re-auth before EVERY retry (fresh session each time)
                         self._ensure_auth()
                         # Backoff gives hCaptcha time to load: 3s,4.5s,6s...12s
                         delay = min(3 + (attempt - 2) * 1.5, 12)
                         _t.sleep(delay)
+                    else:
+                        if progress_callback:
+                            progress_callback(
+                                f"🎵 Suno 생성 시도 중... (hCaptcha 자동 해결)",
+                                attempt=1, max_attempts=max_attempts,
+                            )
                     proc = _run_suno_raw(cmd, timeout=_GENERATE_TIMEOUT, suno_bin=self._bin)
                     break  # success
                 except ProviderError as e:
@@ -572,6 +584,11 @@ class SunoCliProvider(ComposerProvider):
                             "CAPTCHA failed (attempt %d/%d), retrying in a moment...",
                             attempt, max_attempts,
                         )
+                        if progress_callback:
+                            progress_callback(
+                                f"⚠️ hCaptcha 로딩 실패 ({attempt}/{max_attempts}회) — 잠시 후 재시도",
+                                attempt=attempt, max_attempts=max_attempts, failed=True,
+                            )
                         continue
                     raise
         finally:

@@ -636,3 +636,40 @@ def test_create_song_moves_style_negatives_to_exclude(monkeypatch, tmp_path):
     assert "sax lead" in exclude_value
     assert "trot" in exclude_value
     assert "EDM" in exclude_value
+
+
+# ─── CAPTCHA progress callback ───────────────────────────────────────────────
+
+def test_create_song_accepts_progress_callback(monkeypatch, tmp_path):
+    """create_song accepts and calls progress_callback during generation."""
+    from providers.suno import suno_cli_provider as m
+    from importlib import reload
+    fake_bin = tmp_path / "suno"
+    fake_bin.write_text("fake")
+    monkeypatch.setenv("SUNO_CLI_BIN", str(fake_bin))
+    monkeypatch.setenv("SUNO_COOKIE", "cookie")
+    reload(m)
+
+    p = m.SunoCliProvider()
+    dl = str(tmp_path / "dl")
+    callback_calls = []
+
+    def my_callback(msg, **kw):
+        callback_calls.append((msg, kw))
+
+    def mock_run(cmd, **kw):
+        if "--json" in cmd:
+            return mock.Mock(returncode=0, stdout=json.dumps({"data": {"credits_left": 100}}), stderr="")
+        from pathlib import Path as P
+        P(dl).mkdir(parents=True, exist_ok=True)
+        (P(dl) / "song-12345678.mp3").write_bytes(b"fake")
+        return mock.Mock(returncode=0, stdout="", stderr="")
+
+    with mock.patch("subprocess.run", side_effect=mock_run):
+        p.create_song("title", "style", "lyrics",
+                      {"download_dir": dl}, progress_callback=my_callback)
+
+    # Callback should have been called at least once (the initial attempt)
+    assert len(callback_calls) >= 1
+    # First call should mention generation
+    assert any("생성" in c[0] or "Suno" in c[0] for c in callback_calls)

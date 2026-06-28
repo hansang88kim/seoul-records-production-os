@@ -71,6 +71,19 @@ def _render_live_progress(job: dict):
         f"**✅ {done}/{total}곡 완료** · ❌ {failed}곡 실패 · "
         f"🎵 현재: **{current or '—'}**"
     )
+
+    # CAPTCHA retry indicator
+    captcha_attempt = job.get("captcha_attempt", 0)
+    captcha_max = job.get("captcha_max", 10)
+    if captcha_attempt and captcha_attempt > 1:
+        st.warning(
+            f"🔄 hCaptcha 재시도 중: **{captcha_attempt}/{captcha_max}회** "
+            f"— suno.com의 hCaptcha 로딩이 불안정해 자동 재시도하고 있습니다 "
+            f"(최대 {captcha_max}회). 잠시만 기다려 주세요."
+        )
+    elif captcha_attempt == 1:
+        st.info("🎵 Suno 생성 시도 중 — hCaptcha 자동 해결을 진행하고 있습니다.")
+
     st.caption(f"Job ID: {job_id} · PID: {pid or '—'} · {'🟢 실행 중' if alive else '⚪ 확인 필요'}")
 
     # Log lines

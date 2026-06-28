@@ -53,9 +53,10 @@ def _snapshot_mp3s(folder) -> set:
 
 def _keep_longest_new_mp3(folder, before: set):
     """
-    After generation, find NEW mp3s (not in `before`), keep only the LONGEST,
-    delete the rest. Suno makes 2 clips per request — we want just the longer.
-    Returns the kept mp3 Path, or None if no new files.
+    After generation, find NEW mp3s (not in `before`). Suno makes 2 clips
+    per request — we KEEP BOTH (user chooses later) but return the longer
+    one as the primary. No files are deleted.
+    Returns the primary (longest) mp3 Path, or None if no new files.
     """
     folder = Path(folder)
     new_files = [p for p in folder.glob("*.mp3") if str(p) not in before]
@@ -63,16 +64,9 @@ def _keep_longest_new_mp3(folder, before: set):
         return None
     if len(new_files) == 1:
         return new_files[0]
-    # Pick the longest by duration
+    # Sort longest-first; keep ALL files (don't delete)
     new_files.sort(key=_mp3_duration, reverse=True)
-    longest = new_files[0]
-    # Delete the shorter ones
-    for extra in new_files[1:]:
-        try:
-            extra.unlink()
-        except Exception:
-            pass
-    return longest
+    return new_files[0]
 
 
 def _save_plan_to_disk(project_name: str, plan: list[dict]):
@@ -211,7 +205,9 @@ def _run_generation(params: dict, project: str = ""):
 
         if mp3s:
             dur = _mp3_duration(kept)
-            status_container.success(f"✅ 생성 완료! 더 긴 1곡 선택 ({int(dur)}초, {elapsed}초 소요)")
+            n_clips = len([p for p in Path(dl_dir).glob("*.mp3") if str(p) not in before_mp3s])
+            clip_msg = f"{n_clips}곡 다운로드 (둘 다 보관)" if n_clips > 1 else "1곡"
+            status_container.success(f"✅ 생성 완료! {clip_msg} · 대표 {int(dur)}초 ({elapsed}초 소요)")
             complete_job(job_id, "completed")
             add_log_line(job_id, f"완료: {title} ({int(dur)}초)")
         else:

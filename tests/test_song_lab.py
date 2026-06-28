@@ -314,9 +314,9 @@ def test_keep_longest_new_mp3(monkeypatch, tmp_path):
     monkeypatch.setattr(song_lab, "_mp3_duration", fake_dur)
 
     kept = song_lab._keep_longest_new_mp3(folder, before)
-    assert kept == long  # longest kept
+    assert kept == long  # longest returned as primary
     assert long.exists()
-    assert not short.exists()  # shorter deleted
+    assert short.exists()  # shorter KEPT too (user chooses later)
     assert old.exists()  # pre-existing untouched
 
 
