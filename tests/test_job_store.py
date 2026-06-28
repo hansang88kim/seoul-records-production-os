@@ -211,9 +211,12 @@ def test_check_worker_alive():
 def test_recover_interrupted_jobs():
     from services.job_store import create_job, update_job
     from services.generation_job_manager import recover_jobs_from_disk
-    # Create a "running" job with a dead PID
+    from datetime import datetime, timezone, timedelta
+    # Create a "running" job with a dead PID, started LONG ago (past grace period)
     j = create_job(project="recovery_test")
-    update_job(j["job_id"], status="running", pid=99999999)  # dead PID
+    old_time = (datetime.now(timezone.utc) - timedelta(minutes=5)).isoformat()
+    update_job(j["job_id"], status="running", pid=99999999,  # dead PID
+               started_at=old_time)
     recovered = recover_jobs_from_disk()
     assert len(recovered) >= 1
     # Check it was marked as interrupted
@@ -276,3 +279,53 @@ def test_worker_launched_as_separate_process():
     # Output should be detached (DEVNULL)
     import subprocess
     assert captured["kwargs"].get("stdout") == subprocess.DEVNULL
+
+
+# ─── Queue + recovery interaction (the 하노이 큐 bug) ─────────────────────────
+
+def test_recover_does_not_interrupt_queued_jobs():
+    """Queued jobs must NEVER be marked interrupted (they have no worker yet)."""
+    from services.job_store import create_job, update_job, load_job
+    from services.generation_job_manager import recover_jobs_from_disk
+    # A queued job (no PID — waiting for a running job)
+    j = create_job(project="queued_song")
+    update_job(j["job_id"], status="queued")  # no pid set
+    recover_jobs_from_disk()
+    # Should STILL be queued, not interrupted
+    assert load_job(j["job_id"])["status"] == "queued"
+
+
+def test_recover_grace_period_for_fresh_running_job():
+    """A running job started <30s ago is not marked interrupted even if PID looks dead."""
+    from services.job_store import create_job, update_job, load_job
+    from services.generation_job_manager import recover_jobs_from_disk
+    from datetime import datetime, timezone
+    j = create_job(project="fresh_running")
+    # Started just now, dead PID
+    update_job(j["job_id"], status="running", pid=99999999,
+               started_at=datetime.now(timezone.utc).isoformat())
+    recover_jobs_from_disk()
+    # Within grace period → still running
+    assert load_job(j["job_id"])["status"] == "running"
+
+
+def test_queue_survives_recovery_cycle():
+    """
+    The full 하노이 bug scenario: song1 running, song2 queued.
+    A recovery cycle must NOT break the queue.
+    """
+    from services.job_store import create_job, update_job, load_job
+    from services.generation_job_manager import recover_jobs_from_disk, get_queued_jobs
+    from datetime import datetime, timezone
+    # Seoul running (fresh)
+    seoul = create_job(project="서울시티팝")
+    update_job(seoul["job_id"], status="running", pid=12345,
+               started_at=datetime.now(timezone.utc).isoformat())
+    # Hanoi queued
+    hanoi = create_job(project="하노이시티팝")
+    update_job(hanoi["job_id"], status="queued")
+    # Recovery runs (as it does every render)
+    recover_jobs_from_disk()
+    # Hanoi must still be queued
+    assert load_job(hanoi["job_id"])["status"] == "queued"
+    assert len(get_queued_jobs()) == 1

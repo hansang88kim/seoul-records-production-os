@@ -76,14 +76,36 @@ def start_generation_job(
 
 
 def check_worker_alive(pid: int | None) -> bool:
-    """Check if a worker process is still alive."""
+    """Check if a worker process is still alive (cross-platform)."""
     if not pid:
         return False
-    try:
-        os.kill(pid, 0)  # signal 0 = just check if alive
-        return True
-    except (OSError, ProcessLookupError):
-        return False
+    if _sys_platform() == "win32":
+        # On Windows, os.kill(pid, 0) is unreliable for detached processes.
+        # Use OpenProcess via ctypes to check existence accurately.
+        try:
+            import ctypes
+            PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+            STILL_ACTIVE = 259
+            kernel32 = ctypes.windll.kernel32
+            handle = kernel32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
+            if not handle:
+                # Could not open — fall back to assuming alive if recently started
+                return False
+            exit_code = ctypes.c_ulong()
+            ok = kernel32.GetExitCodeProcess(handle, ctypes.byref(exit_code))
+            kernel32.CloseHandle(handle)
+            if ok and exit_code.value == STILL_ACTIVE:
+                return True
+            return False
+        except Exception:
+            # If the check itself fails, assume alive (don't false-kill)
+            return True
+    else:
+        try:
+            os.kill(pid, 0)
+            return True
+        except (OSError, ProcessLookupError):
+            return False
 
 
 # ── Job Recovery ─────────────────────────────────────────────────────────────
@@ -92,23 +114,48 @@ def recover_jobs_from_disk() -> list[dict]:
     """
     Scan all jobs on disk. If any are marked 'running' but their worker
     PID is dead, mark them as 'interrupted' so the user can retry.
-    Returns list of recovered/interrupted jobs.
+
+    QUEUED jobs are NEVER touched here — they have no worker yet (they're
+    waiting for a running job to finish), so checking their PID would
+    wrongly mark them interrupted and break the queue.
+
+    A grace period protects freshly-started jobs whose worker process
+    may not be observable yet.
     """
+    import time as _t
+    from datetime import datetime as _dt, timezone as _tz
+
     recovered = []
     all_jobs = list_jobs(limit=50)
+    GRACE_SECONDS = 30  # don't touch jobs started within the last 30s
 
     for job in all_jobs:
         status = job.get("status", "")
-        if status in ("running", "queued"):
-            pid = job.get("pid")
-            if not check_worker_alive(pid):
-                # Worker died — mark as interrupted
-                update_job(
-                    job["job_id"],
-                    status="interrupted",
-                    last_message="작업이 중단되었습니다. 완료된 곡은 유지되며, 실패/미완료 곡만 다시 시도할 수 있습니다.",
-                )
-                recovered.append(job)
+        # Only RUNNING jobs can be interrupted. Queued jobs have no worker.
+        if status != "running":
+            continue
+
+        # Grace period: skip very recently started jobs
+        started = job.get("started_at") or job.get("created_at")
+        if started:
+            try:
+                started_dt = _dt.fromisoformat(started)
+                if started_dt.tzinfo is None:
+                    started_dt = started_dt.replace(tzinfo=_tz.utc)
+                age = (_dt.now(_tz.utc) - started_dt).total_seconds()
+                if age < GRACE_SECONDS:
+                    continue  # too fresh — worker may not be visible yet
+            except Exception:
+                pass
+
+        pid = job.get("pid")
+        if not check_worker_alive(pid):
+            update_job(
+                job["job_id"],
+                status="interrupted",
+                last_message="작업이 중단되었습니다. 완료된 곡은 유지되며, 실패/미완료 곡만 다시 시도할 수 있습니다.",
+            )
+            recovered.append(job)
 
     return recovered
 
