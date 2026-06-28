@@ -58,13 +58,19 @@ def _suno_available() -> bool:
 # ─── Subprocess helpers ──────────────────────────────────────────────────────
 
 def _redact_stderr(stderr: str) -> str:
-    """Redact credential-like content from stderr."""
+    """
+    Redact actual credential VALUES from stderr, but keep error messages visible.
+    Only redact lines that look like they contain raw credential strings
+    (long base64-like tokens), not error messages that mention 'JWT expired'.
+    """
     if not stderr:
         return ""
+    import re
     s = stderr[:500]
-    for word in ("cookie", "token", "jwt", "session", "key", "secret", "password"):
-        if word in s.lower():
-            return "[stderr redacted — may contain credentials]"
+    # Redact long base64/JWT-like tokens (40+ chars of alphanumeric/base64)
+    s = re.sub(r'[A-Za-z0-9_\-]{40,}', '***REDACTED_TOKEN***', s)
+    # Redact cookie= or token= values
+    s = re.sub(r'(cookie|token|key|secret|password)\s*[=:]\s*\S+', r'=***REDACTED***', s, flags=re.IGNORECASE)
     return s
 
 
@@ -128,20 +134,19 @@ def _run_suno_raw(
     suno_bin: str | None = None,
 ) -> subprocess.CompletedProcess:
     """
-    Run a suno CLI command WITHOUT --json. For generate + side-effect commands.
-    Returns the raw CompletedProcess.
-    Uses UTF-8 encoding explicitly (Windows defaults to cp949 for Korean locale).
+    Run a suno CLI command WITHOUT --json and WITHOUT capturing output.
+
+    For generate + side-effect commands. Output goes directly to the console
+    so Chrome CAPTCHA solver can work (capture_output=True breaks it by
+    switching suno-cli to piped/JSON mode).
+
+    Returns the CompletedProcess (stdout/stderr will be None).
     """
     bin_path = suno_bin or _get_suno_bin()
     cmd = [bin_path] + args
 
-    # Set UTF-8 env for child process (Rust CLI expects UTF-8)
-    env = os.environ.copy()
-    env["PYTHONIOENCODING"] = "utf-8"
-
     try:
-        proc = subprocess.run(cmd, capture_output=True, text=True, encoding="utf-8",
-                              errors="replace", timeout=timeout, env=env)
+        proc = subprocess.run(cmd, timeout=timeout, encoding="utf-8")
     except FileNotFoundError:
         raise ProviderError(
             "provider_unavailable",
@@ -151,14 +156,18 @@ def _run_suno_raw(
         raise ProviderError("polling_timeout", f"Timed out after {timeout}s.")
 
     if proc.returncode != 0:
+        # Semantic exit codes from paperfoot/suno-cli:
+        #   1 = general error, 2 = usage/config, 3 = auth expired
+        if proc.returncode == 3:
+            raise ProviderError(
+                "auth_required",
+                "Suno session expired. Run: suno auth --refresh (or suno auth --login)",
+                {"exit_code": proc.returncode, "command_args": args[:6]},
+            )
         raise ProviderError(
             "generation_failed",
             f"suno exited with code {proc.returncode}",
-            {
-                "stderr": _redact_stderr(proc.stderr),
-                "stdout_excerpt": (proc.stdout or "")[:300],
-                "command_args": args[:6],  # sanitized — no lyrics content
-            },
+            {"exit_code": proc.returncode, "command_args": args[:6]},
         )
     return proc
 

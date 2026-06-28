@@ -247,16 +247,16 @@ def test_binary_not_found():
             _run_suno_raw(["generate"])
         assert exc.value.status == "provider_unavailable"
 
-def test_exit_code_2_includes_stderr_in_error():
-    """Exit code 2 (invalid args) must include sanitized stderr in error details."""
+def test_exit_code_2_includes_command_args_in_error():
+    """Exit code 2 (invalid args) must include command_args in error details."""
     from providers.suno.suno_cli_provider import _run_suno_raw
-    with mock.patch("subprocess.run", return_value=mock.Mock(
-        returncode=2, stdout="", stderr="error: unexpected argument '--json'")):
+    with mock.patch("subprocess.run", return_value=mock.Mock(returncode=2)):
         with pytest.raises(ProviderError) as exc:
             _run_suno_raw(["generate", "--title", "test"])
     assert exc.value.status == "generation_failed"
-    assert "stderr" in exc.value.details
-    assert "unexpected" in exc.value.details["stderr"]
+    assert "exit_code" in exc.value.details
+    assert exc.value.details["exit_code"] == 2
+    assert "command_args" in exc.value.details
 
 def test_credential_fields_redacted():
     from providers.suno.suno_cli_provider import SunoCliProvider
@@ -266,10 +266,16 @@ def test_credential_fields_redacted():
     assert err.details["jwt"] == "***REDACTED***"
     assert err.details["url"] == "http://ok"
 
-def test_stderr_with_jwt_is_redacted():
+def test_stderr_redacts_long_tokens_not_keywords():
+    """Smart redaction: redacts 40+ char tokens and key=value patterns, keeps error messages."""
     from providers.suno.suno_cli_provider import _redact_stderr
-    assert _redact_stderr("error: invalid jwt token abc") == "[stderr redacted — may contain credentials]"
+    # Long token gets redacted
+    long_token = "a" * 50
+    assert "REDACTED" in _redact_stderr(f"token: {long_token}")
+    # Short error messages stay readable
     assert "unexpected" in _redact_stderr("error: unexpected argument")
+    # cookie=value patterns get redacted
+    assert "REDACTED" in _redact_stderr("cookie=abc123secret_value")
 
 # ─── Backward compat ────────────────────────────────────────────────────────
 
