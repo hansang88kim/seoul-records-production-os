@@ -329,3 +329,32 @@ def test_queue_survives_recovery_cycle():
     # Hanoi must still be queued
     assert load_job(hanoi["job_id"])["status"] == "queued"
     assert len(get_queued_jobs()) == 1
+
+
+# ─── Stop / Restart ──────────────────────────────────────────────────────────
+
+def test_stop_job():
+    from services.job_store import create_job, update_job, load_job
+    from services.generation_job_manager import stop_job
+    j = create_job(project="stop_test")
+    update_job(j["job_id"], status="running", pid=99999999)  # dead pid (can't actually kill)
+    result = stop_job(j["job_id"])
+    assert result is True
+    assert load_job(j["job_id"])["status"] == "cancelled"
+
+
+def test_restart_job():
+    from services.job_store import create_job, update_job
+    from services.generation_job_manager import restart_job
+    from unittest import mock
+    import services.job_store as js, json
+    j = create_job(project="restart_test")
+    update_job(j["job_id"], status="cancelled")
+    plan = [{"title": "완료곡", "status": "generated"},
+            {"title": "미완료곡", "status": "failed"}]
+    (js._jobs_dir() / j["job_id"] / "plan.json").write_text(json.dumps(plan))
+    (js._jobs_dir() / j["job_id"] / "settings.json").write_text(json.dumps({"model": "v5.5"}))
+    with mock.patch("subprocess.Popen", return_value=mock.Mock(pid=333)):
+        result = restart_job(j["job_id"])
+    assert result is not None
+    assert result.get("job_id") != j["job_id"]  # new job for incomplete tracks

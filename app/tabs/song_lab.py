@@ -341,7 +341,8 @@ def render_song_lab():
 
 def _generate_plan_only(concept: str, ai_provider_name: str, language: str = "korean",
                        locked_style: str = "", track_no: int = 0,
-                       existing_titles: list[str] | None = None) -> dict:
+                       existing_titles: list[str] | None = None,
+                       total_tracks: int = 10) -> dict:
     """
     AI writes ONE song's title/style/lyrics (no Suno generation yet).
     If locked_style is set, use it instead of AI-generated style.
@@ -370,9 +371,12 @@ def _generate_plan_only(concept: str, ai_provider_name: str, language: str = "ko
         if locked_style:
             pkg.style = locked_style  # override with the locked preset
         # Apply composer variation so each batch song is slightly different
-        from providers.ai.base import apply_batch_variation
+        from providers.ai.base import apply_batch_variation, get_batch_vocal
         draft["track_no"] = track_no
-        pkg.style = apply_batch_variation(pkg.style, track_no)
+        pkg.style = apply_batch_variation(pkg.style, track_no, total_tracks)
+        # Determine vocal gender for this track (40% male / 60% female)
+        vocal_gender, _ = get_batch_vocal(track_no, total_tracks)
+        draft["vocal_gender"] = vocal_gender
         draft["title"] = pkg.title
         draft["style"] = pkg.style
         draft["lyrics"] = pkg.lyrics
@@ -670,7 +674,8 @@ def _render_auto_batch():
                 existing_titles = [d.get("title", "") for d in plan if d.get("title")]
                 draft = _generate_plan_only(concept.strip(), ai_provider_name,
                                             language=auto_language, locked_style=locked,
-                                            track_no=n, existing_titles=existing_titles)
+                                            track_no=n, existing_titles=existing_titles,
+                                            total_tracks=count)
                 plan.append(draft)
                 prog.progress((n + 1) / count)
             st.session_state["auto_plan_data"] = plan

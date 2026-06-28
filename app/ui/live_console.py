@@ -71,6 +71,8 @@ def render_active_job_console():
         _render_live_progress(job)
     elif status == "interrupted":
         _render_interrupted(job)
+    elif status == "cancelled":
+        _render_cancelled(job)
     elif status in ("completed", "partially_failed", "failed"):
         _render_completed(job)
 
@@ -112,6 +114,20 @@ def _render_live_progress(job: dict):
 
     st.caption(f"Job ID: {job_id} · PID: {pid or '—'} · {'🟢 실행 중' if alive else '⚪ 확인 필요'}")
 
+    # Stop / Restart controls
+    ctrl1, ctrl2, ctrl3 = st.columns(3)
+    with ctrl1:
+        if st.button("⏹️ 중단", key=f"stop_{job_id}", use_container_width=True,
+                     help="현재 생성을 중단합니다 (완료된 곡은 보관)"):
+            from services.generation_job_manager import stop_job
+            stop_job(job_id)
+            st.rerun()
+    with ctrl2:
+        if st.button("🔄 새로고침", key="refresh_console", use_container_width=True):
+            st.rerun()
+    with ctrl3:
+        st.write("")  # spacer
+
     # Log lines
     logs = job.get("log_lines", [])
     if logs:
@@ -122,10 +138,6 @@ def _render_live_progress(job: dict):
                 ts = entry.get("ts", "")[:19].replace("T", " ")
                 prefix = "❌ " if level == "error" else ""
                 st.text(f"{ts}  {prefix}{msg}")
-
-    # Auto-refresh button
-    if st.button("🔄 새로고침", key="refresh_console"):
-        st.rerun()
 
     st.caption("💡 탭을 전환하거나 새로고침해도 생성이 계속됩니다.")
 
@@ -154,6 +166,34 @@ def _render_interrupted(job: dict):
         if st.button("✓ 완료로 표시", use_container_width=True, key="mark_done"):
             from services.job_store import update_job
             update_job(job["job_id"], status="partially_failed")
+            st.session_state.pop("active_job_id", None)
+            st.rerun()
+
+
+def _render_cancelled(job: dict):
+    """Show restart option for a cancelled job."""
+    st.markdown("### 🚫 생성 중단됨")
+    done = job.get("completed_tracks", 0)
+    total = job.get("total_tracks", 0)
+    failed = job.get("failed_tracks", 0)
+    st.warning(f"사용자가 중단했습니다. ✅ {done}곡 완료 · 📝 {total - done - failed}곡 미완료")
+
+    col1, col2 = st.columns(2)
+    with col1:
+        if st.button("▶️ 재시작 (미완료 곡만)", use_container_width=True, key=f"restart_{job['job_id']}"):
+            from services.generation_job_manager import restart_job
+            result = restart_job(job["job_id"])
+            if result and not result.get("error"):
+                st.session_state["active_job_id"] = result["job_id"]
+                st.success("▶️ 재시작!")
+                st.rerun()
+            elif result and result.get("queued"):
+                st.info("📋 대기열에 추가됨 (다른 작업 진행 중)")
+                st.rerun()
+            else:
+                st.warning("재시작할 미완료 곡이 없습니다.")
+    with col2:
+        if st.button("✓ 닫기", use_container_width=True, key=f"close_cancelled_{job['job_id']}"):
             st.session_state.pop("active_job_id", None)
             st.rerun()
 

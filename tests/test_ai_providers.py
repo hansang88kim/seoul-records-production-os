@@ -411,3 +411,53 @@ def test_default_preset_has_key():
     from app.ui.composer_panel import CITYPOP_STYLE_PRESET
     import re
     assert re.search(r"[A-G][#b]? (?:major|minor)", CITYPOP_STYLE_PRESET)
+
+
+# ─── Vocal gender + tone distribution ────────────────────────────────────────
+
+def test_batch_vocal_distribution_10_tracks():
+    """10-track batch: ~4 male, ~6 female."""
+    from providers.ai.base import get_batch_vocal
+    genders = [get_batch_vocal(i, 10)[0] for i in range(10)]
+    males = genders.count("Male")
+    females = genders.count("Female")
+    assert males == 4, f"Expected 4 male, got {males}"
+    assert females == 6, f"Expected 6 female, got {females}"
+
+
+def test_batch_vocal_genders_interleaved():
+    """Male tracks should be spread out, not clustered together."""
+    from providers.ai.base import get_batch_vocal
+    genders = [get_batch_vocal(i, 10)[0] for i in range(10)]
+    # No 3 males in a row
+    for i in range(len(genders) - 2):
+        window = genders[i:i+3]
+        assert window.count("Male") < 3, f"3 males clustered at {i}"
+
+
+def test_batch_vocal_tones_vary():
+    """Each track gets a different vocal tone descriptor."""
+    from providers.ai.base import get_batch_vocal
+    tones = [get_batch_vocal(i, 10)[1] for i in range(10)]
+    # At least 6 unique tones in 10 tracks
+    assert len(set(tones)) >= 6
+
+
+def test_batch_vocal_tones_mention_age():
+    """Vocal tones reference an age/range feel (20s-30s)."""
+    from providers.ai.base import _BATCH_FEMALE_VOCALS, _BATCH_MALE_VOCALS
+    for tone in _BATCH_FEMALE_VOCALS + _BATCH_MALE_VOCALS:
+        assert any(age in tone for age in ["20s", "30s"]), f"No age in: {tone}"
+
+
+def test_apply_variation_sets_male_vocal():
+    """When a track is male, the style contains a male vocal."""
+    from providers.ai.base import apply_batch_variation, get_batch_vocal
+    from app.ui.composer_panel import CITYPOP_STYLE_PRESET
+    for i in range(10):
+        gender, _ = get_batch_vocal(i, 10)
+        style = apply_batch_variation(CITYPOP_STYLE_PRESET, i, 10)
+        if gender == "Male":
+            assert "male vocal" in style.lower()
+        else:
+            assert "female vocal" in style.lower()

@@ -314,14 +314,26 @@ _BATCH_KEYS = [
     "E minor", "Bb major", "C# minor", "Eb major", "F# minor",
     "Ab major", "B minor", "D major", "G# minor",
 ]
-_BATCH_VOCAL_TONES = [
-    "emotional low female vocal with warm reverb and tender vibrato",
-    "husky low female vocal with vintage plate reverb and gentle vibrato",
-    "intimate mid-low female vocal with soft reverb and subtle warmth",
-    "calm smoky female vocal with warm analog reverb",
-    "breath-led low alto female vocal with vintage reverb and subtle vibrato",
-    "tender low female vocal with glossy reverb and soft vibrato",
+# Female vocal tones — low to mid range, early-20s to mid-30s feel
+_BATCH_FEMALE_VOCALS = [
+    "emotional low female vocal, early-20s warmth, warm reverb and tender vibrato",
+    "husky low-alto female vocal, mid-30s maturity, vintage plate reverb and gentle vibrato",
+    "intimate mid-low female vocal, late-20s softness, soft reverb and subtle warmth",
+    "calm smoky mid-range female vocal, early-30s composure, warm analog reverb",
+    "breath-led low female vocal, early-20s freshness, vintage reverb and airy vibrato",
+    "tender mid-low female vocal, mid-20s tenderness, glossy reverb and soft vibrato",
 ]
+
+# Male vocal tones — low to mid range, early-20s to mid-30s feel
+_BATCH_MALE_VOCALS = [
+    "warm low male vocal, mid-30s maturity, smooth baritone with vintage reverb",
+    "gentle mid-range male vocal, late-20s softness, breathy tenor with warm reverb",
+    "mellow low male vocal, early-30s composure, rich baritone with subtle vibrato",
+    "tender mid-low male vocal, early-20s freshness, soft tenor with gentle reverb",
+]
+
+# Backward compat alias
+_BATCH_VOCAL_TONES = _BATCH_FEMALE_VOCALS
 _BATCH_KEYBOARD_TEXTURES = [
     "lush warm electric piano", "glossy Rhodes electric piano",
     "vintage Wurlitzer", "warm DX7 electric piano", "smooth CP-70 piano",
@@ -337,11 +349,46 @@ _BATCH_MOOD_SHADES = [
 ]
 
 
-def apply_batch_variation(base_style: str, track_no: int) -> str:
+
+def get_batch_vocal(track_no: int, total_tracks: int = 10) -> tuple[str, str]:
+    """
+    Decide vocal gender + tone for a track in a batch.
+
+    Distribution: ~40% male, ~60% female (e.g. 4 male / 6 female per 10).
+    Genders are interleaved so they don't cluster. Each track gets a
+    different age/range tone (early-20s to mid-30s, low to mid).
+
+    Returns (vocal_gender, vocal_tone_description).
+      vocal_gender is "Male" or "Female" (Suno-ready).
+    """
+    # Build a deterministic gender pattern for the batch: 40% male.
+    # Interleave so male tracks are spread out (e.g. tracks 2,5,7,10).
+    n_male = max(1, round(total_tracks * 0.4)) if total_tracks >= 2 else 0
+    # Pick evenly-spaced male slots
+    male_slots = set()
+    if n_male > 0:
+        step = total_tracks / n_male
+        male_slots = {int(i * step) + 1 for i in range(n_male)}
+        # normalize to 0-indexed positions
+        male_slots = {(s - 1) % total_tracks for s in male_slots}
+
+    is_male = (track_no % total_tracks) in male_slots
+
+    if is_male:
+        tone = _BATCH_MALE_VOCALS[track_no % len(_BATCH_MALE_VOCALS)]
+        return "Male", tone
+    else:
+        tone = _BATCH_FEMALE_VOCALS[track_no % len(_BATCH_FEMALE_VOCALS)]
+        return "Female", tone
+
+
+def apply_batch_variation(base_style: str, track_no: int, total_tracks: int = 10) -> str:
     """
     Apply deterministic variation to a base style for a specific track number.
-    Changes BPM, key, vocal tone, keyboard texture, and mood shade
+    Changes BPM, key, vocal (gender + tone), keyboard texture, and mood shade
     while keeping the core genre and instruments.
+
+    Vocal gender follows a 40% male / 60% female batch distribution.
     """
     import re
 
@@ -359,14 +406,24 @@ def apply_batch_variation(base_style: str, track_no: int) -> str:
     else:
         style = style.replace(f'BPM {bpm_new}', f'{key_new}, BPM {bpm_new}')
 
-    # Replace vocal tone
-    vocal_new = _BATCH_VOCAL_TONES[track_no % len(_BATCH_VOCAL_TONES)]
-    for old_vocal in _BATCH_VOCAL_TONES + [
+    # Replace vocal tone — gendered (male/female) + age-varied
+    _, vocal_new = get_batch_vocal(track_no, total_tracks)
+    # Find and replace any existing vocal descriptor
+    all_vocals = _BATCH_FEMALE_VOCALS + _BATCH_MALE_VOCALS + [
         "emotional low female vocal with warm reverb and subtle vibrato",
-    ]:
+        "emotional low female vocal with warm reverb and tender vibrato",
+    ]
+    replaced = False
+    for old_vocal in all_vocals:
         if old_vocal in style:
             style = style.replace(old_vocal, vocal_new)
+            replaced = True
             break
+    if not replaced:
+        # Try regex for any "... female/male vocal ..." phrase
+        m = re.search(r'[a-z-]+ (?:low |mid-low |mid-range |high )?(?:female|male) vocal[^,]*', style)
+        if m:
+            style = style.replace(m.group(0), vocal_new)
 
     # Replace keyboard texture (if present)
     kb_new = _BATCH_KEYBOARD_TEXTURES[track_no % len(_BATCH_KEYBOARD_TEXTURES)]

@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import json
 import os
+import signal
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -286,3 +287,40 @@ def start_next_queued_job() -> dict | None:
     if _launch_worker_process(job_id):
         return load_job(job_id)
     return None
+
+def stop_job(job_id: str) -> bool:
+    """
+    Stop a running job by terminating its worker process.
+    Completed tracks are preserved; the job is marked 'cancelled'.
+    """
+    job = load_job(job_id)
+    if not job:
+        return False
+
+    pid = job.get("pid")
+    if pid and check_worker_alive(pid):
+        try:
+            if _sys_platform() == "win32":
+                import ctypes
+                PROCESS_TERMINATE = 0x0001
+                kernel32 = ctypes.windll.kernel32
+                handle = kernel32.OpenProcess(PROCESS_TERMINATE, False, pid)
+                if handle:
+                    kernel32.TerminateProcess(handle, 1)
+                    kernel32.CloseHandle(handle)
+            else:
+                os.kill(pid, signal.SIGTERM)
+        except Exception:
+            pass
+
+    update_job(job_id, status="cancelled",
+               last_message="사용자가 중단함 — 완료된 곡은 보관됩니다.")
+    return True
+
+
+def restart_job(job_id: str) -> dict | None:
+    """
+    Restart a stopped/interrupted/failed job — re-runs only the
+    incomplete tracks as a NEW job (completed tracks preserved).
+    """
+    return retry_failed_tracks(job_id)

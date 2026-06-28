@@ -107,10 +107,12 @@ def run_job(job_id: str):
             # Snapshot existing files
             before = {str(p) for p in dl_dir.glob("*.mp3")}
 
+            # Per-track vocal gender (from batch variation) overrides the default
+            track_vocal = draft.get("vocal_gender") or settings.get("vocal_gender", "Female")
             options = {
                 "exclude_styles": exclude_list,
                 "model": settings.get("model", "v5.5"),
-                "vocal_gender": settings.get("vocal_gender", "Female"),
+                "vocal_gender": track_vocal,
                 "instrumental": settings.get("instrumental", False),
                 "weirdness": settings.get("weirdness", 35),
                 "style_influence": settings.get("style_influence", 70),
