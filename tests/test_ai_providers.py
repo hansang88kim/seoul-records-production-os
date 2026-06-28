@@ -35,7 +35,7 @@ def test_mock_ai_generate_style():
     p = MockAIProvider()
     style = p.generate_style("서울 야경")
     assert isinstance(style, str)
-    assert len(style) <= 200
+    assert len(style) <= 1000  # Suno style limit
 
 
 def test_mock_ai_generate_lyrics():

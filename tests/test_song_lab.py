@@ -38,11 +38,11 @@ def test_default_exclude_styles():
         assert item in DEFAULT_EXCLUDE, f"Missing exclude: {item}"
 
 
-def test_citypop_style_preset_under_200_chars():
-    """City pop style preset must be under Suno's 200-char limit."""
+def test_citypop_style_preset_under_1000_chars():
+    """City pop style preset must be under Suno's 1000-char limit."""
     from app.ui.composer_panel import CITYPOP_STYLE_PRESET
-    assert len(CITYPOP_STYLE_PRESET) <= 200, (
-        f"Preset is {len(CITYPOP_STYLE_PRESET)} chars, max 200"
+    assert len(CITYPOP_STYLE_PRESET) <= 1000, (
+        f"Preset is {len(CITYPOP_STYLE_PRESET)} chars, max 1000"
     )
 
 

@@ -18,9 +18,13 @@ def _format_exclude_as_negatives(exclude_str: str) -> str:
     items = [s.strip() for s in exclude_str.split(",") if s.strip()]
     return ", ".join(f"-{item}" for item in items)
 CITYPOP_STYLE_PRESET = (
-    "Japanese citypop, A minor, CP-70 electric piano, DX7, chorus guitar, "
-    "warm bass, soft synth, low thick female vocal, calm, intimate, "
-    "1990s Seoul night, female vocals"
+    "Japanese city pop with late-1990s Seoul nostalgia, A minor, 112 BPM "
+    "mid-tempo groove. Warm CP-70 electric piano and glassy DX7 FM keys lead, "
+    "layered with soft analog synth pads. Chorus-drenched clean guitar, warm "
+    "rounded bass, gentle brushed drums entering after a 4-bar intro. Low thick "
+    "female vocal, breath-driven and intimate, soft plate reverb, subtle vibrato, "
+    "no belting. Tape warmth, faint vinyl crackle, wide stereo image. Bittersweet, "
+    "calm, neon-lit midnight Seoul mood, city lights on wet streets."
 )
 SUNO_MODELS = ["v5.5", "v5", "v4.5", "v4", "v3.5"]
 LYRICS_PLACEHOLDER = """[Intro]
@@ -183,10 +187,10 @@ def render_composer_panel() -> dict | None:
         st.checkbox("🔒", key="lock_style", label_visibility="collapsed")
 
     style_len = len(style)
-    if style_len > 200:
-        st.warning(f"⚠️ 스타일 {style_len}자 — Suno 권장 200자. 제외 스타일(-prefix)은 자동 추가됩니다")
+    if style_len > 1000:
+        st.error(f"⚠️ 스타일 {style_len}자 — Suno 제한 1000자 초과")
     else:
-        st.caption(f"{style_len}/200 · 제외 스타일은 생성 시 자동으로 -prefix 추가됨")
+        st.caption(f"{style_len}/1000 · 제외 스타일은 생성 시 자동으로 -prefix 추가됨")
 
     # Exclude
     exclude = st.text_input("제외 스타일", value=DEFAULT_EXCLUDE, key="form_exclude")
