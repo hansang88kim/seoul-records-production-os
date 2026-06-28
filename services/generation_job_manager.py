@@ -13,7 +13,6 @@ from __future__ import annotations
 
 import json
 import os
-import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -63,21 +62,23 @@ def start_generation_job(
         json.dumps(settings, ensure_ascii=False, indent=2), encoding="utf-8"
     )
 
-    # Launch worker subprocess (detached, non-blocking)
-    python_exe = sys.executable
-    worker_cmd = [
-        python_exe, "-m", "workers.suno_generation_worker", job_id
-    ]
+    # Launch worker in a background THREAD (more reliable than subprocess on Windows).
+    # The thread survives Streamlit page reruns (same Python process).
+    # It writes progress to job_state.json which the UI polls.
+    import threading
+
+    def _run_worker():
+        try:
+            from workers.suno_generation_worker import run_job
+            run_job(job_id)
+        except Exception as e:
+            update_job(job_id, status="failed",
+                       last_message=f"Worker 오류: {e}")
 
     try:
-        proc = subprocess.Popen(
-            worker_cmd,
-            cwd=str(PROJECT_ROOT),
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            start_new_session=True,  # detach from parent
-        )
-        update_job(job_id, pid=proc.pid, status="running",
+        t = threading.Thread(target=_run_worker, daemon=True, name=f"worker_{job_id}")
+        t.start()
+        update_job(job_id, pid=os.getpid(), status="running",
                    started_at=datetime.now(timezone.utc).isoformat())
     except Exception as e:
         update_job(job_id, status="failed",
