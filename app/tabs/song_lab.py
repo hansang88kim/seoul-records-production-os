@@ -588,14 +588,30 @@ def _render_auto_batch():
         st.markdown(f"<h3>📋 생성 계획 ({len(plan)}곡)</h3>", unsafe_allow_html=True)
         st.caption("각 곡을 펼쳐서 제목/스타일/가사를 확인하고 직접 수정할 수 있습니다.")
 
+        # Summary stats
+        total = len(plan)
+        done = sum(1 for d in plan if d.get("status") == "generated")
+        failed = sum(1 for d in plan if d.get("status") in ("failed", "no_files"))
+        pending = total - done - failed
+        st.caption(f"✅ {done}곡 완료 · ❌ {failed}곡 실패 · 📝 {pending}곡 대기" if (done or failed) else "")
+
         for i, draft in enumerate(plan):
             title = draft.get("title", "제목 없음")
             chars = draft.get("lyric_chars", 0)
+            status = draft.get("status", "drafted")
             status_icon = {"drafted": "📝", "generated": "✅", "failed": "❌",
-                            "no_files": "⚠️", "draft_failed": "❌"}.get(draft.get("status"), "•")
-            with st.expander(f"{status_icon} {i+1}. {title}  ·  가사 {chars}자", expanded=False):
+                            "no_files": "⚠️", "draft_failed": "❌"}.get(status, "•")
+            with st.expander(f"{status_icon} {i+1}. {title}  ·  가사 {chars}자", expanded=(status in ("failed", "draft_failed"))):
                 if draft.get("error"):
                     st.error(draft["error"])
+                # Per-song retry button for failed songs
+                if status in ("failed", "no_files", "draft_failed") and cookie:
+                    if st.button(f"🔄 {i+1}번 곡 재시도", key=f"retry_{i}", use_container_width=True):
+                        with st.spinner(f"🎵 {title} 재생성 중..."):
+                            res = _generate_one_from_draft(draft, base_params, project=project or "기본")
+                            plan[i] = res
+                            st.session_state["auto_plan_data"] = plan
+                            st.rerun()
                 # Editable fields
                 draft["title"] = st.text_input("제목", value=draft.get("title", ""), key=f"plan_title_{i}")
                 draft["style"] = st.text_area("스타일", value=draft.get("style", ""), height=80, key=f"plan_style_{i}")
@@ -612,26 +628,44 @@ def _render_auto_batch():
         if not cookie:
             st.error("❌ SUNO_COOKIE 미설정 — 사이드바에서 쿠키를 연결하세요.")
         else:
-            if st.button(f"🚀 {len(plan)}곡 Suno 생성 시작", type="primary",
-                         use_container_width=True, key="auto_generate"):
+            # Show "retry failed only" button if there are failures
+            pending_songs = [d for d in plan if d.get("status") not in ("generated",)]
+            if failed > 0 and done > 0:
+                col_all, col_retry = st.columns([2, 1])
+                with col_all:
+                    do_all = st.button(f"🚀 {len(pending_songs)}곡 Suno 생성 시작", type="primary",
+                                       use_container_width=True, key="auto_generate")
+                with col_retry:
+                    do_retry = st.button(f"🔄 실패 {failed}곡만 재시도", use_container_width=True, key="auto_retry_failed")
+            else:
+                do_all = st.button(f"🚀 {len(pending_songs)}곡 Suno 생성 시작", type="primary",
+                                   use_container_width=True, key="auto_generate")
+                do_retry = False
+
+            if do_all or do_retry:
+                indices = list(range(len(plan)))
+                if do_retry:
+                    # Only retry failed ones
+                    indices = [i for i, d in enumerate(plan) if d.get("status") in ("failed", "no_files", "drafted", "draft_failed")]
+
                 prog = st.progress(0.0)
                 stat = st.empty()
-                results_box = st.container()
-                ok = 0
-                for n, draft in enumerate(plan):
-                    stat.info(f"🎵 {n+1}/{len(plan)}곡 생성 중: {draft.get('title','?')} "
-                              f"(인증 → Suno 생성, CAPTCHA 자동 재시도)")
+                ok_new = 0
+                for step, idx in enumerate(indices):
+                    draft = plan[idx]
+                    if draft.get("status") == "generated":
+                        continue  # skip already successful
+                    stat.info(f"🎵 {step+1}/{len(indices)}곡 생성 중 (전체 {idx+1}/{len(plan)}): "
+                              f"**{draft.get('title','?')}** (인증 → CAPTCHA 자동 재시도)")
                     res = _generate_one_from_draft(draft, base_params, project=project or "기본")
-                    plan[n] = res
+                    plan[idx] = res
                     if res["status"] == "generated":
-                        ok += 1
-                    prog.progress((n + 1) / len(plan))
-                    with results_box:
-                        icon = {"generated": "✅", "failed": "❌", "no_files": "⚠️"}.get(res["status"], "•")
-                        st.write(f"{icon} **{n+1}. {res.get('title','?')}** — {res['status']}"
-                                 + (f" · {res['error']}" if res.get("error") else ""))
+                        ok_new += 1
+                    prog.progress((step + 1) / len(indices))
                 st.session_state["auto_plan_data"] = plan
-                stat.success(f"✅ 완료: {ok}/{len(plan)}곡 생성 성공")
+                total_ok = sum(1 for d in plan if d.get("status") == "generated")
+                stat.success(f"✅ 완료: 이번 {ok_new}곡 성공 · 전체 {total_ok}/{len(plan)}곡")
+                st.rerun()
 
     st.divider()
     if project:

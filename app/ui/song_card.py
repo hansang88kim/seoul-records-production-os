@@ -46,7 +46,7 @@ def render_song_card(song: dict, index: int):
 
         with col_actions:
             file_path = song.get("file_path", "")
-            col_a, col_b = st.columns(2)
+            col_a, col_b, col_c = st.columns(3)
             with col_a:
                 if file_path and Path(file_path).exists():
                     if st.button("📂 열기", key=f"open_{index}", use_container_width=True):
@@ -61,6 +61,19 @@ def render_song_card(song: dict, index: int):
             with col_b:
                 if st.button("🔄 재생성", key=f"regen_{index}", use_container_width=True):
                     st.session_state["regenerate_song"] = song
+            with col_c:
+                if st.button("🗑️ 삭제", key=f"del_{index}", use_container_width=True):
+                    # Delete the mp3 file
+                    if file_path and Path(file_path).exists():
+                        try:
+                            Path(file_path).unlink()
+                        except Exception:
+                            pass
+                    # Remove from session state list
+                    gen_songs = st.session_state.get("generated_songs", [])
+                    if index < len(gen_songs):
+                        gen_songs.pop(index)
+                    st.rerun()
 
         st.divider()
 
