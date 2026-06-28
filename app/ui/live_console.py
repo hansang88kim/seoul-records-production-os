@@ -67,14 +67,10 @@ def _render_live_progress(job: dict):
 
     # Progress
     st.progress(pct / 100)
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.metric("완료", f"{done}/{total}")
-    with col2:
-        st.metric("실패", str(failed))
-    with col3:
-        st.metric("현재", current or "—")
-
+    st.markdown(
+        f"**✅ {done}/{total}곡 완료** · ❌ {failed}곡 실패 · "
+        f"🎵 현재: **{current or '—'}**"
+    )
     st.caption(f"Job ID: {job_id} · PID: {pid or '—'} · {'🟢 실행 중' if alive else '⚪ 확인 필요'}")
 
     # Log lines
