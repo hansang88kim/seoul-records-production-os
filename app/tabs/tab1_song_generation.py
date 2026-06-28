@@ -256,6 +256,74 @@ def render_manual_track_editor(track_index: int):
             else:
                 st.error(f"Candidate WAV not found: {src}")
 
+    # ── Suno Provider Settings ────────────────────────────────────────────────
+    st.divider()
+    with st.expander("🔑 Suno Provider Settings", expanded=False):
+        import os as _os
+
+        st.caption("SunoCliProvider (paperfoot/suno-cli) 인증 설정")
+
+        # Show current provider
+        provider_name = _os.getenv("COMPOSER_PROVIDER", "mock")
+        suno_bin = _os.getenv("SUNO_CLI_BIN", "suno")
+        st.text(f"Provider: {provider_name} | Binary: {suno_bin}")
+
+        # Cookie input (password field — hidden)
+        current_cookie = _os.getenv("SUNO_COOKIE", "")
+        cookie_display = f"설정됨 ({len(current_cookie)}자)" if current_cookie else "미설정"
+        st.text(f"SUNO_COOKIE: {cookie_display}")
+
+        new_cookie = st.text_input(
+            "Suno Cookie 입력 (브라우저 DevTools → Network → Cookie 값)",
+            type="password",
+            placeholder="__client=eyJ...; ajs_anonymous_id=...",
+            key="suno_cookie_input",
+        )
+        if st.button("🔐 쿠키 인증", key="btn_suno_auth"):
+            if new_cookie.strip():
+                _os.environ["SUNO_COOKIE"] = new_cookie.strip()
+                # Run suno auth --cookie
+                import subprocess as _sp
+                try:
+                    proc = _sp.run(
+                        [suno_bin, "auth", "--cookie", new_cookie.strip()],
+                        capture_output=True, text=True, encoding="utf-8",
+                        errors="replace", timeout=30,
+                    )
+                    if proc.returncode == 0:
+                        st.success("✅ 인증 성공")
+                    else:
+                        st.error(f"인증 실패 (exit code {proc.returncode})")
+                except FileNotFoundError:
+                    st.error(f"suno 바이너리를 찾을 수 없음: {suno_bin}")
+                except Exception as e:
+                    st.error(f"인증 오류: {type(e).__name__}")
+            else:
+                st.warning("쿠키를 입력해 주세요")
+
+        # Credits check
+        if st.button("💰 크레딧 확인", key="btn_suno_credits"):
+            import subprocess as _sp
+            try:
+                proc = _sp.run(
+                    [suno_bin, "credits", "--json"],
+                    capture_output=True, text=True, encoding="utf-8",
+                    errors="replace", timeout=15,
+                )
+                if proc.returncode == 0 and proc.stdout.strip():
+                    import json as _json
+                    data = _json.loads(proc.stdout)
+                    credits = data.get("data", data).get("credits_left", "?")
+                    st.success(f"✅ 크레딧: {credits}")
+                else:
+                    st.error("크레딧 확인 실패 — 먼저 쿠키 인증을 해주세요")
+            except FileNotFoundError:
+                st.error(f"suno 바이너리를 찾을 수 없음: {suno_bin}")
+            except Exception as e:
+                st.error(f"오류: {type(e).__name__}")
+
+        st.caption("⚠️ 쿠키는 메모리에만 저장됩니다. 앱 재시작 시 다시 입력해야 합니다. .env에 SUNO_COOKIE를 설정하면 자동 인증됩니다.")
+
     # ── v0.2 Manual WAV Import UI ─────────────────────────────────────────────
     st.divider()
     with st.expander("📂 Manual WAV Import", expanded=False):

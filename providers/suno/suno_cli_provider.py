@@ -233,6 +233,32 @@ class SunoCliProvider(ComposerProvider):
             fallback_instructions="WAV: download from suno.com → Manual WAV Import.",
         )
 
+    # ─── auto-auth ───────────────────────────────────────────────────────
+
+    def _ensure_auth(self):
+        """
+        Auto-authenticate before generation using SUNO_COOKIE from .env.
+        Runs: suno auth --cookie <cookie>
+        Never logs the cookie value.
+        """
+        cookie = os.getenv("SUNO_COOKIE", "").strip()
+        if not cookie:
+            logger.warning("SUNO_COOKIE not set in .env — skipping auto-auth")
+            return
+
+        try:
+            proc = subprocess.run(
+                [self._bin, "auth", "--cookie", cookie],
+                capture_output=True, text=True, encoding="utf-8",
+                errors="replace", timeout=30,
+            )
+            if proc.returncode == 0:
+                logger.info("Auto-auth succeeded")
+            else:
+                logger.warning("Auto-auth returned code %d", proc.returncode)
+        except Exception as e:
+            logger.warning("Auto-auth failed: %s", type(e).__name__)
+
     # ─── create_song ─────────────────────────────────────────────────────
 
     def create_song(
@@ -247,6 +273,9 @@ class SunoCliProvider(ComposerProvider):
         NO --json flag (conflicts with --wait --download).
         Returns comma-separated clip IDs parsed from downloaded filenames.
         """
+        # Auto-authenticate from SUNO_COOKIE env
+        self._ensure_auth()
+
         opts = options or {}
 
         # Write lyrics to temp file
