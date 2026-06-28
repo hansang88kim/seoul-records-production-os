@@ -186,11 +186,13 @@ def run_dry_run(mock: bool = False) -> dict:
         "provider": "",
         "task_id": "",
         "status": "",
+        "get_limit_result": None,
         "candidates": [],
         "wav_downloaded": False,
         "mp3_preview_downloaded": False,
         "manual_import_required": False,
         "errors": [],
+        "fallback_recommendation": "",
         "completed_at": "",
     }
 
@@ -208,6 +210,19 @@ def run_dry_run(mock: bool = False) -> dict:
 
     report["provider"] = provider.PROVIDER_NAME
 
+    # ── Step 0: Credit check (real mode only) ───────────────────────────
+    if not mock and hasattr(provider, '_request'):
+        try:
+            limit = provider._request("GET", "/api/get_limit")
+            report["get_limit_result"] = limit
+            credits = limit.get("credits_left", "?")
+            log(f"Credit check: {credits} credits remaining")
+        except Exception as e:
+            report["get_limit_result"] = {"error": str(e)}
+            log(f"Credit check failed: {e}")
+    elif mock:
+        report["get_limit_result"] = {"credits_left": 9999, "mock": True}
+
     # ── Step 1: Submit ──────────────────────────────────────────────────
     log(f"Submitting: {TEST_TITLE}")
     try:
@@ -215,9 +230,24 @@ def run_dry_run(mock: bool = False) -> dict:
         report["task_id"] = task_id
         log(f"Task ID: {task_id}")
     except Exception as e:
-        report["errors"].append(f"create_song: {type(e).__name__}: {e}")
-        report["status"] = getattr(e, "status", "generation_failed")
-        log(f"ERROR create_song: {e}")
+        err_status = getattr(e, "status", "generation_failed")
+        report["errors"].append(f"create_song: [{err_status}] {e}")
+        report["status"] = err_status
+        report["manual_import_required"] = err_status in (
+            "captcha_required", "manual_import_required",
+            "auth_required", "provider_unavailable",
+        )
+        if report["manual_import_required"]:
+            report["fallback_recommendation"] = (
+                "Download WAV manually from suno.com, "
+                "then import via Song Generation tab → Manual WAV Import."
+            )
+            (out / "manual_import_required.txt").write_text(
+                f"Generation failed: {err_status}\n"
+                f"{report['fallback_recommendation']}\n",
+                encoding="utf-8",
+            )
+        log(f"ERROR create_song: [{err_status}] {e}")
         _save_report(report, log_lines, out)
         return report
 
@@ -283,6 +313,7 @@ def run_dry_run(mock: bool = False) -> dict:
     # ── Step 4: Determine final status ──────────────────────────────────
     if report["wav_downloaded"]:
         report["status"] = "completed"
+        report["fallback_recommendation"] = ""
         log("✅ Dry-run completed: WAV downloaded")
     elif report["mp3_preview_downloaded"]:
         report["status"] = "mp3_only_preview"

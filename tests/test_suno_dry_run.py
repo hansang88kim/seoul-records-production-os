@@ -243,3 +243,71 @@ def test_existing_v031_tests_still_importable():
     from providers.suno.base import ProviderCapabilities, ProviderError
     from providers.suno.local_unofficial_suno import LocalUnofficialSunoProvider
     from providers.suno.playwright_suno_web import PlaywrightSunoWebProvider
+
+
+# ─── v0.3.4: CAPTCHA / cookie error mapping tests ───────────────────────────
+
+def test_captcha_signal_maps_to_captcha_required():
+    """HTTP 500 with 'captcha' in body → captcha_required error."""
+    from providers.suno.local_unofficial_suno import _safe_request
+    from unittest import mock
+    import requests as req
+
+    fake_resp = mock.Mock()
+    fake_resp.status_code = 500
+    fake_resp.text = '{"error":"CAPTCHA required. Launching browser..."}'
+
+    with mock.patch("requests.request", return_value=fake_resp):
+        with pytest.raises(ProviderError) as exc:
+            _safe_request("POST", "http://localhost:3000/api/custom_generate", json_body={})
+        assert exc.value.status == "captcha_required"
+
+
+def test_invalid_cookie_fields_maps_to_manual_import():
+    """HTTP 500 with 'Invalid cookie fields' → manual_import_required."""
+    from providers.suno.local_unofficial_suno import _safe_request
+    from unittest import mock
+
+    fake_resp = mock.Mock()
+    fake_resp.status_code = 500
+    fake_resp.text = 'Protocol error (Storage.setCookies): Invalid cookie fields'
+
+    with mock.patch("requests.request", return_value=fake_resp):
+        with pytest.raises(ProviderError) as exc:
+            _safe_request("POST", "http://localhost:3000/api/custom_generate", json_body={})
+        assert exc.value.status == "manual_import_required"
+
+
+def test_http_500_without_captcha_maps_to_manual_import():
+    """Generic HTTP 500 → manual_import_required (likely CAPTCHA)."""
+    from providers.suno.local_unofficial_suno import _safe_request
+    from unittest import mock
+
+    fake_resp = mock.Mock()
+    fake_resp.status_code = 500
+    fake_resp.text = '{"error":"Internal server error"}'
+
+    with mock.patch("requests.request", return_value=fake_resp):
+        with pytest.raises(ProviderError) as exc:
+            _safe_request("POST", "http://localhost:3000/api/custom_generate", json_body={})
+        assert exc.value.status == "manual_import_required"
+
+
+def test_dry_run_report_has_fallback_recommendation(tmp_path, monkeypatch):
+    """Dry-run report includes fallback_recommendation field."""
+    import workflows.suno_one_song_dry_run as dr
+    monkeypatch.setattr(dr, "__file__", str(tmp_path / "suno_one_song_dry_run.py"))
+
+    report = dr.run_dry_run(mock=True)
+    assert "fallback_recommendation" in report
+    assert "get_limit_result" in report
+
+
+def test_dry_run_report_has_get_limit_result(tmp_path, monkeypatch):
+    """Mock dry-run includes get_limit_result with credits."""
+    import workflows.suno_one_song_dry_run as dr
+    monkeypatch.setattr(dr, "__file__", str(tmp_path / "suno_one_song_dry_run.py"))
+
+    report = dr.run_dry_run(mock=True)
+    assert report["get_limit_result"] is not None
+    assert report["get_limit_result"].get("credits_left") == 9999

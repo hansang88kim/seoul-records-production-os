@@ -96,17 +96,55 @@ def _safe_request(method: str, url: str, cookie: str = "",
 
     if resp.status_code >= 400:
         body = resp.text[:300]
-        # Detect CAPTCHA/2FA in response
+        # Detect specific failure patterns from real dry-run observations
         lower = body.lower()
+
+        # CAPTCHA required — Suno triggers hCaptcha on generation
         if "captcha" in lower or "hcaptcha" in lower:
-            raise ProviderError("captcha_required", "CAPTCHA detected. Manual verification required.")
+            raise ProviderError(
+                "captcha_required",
+                "Suno requires CAPTCHA verification. "
+                "This wrapper cannot generate without a CAPTCHA solver. "
+                "Use ManualImportProvider: download WAV from suno.com, then import.",
+            )
+
+        # Invalid cookie fields — Playwright cookie injection crash
+        if "invalid cookie" in lower or "storage.setcookies" in lower:
+            raise ProviderError(
+                "manual_import_required",
+                "Browser cookie injection failed (Invalid cookie fields). "
+                "This is a known issue with gcui-art/suno-api on Windows. "
+                "Use ManualImportProvider: download WAV from suno.com, then import.",
+            )
+
+        # 2FA / verification
         if "two_factor" in lower or "2fa" in lower or "verification" in lower:
-            raise ProviderError("two_factor_required", "2FA detected. Manual verification required.")
+            raise ProviderError(
+                "two_factor_required",
+                "2FA verification detected. Manual login required.",
+            )
+
+        # Session expired
+        if "session" in lower and ("expired" in lower or "failed" in lower):
+            raise ProviderError(
+                "auth_required",
+                "Session expired. Refresh SUNO_COOKIE from browser DevTools.",
+            )
+
+        # HTTP 500 — likely CAPTCHA or internal wrapper error
+        if resp.status_code == 500:
+            raise ProviderError(
+                "manual_import_required",
+                f"Local Suno API returned HTTP 500. "
+                "This typically means CAPTCHA was triggered. "
+                "Use ManualImportProvider: download WAV from suno.com, then import.",
+                {"http_status": 500},
+            )
 
         raise ProviderError(
             "generation_failed",
             f"API error HTTP {resp.status_code}",
-            {"response_body": body},
+            {"http_status": resp.status_code},
         )
 
     try:

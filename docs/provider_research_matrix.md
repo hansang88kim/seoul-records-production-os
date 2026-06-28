@@ -34,7 +34,8 @@ Suno does not offer an official public API (as of mid-2026). Every "Suno API" in
 | **license** | LGPL-3.0 | MIT | Internal | Internal | Proprietary |
 | **maintenance status** | Active (2026) | Active (2026, v5.5 support) | Internal skeleton | Stable | Active (commercial) |
 | **risk** | HIGH (CAPTCHA bypass req'd) | MEDIUM (Rust binary dep) | LOW (skeleton only) | NONE (manual) | HIGH (paid, non-user credits) |
-| **recommendation** | ✅ HTTP adapter (no Playwright/2Captcha) | ✅ Strong v0.4 candidate | ⚠️ v0.4 target | ✅ Production default | ❌ Not default |
+| **real dry-run result** | get_limit ✅ / custom_generate ❌ (CAPTCHA + cookie crash) | Not yet tested | N/A (skeleton) | ✅ Pilot 3-song pass | N/A |
+| **recommendation** | ❌ Experimental blocked — not production-safe | ✅ **Primary v0.4 candidate** | ⚠️ v0.4 fallback | ✅ **Production default** | ❌ Not default |
 
 ---
 
@@ -72,8 +73,8 @@ Seoul Records Production OS
 ### Default provider is ManualImportProvider
 The safest, most reliable workflow is manual: user downloads WAV from suno.com, imports via the Song Generation tab. This works regardless of API changes, CAPTCHA, or session expiry.
 
-### First experimental provider is LocalUnofficialSunoProvider
-Uses gcui-art/suno-api as a local HTTP server with the user's own SUNO_COOKIE. Supports custom mode (title, lyrics, tags, negative_tags, model, instrumental). Limitations: no direct vocal_gender/weirdness/style_influence params — these are either injected into style tags or stored as `not_applied`.
+### LocalUnofficialSunoProvider — experimental blocked
+Real dry-run (v0.3.4) confirmed: gcui-art/suno-api can check credits (get_limit) but **cannot generate songs** due to mandatory hCaptcha on every generation + Playwright cookie injection bug. 2Captcha is required but violates Seoul Records CAPTCHA bypass policy. Status: experimental blocked. Credit-check-only use remains possible.
 
 ### paperfoot/suno-cli is the strongest v0.4 candidate
 A Rust CLI binary with full v5.5 feature coverage including vocal_gender, weirdness, style_influence, persona, exclude, model selection, and auto-auth from browser cookies. No CAPTCHA bypass. Runs as a local binary — could be invoked via subprocess from Python. Integration approach: subprocess adapter wrapping `suno generate --json`.
