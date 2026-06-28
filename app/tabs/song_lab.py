@@ -309,9 +309,11 @@ def render_song_lab():
         _render_quick_single()
 
 
-def _generate_plan_only(concept: str, ai_provider_name: str, language: str = "korean") -> dict:
+def _generate_plan_only(concept: str, ai_provider_name: str, language: str = "korean",
+                       locked_style: str = "") -> dict:
     """
     AI writes ONE song's title/style/lyrics (no Suno generation yet).
+    If locked_style is set, use it instead of AI-generated style.
     Returns a draft dict for the plan preview.
     """
     from providers.ai.base import get_ai_provider, _lyrics_char_count
@@ -320,6 +322,8 @@ def _generate_plan_only(concept: str, ai_provider_name: str, language: str = "ko
     try:
         ai = get_ai_provider(ai_provider_name)
         pkg = ai.generate_song_package(concept, language=language)
+        if locked_style:
+            pkg.style = locked_style  # override with the locked preset
         draft["title"] = pkg.title
         draft["style"] = pkg.style
         draft["lyrics"] = pkg.lyrics
@@ -504,6 +508,37 @@ def _render_auto_batch():
     # Project selector — all songs in this batch go to one project folder
     st.markdown("<div style='font-size:0.8rem;color:#9aa5b8;margin-bottom:4px'>📁 프로젝트 (이 배치의 곡들이 모일 폴더)</div>", unsafe_allow_html=True)
     project = _project_selector("auto")
+
+    # ── Style preset ─────────────────────────────────────────────────────
+    from app.ui.composer_panel import CITYPOP_STYLE_PRESET
+
+    if "auto_style" not in st.session_state:
+        st.session_state["auto_style"] = CITYPOP_STYLE_PRESET
+    if "auto_lock_style" not in st.session_state:
+        st.session_state["auto_lock_style"] = True  # default ON
+
+    col_slabel, col_spreset = st.columns([3, 1])
+    with col_slabel:
+        st.markdown("<div style='font-size:0.85rem;color:#9aa5b8;padding-top:4px'>🎨 스타일 프리셋 (전 곡 공통)</div>", unsafe_allow_html=True)
+    with col_spreset:
+        if st.button("프리셋 적용", key="auto_apply_preset", use_container_width=True):
+            st.session_state["auto_style"] = CITYPOP_STYLE_PRESET
+            st.rerun()
+
+    col_s, col_sl = st.columns([6, 1])
+    with col_s:
+        auto_style = st.text_area(
+            "스타일", height=80, key="auto_style",
+            label_visibility="collapsed",
+        )
+    with col_sl:
+        st.checkbox("🔒", key="auto_lock_style", label_visibility="collapsed",
+                    help="잠그면 AI 생성 시 스타일이 이 값으로 고정됩니다")
+
+    is_locked = st.session_state.get("auto_lock_style", True)
+    lock_note = "🔒 고정됨 (AI 생성 시 모든 곡에 이 스타일 적용)" if is_locked else "🔓 잠금 해제 (AI가 곡마다 다르게 생성)"
+    st.caption(f"{len(auto_style)}/1000 · {lock_note}")
+
     st.divider()
 
     providers = get_available_ai_providers()
@@ -570,7 +605,9 @@ def _render_auto_batch():
             stat = st.empty()
             for n in range(int(count)):
                 stat.info(f"📝 {n+1}/{count}곡 작곡 중... (AI가 제목/스타일/가사 생성)")
-                draft = _generate_plan_only(concept.strip(), ai_provider_name, language=auto_language)
+                locked = auto_style.strip() if st.session_state.get("auto_lock_style") else ""
+                draft = _generate_plan_only(concept.strip(), ai_provider_name,
+                                            language=auto_language, locked_style=locked)
                 plan.append(draft)
                 prog.progress((n + 1) / count)
             st.session_state["auto_plan_data"] = plan
