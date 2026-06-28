@@ -31,17 +31,21 @@ import sys as _sys
 
 def _win_creation_flags() -> dict:
     """
-    On Windows, fully detach child process so it cannot receive or send
-    console signals (Ctrl+C / STATUS_CONTROL_C_EXIT) to the parent.
-    - DETACHED_PROCESS:       no shared console
-    - CREATE_NEW_PROCESS_GROUP: own signal group
-    - CREATE_NO_WINDOW:       no console window pop-up
+    On Windows, isolate the suno child process from the parent's console
+    signals so a Ctrl+C (STATUS_CONTROL_C_EXIT) inside suno.exe / Chrome
+    cannot kill the parent.
+
+    CREATE_NEW_PROCESS_GROUP gives suno its own signal group.
+
+    We deliberately do NOT use DETACHED_PROCESS / CREATE_NO_WINDOW here:
+    suno-cli opens a piloted Chrome to solve hCaptcha, which needs a
+    normal console/desktop association to render. The worker process that
+    calls this is itself already detached from Streamlit, so isolating the
+    signal group is sufficient to protect the Streamlit server.
     """
     if _sys.platform == "win32":
-        DETACHED_PROCESS      = 0x00000008
         CREATE_NEW_PROCESS_GROUP = 0x00000200
-        CREATE_NO_WINDOW      = 0x08000000
-        return {"creationflags": DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP | CREATE_NO_WINDOW}
+        return {"creationflags": CREATE_NEW_PROCESS_GROUP}
     return {}
 
 

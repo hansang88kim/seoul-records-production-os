@@ -30,6 +30,10 @@ from services.job_store import (
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 
+def _sys_platform() -> str:
+    return sys.platform
+
+
 def start_generation_job(
     project: str,
     plan: list[dict],
@@ -62,23 +66,45 @@ def start_generation_job(
         json.dumps(settings, ensure_ascii=False, indent=2), encoding="utf-8"
     )
 
-    # Launch worker in a background THREAD (more reliable than subprocess on Windows).
-    # The thread survives Streamlit page reruns (same Python process).
-    # It writes progress to job_state.json which the UI polls.
-    import threading
+    # Launch worker as a FULLY DETACHED process.
+    # On Windows we use pythonw.exe (no console at all) so the worker — and
+    # the suno.exe / Chrome it spawns — share NO console with Streamlit.
+    # This is the only reliable way to prevent suno.exe's Ctrl+C
+    # (STATUS_CONTROL_C_EXIT) from killing the Streamlit server.
+    import subprocess
 
-    def _run_worker():
-        try:
-            from workers.suno_generation_worker import run_job
-            run_job(job_id)
-        except Exception as e:
-            update_job(job_id, status="failed",
-                       last_message=f"Worker 오류: {e}")
+    python_exe = sys.executable
+    if _sys_platform() == "win32":
+        # Prefer pythonw.exe (windowless) to fully break console association
+        pythonw = Path(python_exe).with_name("pythonw.exe")
+        if pythonw.exists():
+            python_exe = str(pythonw)
+
+    worker_cmd = [python_exe, "-m", "workers.suno_generation_worker", job_id]
+
+    # Windows: detach completely from parent console
+    popen_kwargs = {
+        "cwd": str(PROJECT_ROOT),
+        "stdin": subprocess.DEVNULL,
+        "stdout": subprocess.DEVNULL,
+        "stderr": subprocess.DEVNULL,
+    }
+    if _sys_platform() == "win32":
+        DETACHED_PROCESS = 0x00000008
+        CREATE_NEW_PROCESS_GROUP = 0x00000200
+        CREATE_NO_WINDOW = 0x08000000
+        CREATE_BREAKAWAY_FROM_JOB = 0x01000000
+        popen_kwargs["creationflags"] = (
+            DETACHED_PROCESS | CREATE_NEW_PROCESS_GROUP
+            | CREATE_NO_WINDOW | CREATE_BREAKAWAY_FROM_JOB
+        )
+        popen_kwargs["close_fds"] = True
+    else:
+        popen_kwargs["start_new_session"] = True  # POSIX: detach
 
     try:
-        t = threading.Thread(target=_run_worker, daemon=True, name=f"worker_{job_id}")
-        t.start()
-        update_job(job_id, pid=os.getpid(), status="running",
+        proc = subprocess.Popen(worker_cmd, **popen_kwargs)
+        update_job(job_id, pid=proc.pid, status="running",
                    started_at=datetime.now(timezone.utc).isoformat())
     except Exception as e:
         update_job(job_id, status="failed",

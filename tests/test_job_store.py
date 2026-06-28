@@ -203,3 +203,26 @@ def test_job_history():
     create_job(project="hist2")
     history = list_job_history()
     assert len(history) >= 2
+
+
+def test_worker_launched_as_separate_process():
+    """start_generation_job launches a detached subprocess (not a thread)."""
+    from services.generation_job_manager import start_generation_job
+    from unittest import mock
+    captured = {}
+
+    def fake_popen(cmd, **kwargs):
+        captured["cmd"] = cmd
+        captured["kwargs"] = kwargs
+        return mock.Mock(pid=54321)
+
+    with mock.patch("subprocess.Popen", side_effect=fake_popen):
+        result = start_generation_job("proc_test", [{"title": "곡", "status": "drafted"}], {})
+
+    assert result.get("job_id")
+    assert result.get("pid") == 54321
+    # Command should invoke the worker module
+    assert "workers.suno_generation_worker" in captured["cmd"]
+    # Output should be detached (DEVNULL)
+    import subprocess
+    assert captured["kwargs"].get("stdout") == subprocess.DEVNULL
