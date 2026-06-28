@@ -12,52 +12,51 @@ from app.tabs.tab5_distribution import render_tab_distribution
 
 
 def render_dashboard():
-    # Sidebar
+    # ── Sidebar: Project Info ────────────────────────────────────────────────
     with st.sidebar:
-        st.markdown(f"## 🎵 {APP_NAME}")
-        st.caption(f"v{APP_VERSION} · Seoul Records")
-        st.divider()
-
         if "current_project" in st.session_state and st.session_state.current_project:
             manifest = st.session_state.current_project
-            st.markdown(f"**{manifest.project_name}**")
-            st.caption(f"📁 {manifest.language_pack}")
-            st.caption(f"🎚 {manifest.production_mode} Mode")
-            st.caption(f"🎵 {manifest.track_count} tracks")
-            st.divider()
-            _status_color = {
-                "project_created": "🟡",
-                "song_generation_ready": "🟡",
-                "song_generation_in_progress": "🔵",
-                "song_generation_completed": "🟢",
-                "thumbnail_completed": "🟢",
-                "video_rendered": "🟢",
-                "completed": "✅",
-                "failed": "🔴",
-                "paused": "⏸",
-            }
-            icon = _status_color.get(manifest.status, "⚪")
-            st.caption(f"Status: {icon} {manifest.status}")
-            st.divider()
 
+            st.markdown(f"##### 📁 {manifest.project_name}")
+
+            # Status
+            _icons = {
+                "project_created": "🟡", "song_generation_ready": "🟡",
+                "song_generation_in_progress": "🔵", "song_generation_completed": "🟢",
+                "thumbnail_completed": "🟢", "video_rendered": "🟢",
+                "completed": "✅", "failed": "🔴", "paused": "⏸",
+            }
+            icon = _icons.get(manifest.status, "⚪")
+            status_label = manifest.status.replace("_", " ").title()
+            st.caption(f"{icon} {status_label}")
+
+            # Progress
             completed = sum(1 for t in manifest.tracks if t.status in ("saved", "approved"))
             total = manifest.track_count
             if total > 0:
-                st.progress(completed / total, text=f"Tracks: {completed}/{total}")
+                st.progress(completed / total)
+                st.caption(f"트랙 진행: {completed}/{total}")
+
+            # Info
+            col1, col2 = st.columns(2)
+            with col1:
+                st.caption(f"🌏 {manifest.language_pack}")
+            with col2:
+                st.caption(f"🎚 {manifest.production_mode}")
+
             st.divider()
 
-            if st.button("🔄 Close Project", use_container_width=True):
+            if st.button("📂 프로젝트 닫기", use_container_width=True):
                 st.session_state.current_project = None
                 st.session_state.current_output_folder = None
                 st.rerun()
         else:
-            st.caption("No project open")
+            st.caption("프로젝트를 선택하세요")
 
         st.divider()
-        st.caption("Seoul Records City Pop Core")
         st.caption("© Seoul Records")
 
-    # Main content
+    # ── Main Content ─────────────────────────────────────────────────────────
     if "current_project" not in st.session_state:
         st.session_state.current_project = None
         st.session_state.current_output_folder = None
@@ -70,28 +69,36 @@ def render_dashboard():
 
 def render_production_tabs():
     manifest = st.session_state.current_project
-    st.title(f"🎵 {manifest.project_name}")
-    st.caption(f"Seoul Records City Pop · {manifest.language_pack} · {manifest.production_mode} Mode")
 
+    # Header
+    st.markdown(f"# 🎵 {manifest.project_name}")
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        completed = sum(1 for t in manifest.tracks if t.status in ("saved", "approved"))
+        st.metric("완료 트랙", f"{completed}/{manifest.track_count}")
+    with col2:
+        st.metric("모드", manifest.production_mode)
+    with col3:
+        st.metric("출력", manifest.output_type or "—")
+
+    st.divider()
+
+    # Tabs
     tab1, tab2, tab3, tab4, tab5 = st.tabs([
-        "🎵 Song Generation",
-        "🖼 Thumbnail & Cover",
-        "🎬 Longform Video",
-        "▶️ YouTube Upload",
-        "📦 Distribution",
+        "🎵 곡 생성",
+        "🖼️ 썸네일",
+        "🎬 영상 제작",
+        "▶️ YouTube",
+        "📦 배포",
     ])
 
     with tab1:
         render_tab_song_generation()
-
     with tab2:
         render_tab_thumbnail()
-
     with tab3:
         render_tab_video()
-
     with tab4:
         render_tab_youtube()
-
     with tab5:
         render_tab_distribution()

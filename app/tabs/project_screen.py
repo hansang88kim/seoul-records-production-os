@@ -13,72 +13,51 @@ from app.project_manager import create_project, list_projects, resume_project
 
 
 def render_project_screen():
-    st.title(f"🎵 {APP_NAME}")
-    st.markdown("### Seoul Records City Pop Production OS")
-    st.caption("Create a new project or resume an existing one.")
+    st.markdown("# 🎵 Seoul Records Production OS")
+    st.caption("AI 시티팝 음악 레이블 프로덕션 하네스")
     st.divider()
 
-    col_new, col_resume = st.columns([1, 1], gap="large")
+    col_new, col_sep, col_resume = st.columns([5, 1, 5])
 
-    # ── NEW PROJECT ───────────────────────────────────────────────────────────
+    # ── 새 프로젝트 ──────────────────────────────────────────────────────────
     with col_new:
-        st.markdown("#### ✨ New Project")
+        st.markdown("### ✨ 새 프로젝트")
 
         project_name = st.text_input(
-            "Project Name",
-            placeholder="e.g. Seoul Night Vol. 1",
-            help="This will become your output folder name.",
-        )
-
-        st.text_input(
-            "Core Style",
-            value="Seoul Records City Pop",
-            disabled=True,
-            help="Core style is fixed. Creative direction is set by the preset system.",
-        )
-
-        language_pack = st.selectbox(
-            "Language / Market Pack",
-            ["ko_kr_seoul"],
-            help="Future packs: Tokyo, Saigon, Bangkok, Taipei, Hong Kong…",
+            "프로젝트 이름",
+            placeholder="예: Seoul Night Vol. 1",
         )
 
         theme = st.text_input(
-            "Theme",
-            placeholder="e.g. Late Night Drive, Rainy City, Summer Farewell",
+            "테마",
+            placeholder="예: 늦은 밤 드라이브, 비 오는 도시, 여름 이별",
         )
 
-        track_count = st.selectbox(
-            "Track Count",
-            TRACK_COUNT_OPTIONS,
-            index=1,
+        col_tracks, col_mode = st.columns(2)
+        with col_tracks:
+            track_count = st.selectbox("트랙 수", TRACK_COUNT_OPTIONS, index=1)
+        with col_mode:
+            production_mode = st.selectbox("모드", PRODUCTION_MODES)
+
+        language_pack = st.selectbox(
+            "언어팩",
+            ["ko_kr_seoul"],
+            help="향후: Tokyo, Saigon, Bangkok, Taipei, Hong Kong 등",
         )
 
-        production_mode = st.radio(
-            "Production Mode",
-            PRODUCTION_MODES,
-            horizontal=True,
-        )
+        output_type = st.selectbox("출력 형식", OUTPUT_TYPES, index=2)
 
-        output_type = st.selectbox(
-            "Output Type",
-            OUTPUT_TYPES,
-            index=2,
-        )
-
-        # Preview output folder
         if project_name:
             from app.project_manager import build_output_folder_name
             folder = build_output_folder_name(project_name, language_pack)
-            st.caption(f"📁 Output folder: `outputs/{folder}/`")
+            st.caption(f"📁 `outputs/{folder}/`")
 
-        st.divider()
-
-        if st.button("🚀 Create Project", type="primary", use_container_width=True):
+        st.markdown("")
+        if st.button("🚀 프로젝트 생성", type="primary", use_container_width=True):
             if not project_name.strip():
-                st.error("Project name is required.")
+                st.error("프로젝트 이름을 입력하세요")
             else:
-                with st.spinner("Creating project…"):
+                with st.spinner("생성 중..."):
                     manifest, output_folder = create_project(
                         project_name=project_name.strip(),
                         theme=theme.strip(),
@@ -89,10 +68,14 @@ def render_project_screen():
                     )
                     st.session_state.current_project = manifest
                     st.session_state.current_output_folder = str(output_folder)
-                st.success(f"Project '{project_name}' created!")
+                st.success(f"'{project_name}' 생성 완료!")
                 st.rerun()
 
-    # ── PROJECT LIBRARY ───────────────────────────────────────────────────────
+    # ── 구분선 ───────────────────────────────────────────────────────────────
+    with col_sep:
+        st.markdown("")
+
+    # ── 기존 프로젝트 ─────────────────────────────────────────────────────────
     with col_resume:
         from app.tabs.project_library import render_project_library_panel
         render_project_library_panel()
