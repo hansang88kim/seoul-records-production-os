@@ -324,6 +324,7 @@ class SunoCliProvider(ComposerProvider):
         Returns True only if auth command succeeds AND the session is
         verified working (credits check passes). Never logs the cookie.
         """
+        from services.metadata_consistency_service import redact_sensitive
         cookie = os.getenv("SUNO_COOKIE", "").strip()
         if not cookie:
             logger.warning("SUNO_COOKIE not set — skipping auto-auth")
@@ -374,6 +375,7 @@ class SunoCliProvider(ComposerProvider):
         result = {"ok": False, "authenticated": False, "credits": None, "message": ""}
 
         # Step 1: cookie present?
+        from services.metadata_consistency_service import redact_sensitive
         cookie = os.getenv("SUNO_COOKIE", "").strip()
         if not cookie:
             result["message"] = "SUNO_COOKIE 미설정 — 사이드바에서 쿠키를 입력하세요"
@@ -423,6 +425,7 @@ class SunoCliProvider(ComposerProvider):
         # ── Step 1: Authenticate (REQUIRED) ──────────────────────────────
         # Always re-auth before every generation. The cookie session is
         # short-lived, so this must run on each call.
+        from services.metadata_consistency_service import redact_sensitive
         cookie = os.getenv("SUNO_COOKIE", "").strip()
         if not cookie:
             raise ProviderError(
