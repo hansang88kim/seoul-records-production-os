@@ -18,11 +18,12 @@ def _format_exclude_as_negatives(exclude_str: str) -> str:
     items = [s.strip() for s in exclude_str.split(",") if s.strip()]
     return ", ".join(f"-{item}" for item in items)
 CITYPOP_STYLE_PRESET = (
-    "Classic Korean city pop (early 80s Seoul style) with J-pop nostalgic energy, "
-    "rhythmic choppy funk guitar riffs, smooth clean jazz chords, vintage electric "
-    "piano, warm analog synths, analog tape saturation, mid-tempo groove (BPM 113), "
+    "Bright summer Korean city pop with J-pop nostalgic energy (early 80s Seoul), "
+    "crisp upbeat groove (BPM 114), sparkling electric piano, shimmering analog synths, "
+    "tight rhythmic funk guitar, punchy slap bass, clean bright drums, "
     "expressive low female vocals with retro reverb and subtle vibrato, "
-    "nostalgic Seoul street night feeling"
+    "refreshing yet wistful mood, bittersweet urban loneliness in a fast-changing city, "
+    "nostalgic Seoul summer night feeling, neon-lit melancholy"
 )
 
 SUNO_MODELS = ["v5.5", "v5", "v4.5", "v4", "v3.5"]

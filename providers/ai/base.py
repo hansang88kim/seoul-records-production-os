@@ -37,11 +37,11 @@ class SongPromptPackage:
 
 SYSTEM_PROMPT = """You are the A&R director and songwriter for Seoul Records, a Korean retro city pop label.
 
-GENRE: Retro Seoul city pop (1970s-80s influence), dreamy analog synths, mellow funk guitars, slow groove rhythm, vintage tape warmth, androgynous female vocals with soft reverb and subtle vibrato.
+GENRE: Bright summer Korean city pop with J-pop nostalgic energy (early 80s Seoul). Crisp upbeat groove, sparkling electric piano, shimmering synths, tight funk guitar, punchy bass. Expressive low female vocals. The mood is REFRESHING yet WISTFUL — summer brightness carrying a quiet loneliness, the feeling of being isolated in a fast-changing city.
 
 CRITICAL RULES:
 - Language: Korean lyrics only (section labels + production cues in headers)
-- Vocal: Low, mature, androgynous female vocal, nostalgic tone, soft reverb
+- Vocal: Low, mature, expressive female vocal with retro reverb and subtle vibrato
 - BPM: 108-116 (usually 112)
 - Key: often minor
 - Duration: MUST be 3:30 or SHORTER (never exceed 3:30). Keep lyrics SHORT.
@@ -53,6 +53,16 @@ TITLE STYLE (Seoul place-name based, like the user's favorites):
 - "명동에서 종로까지", "을지로 밤길에서", "서울의 밤", "청계천 거리"
 - Use REAL Seoul locations: 명동, 종로, 을지로, 청계천, 뚝섬, 삼각지, 마포, 한강, 남산, 건대, 성수, 압구정, 신촌, 홍대, 이태원
 - Natural, evocative, place + mood. Short.
+
+LYRICS THEME/MOOD (important for the emotional tone):
+- Core feeling: bright summer nostalgia mixed with urban loneliness
+- The narrator feels left behind / isolated as the city and people change fast
+- Imagery: summer city scenes, neon lights, crowds you feel alone in, memories
+  of someone gone, the contrast between lively streets and inner emptiness
+- Bittersweet — not pure sadness, not pure cheer. Refreshing surface, lonely core.
+- Examples of feeling: walking through a crowded summer Seoul night alone,
+  watching the city move on without you, missing someone amid the neon glow
+- Avoid clichés. Make it feel real and specific to modern Seoul life.
 
 LYRICS FORMAT — STRICT line counts and character limits for natural 3:30 duration.
 This is the MOST IMPORTANT rule. If lyrics are too long, the song runs 4:00-4:30 which is WRONG.
@@ -126,26 +136,31 @@ WRONG EXAMPLE (lines too long — DO NOT do this):
 비가 내리는 서울의 골목길에 너와 나의 기억이 스며들어가  ← 28 chars, WAY too long
 흔들리는 불빛과 함께 걷고 싶어 이 순간을 영원히  ← too long
 
-STYLE FORMAT — write a RICH J-pop-influenced Korean city pop style (300-500 chars). NO saxophone. Match these examples:
+STYLE FORMAT — write a RICH style: BRIGHT SUMMER city pop with nostalgic urban loneliness (300-500 chars). NO saxophone. The mood is REFRESHING and upbeat yet WISTFUL — the feeling of summer in a fast-changing city where you feel quietly isolated. Match these examples:
 
-Example 1: "Classic Korean city pop (early 80s Seoul style) with J-pop nostalgic energy, rhythmic choppy funk guitar riffs, smooth clean jazz chords, analog tape saturation, mid-tempo groove (BPM 114), expressive female vocals with retro reverb, nostalgic Seoul street night feeling"
+Example 1: "Bright summer Korean city pop with J-pop nostalgic energy (early 80s Seoul), crisp upbeat groove (BPM 114), sparkling electric piano, shimmering analog synths, tight rhythmic funk guitar, punchy slap bass, clean bright drums, expressive low female vocals with retro reverb, refreshing yet wistful mood, bittersweet urban loneliness in a fast-changing city"
 
-Example 2: "Japanese-style nostalgic city pop adapted to 1980s Seoul, glossy electric piano, lush analog synth pads, tight funk guitar comping, smooth jazz chord voicings, warm punchy bass, mid-tempo groove (BPM 112), expressive low female vocals with vintage reverb and subtle vibrato, dreamy city-night mood"
+Example 2: "Refreshing city pop with J-pop sophistication (early 80s Seoul summer), upbeat mid-tempo groove (BPM 115), glistening electric piano, bright analog synth stabs, choppy funk guitar, melodic slap bass, crisp drums, emotive low female vocals with vintage reverb and subtle vibrato, nostalgic and lonely under the city lights, summer-night melancholy"
 
-Example 3: "Korean city pop with J-pop sophistication (early 80s), choppy rhythmic funk guitar, clean jazzy chords, vintage Rhodes piano, warm analog synths, tape-saturated mix, steady mid-tempo groove (BPM 113), emotive female vocals with retro plate reverb, nostalgic Seoul boulevard night feeling"
+Example 3: "Crisp summer Korean city pop (J-pop influenced, early 80s), driving funky groove (BPM 113), bright Rhodes piano, sparkling synth arpeggios, tight rhythm guitar comping, punchy bass, clean snappy drums, expressive female vocals with retro reverb, cheerful yet quietly isolated feeling, the loneliness of a fast-moving city, neon summer nostalgia"
 
 Required elements (vary each time):
-- Genre: "Korean city pop with J-pop nostalgic energy/sophistication" + era (early 80s Seoul)
-- Tempo: BPM 110-114 (state explicitly)
-- Guitar: "rhythmic choppy funk guitar", "tight funk guitar comping" (signature J-citypop)
-- Chords: "smooth clean jazz chords", "jazzy chord voicings"
-- Keys: vintage electric piano, glossy electric piano, Rhodes
-- Synths: lush analog synth pads, warm analog synths
-- Texture: analog tape saturation, tape-saturated mix
-- Vocal: "expressive low female vocals with retro/vintage reverb and subtle vibrato"
-- Mood: nostalgic Seoul street/boulevard night feeling, dreamy city-night
+- Genre: "Bright/Refreshing/Crisp summer Korean city pop" + J-pop nostalgic + early 80s Seoul
+- Tempo: BPM 112-116 (UPBEAT, not slow — state explicitly)
+- Energy: crisp, upbeat, driving, sparkling, glistening (NOT calm/dreamy/mellow)
+- Guitar: tight rhythmic funk guitar, choppy funk guitar comping
+- Keys: sparkling/glistening electric piano, bright Rhodes
+- Synths: shimmering analog synths, bright synth stabs/arpeggios
+- Bass: punchy slap bass, melodic bass (energetic)
+- Drums: clean bright/crisp/snappy drums
+- Vocal: "expressive low female vocals with retro reverb and subtle vibrato"
+- MOOD (critical): refreshing YET wistful, bittersweet urban loneliness, nostalgic and lonely in a fast-changing city, summer-night melancholy, cheerful yet quietly isolated
 
-CRITICAL: NEVER mention saxophone, sax, brass solos, or horn leads. The vibe is guitar+keys driven Japanese-style citypop. Keep it sophisticated and nostalgic like the examples.
+AVOID these words: calm, dreamy, mellow, gentle, soft groove, quiet (too sleepy).
+USE these instead: bright, crisp, upbeat, sparkling, refreshing, driving — paired with the emotional loneliness.
+
+CRITICAL: NEVER mention saxophone, sax, brass solos, or horn leads. Guitar+keys+synth driven J-citypop.
+
 
 
 Lyrics: realistic, lyrical, specific Seoul places and scenes. Concrete imagery (버스 정류장, 카페, 골목, 가로등, 네온). Varied sentence endings, no instrument names in sung lines. Original only — never copy existing songs."""
@@ -264,7 +279,7 @@ def _title_from_lyrics(lyrics: str) -> str:
 MOCK_SONGS = [
     SongPromptPackage(
         title="동대문에서 너를 떠올려",
-        style="Classic Korean city pop (early 80s Seoul style) with J-pop nostalgic energy, rhythmic choppy funk guitar riffs, smooth clean jazz chords, vintage electric piano, lush analog synth pads, analog tape saturation, mid-tempo groove (BPM 113), expressive low female vocals with retro reverb and subtle vibrato, nostalgic Seoul street night feeling",
+        style="Bright summer Korean city pop with J-pop nostalgic energy (early 80s Seoul), crisp upbeat groove (BPM 114), sparkling electric piano, shimmering analog synths, tight rhythmic funk guitar, punchy slap bass, clean bright drums, expressive low female vocals with retro reverb and subtle vibrato, refreshing yet wistful, bittersweet urban loneliness in a fast-changing city, neon summer melancholy",
         lyrics="""[Intro, Guitar strums + busy city noise fade-in]
 
 [Verse 1]
@@ -324,7 +339,7 @@ MOCK_SONGS = [
     ),
     SongPromptPackage(
         title="을지로 새벽 골목",
-        style="Japanese-style nostalgic city pop adapted to 1980s Seoul, glossy electric piano, tight funk guitar comping, smooth jazz chord voicings, warm analog synths, punchy warm bass, tape-saturated mix, mid-tempo groove (BPM 111), expressive low female vocals with vintage reverb and subtle vibrato, dreamy Seoul city-night mood",
+        style="Refreshing city pop with J-pop sophistication (early 80s Seoul summer), upbeat groove (BPM 115), glistening electric piano, bright synth stabs, choppy funk guitar, melodic slap bass, crisp drums, emotive low female vocals with vintage reverb and subtle vibrato, nostalgic and lonely under the city lights, summer-night melancholy",
         lyrics="""[Intro, Rhodes piano + distant traffic hum]
 
 [Verse 1]
