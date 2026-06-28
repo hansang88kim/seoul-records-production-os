@@ -101,7 +101,7 @@ def render_composer_panel() -> dict | None:
                         st.session_state["prompt_confirmed"] = False
                         st.rerun()
                     except Exception as e:
-                        st.error(f"생성 실패: {type(e).__name__}")
+                        st.error(f"생성 실패: {e}")
 
     with col_title:
         if st.button("제목만", disabled=not ai_ok, use_container_width=True, key="ai_gen_title"):

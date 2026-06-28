@@ -272,12 +272,18 @@ class OpenAIProvider:
                     {"role": "system", "content": SYSTEM_PROMPT},
                     {"role": "user", "content": _make_user_prompt(concept, generate)},
                 ],
-                "temperature": 0.85,
-                "max_tokens": 2000,
+                "temperature": 0.9,
+                "max_tokens": 4000,
+                "response_format": {"type": "json_object"},
             },
             timeout=60,
         )
-        resp.raise_for_status()
+        if resp.status_code != 200:
+            try:
+                msg = resp.json().get("error", {}).get("message", "")[:150]
+            except Exception:
+                msg = f"HTTP {resp.status_code}"
+            raise RuntimeError(f"ChatGPT 생성 실패 — {msg}")
         content = resp.json()["choices"][0]["message"]["content"].strip()
         if content.startswith("```"):
             content = content.split("```")[1]
@@ -324,22 +330,67 @@ class GeminiProvider:
         if not api_key:
             raise RuntimeError("GOOGLE_GEMINI_API_KEY not set")
 
-        resp = requests.post(
-            f"https://generativelanguage.googleapis.com/v1beta/models/{self.MODEL_NAME}:generateContent?key={api_key}",
-            headers={"Content-Type": "application/json"},
-            json={
-                "contents": [{"parts": [{"text": SYSTEM_PROMPT + "\n\n" + _make_user_prompt(concept, generate)}]}],
-                "generationConfig": {"temperature": 0.85, "maxOutputTokens": 2000},
-            },
-            timeout=60,
-        )
-        resp.raise_for_status()
-        content = resp.json()["candidates"][0]["content"]["parts"][0]["text"].strip()
-        if content.startswith("```"):
-            content = content.split("```")[1]
-            if content.startswith("json"):
-                content = content[4:]
-        return json.loads(content)
+        prompt_text = SYSTEM_PROMPT + "\n\n" + _make_user_prompt(concept, generate)
+
+        # Try the configured model, then fall back to known-good models
+        models_to_try = [self.MODEL_NAME, "gemini-2.0-flash", "gemini-1.5-flash", "gemini-2.5-flash"]
+        seen = set()
+        last_error = ""
+
+        for model in models_to_try:
+            if model in seen:
+                continue
+            seen.add(model)
+
+            try:
+                resp = requests.post(
+                    f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={api_key}",
+                    headers={"Content-Type": "application/json"},
+                    json={
+                        "contents": [{"parts": [{"text": prompt_text}]}],
+                        "generationConfig": {
+                            "temperature": 0.9,
+                            "maxOutputTokens": 4000,
+                            "responseMimeType": "application/json",
+                        },
+                    },
+                    timeout=60,
+                )
+
+                if resp.status_code != 200:
+                    try:
+                        last_error = resp.json().get("error", {}).get("message", "")[:150]
+                    except Exception:
+                        last_error = f"HTTP {resp.status_code}"
+                    logger.warning("Gemini model %s failed: %s", model, last_error)
+                    continue
+
+                data = resp.json()
+                candidates = data.get("candidates", [])
+                if not candidates:
+                    last_error = "응답에 candidates 없음 (안전 필터 차단 가능)"
+                    continue
+
+                parts = candidates[0].get("content", {}).get("parts", [])
+                if not parts:
+                    last_error = "응답에 content 없음"
+                    continue
+
+                content = parts[0].get("text", "").strip()
+                if content.startswith("```"):
+                    content = content.split("```")[1]
+                    if content.startswith("json"):
+                        content = content[4:]
+                return json.loads(content)
+
+            except requests.exceptions.RequestException as e:
+                last_error = f"네트워크: {type(e).__name__}"
+                continue
+            except json.JSONDecodeError as e:
+                last_error = f"JSON 파싱 실패: {str(e)[:80]}"
+                continue
+
+        raise RuntimeError(f"Gemini 생성 실패 — {last_error}")
 
     def generate_song_package(self, concept: str, locked: dict | None = None) -> SongPromptPackage:
         data = self._call(concept, "all")
