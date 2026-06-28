@@ -159,8 +159,9 @@ Required elements (vary each time):
 - MOOD (critical): deeply nostalgic, bittersweet, sophisticated, the wistful/quiet
   loneliness of city nights, late-night city melancholy, golden-age warmth
 
-AVOID these words: bright, summer, crisp, upbeat, sparkling, refreshing, sunny,
-"early 80s Seoul", "Korean city pop". Those are WRONG for this mood.
+AVOID these words: bright, summer, crisp, upbeat, sparkling, refreshing, sunny, calm,
+dreamy, laid-back, "early 80s Seoul", "Korean city pop", "Korean city pop with 1980s nostalgia".
+Always say "Japanese city pop" not "Korean city pop". Those are WRONG for this mood.
 USE these: nostalgic, bittersweet, mellow, sophisticated, wistful, warm, emotional,
 golden-age, lush, silky, tender, lonely city nights.
 

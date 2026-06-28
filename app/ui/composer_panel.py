@@ -160,9 +160,12 @@ def render_composer_panel() -> dict | None:
     # ═══════════════════════════════════════════════════════════════════════
     st.markdown("#### 📝 Song Form")
 
-    # Initialize style with preset on first load
+    # Initialize style with preset on first load + lock it by default
+    # so AI generation keeps the fixed Japanese citypop style.
     if "form_style" not in st.session_state:
         st.session_state["form_style"] = CITYPOP_STYLE_PRESET
+    if "lock_style" not in st.session_state:
+        st.session_state["lock_style"] = True  # default ON — keep preset fixed
 
     # Title
     col_t, col_tl = st.columns([6, 1])
@@ -221,10 +224,12 @@ def render_composer_panel() -> dict | None:
                     help="잠그면 AI 생성 시 스타일이 바뀌지 않습니다")
 
     style_len = len(style)
+    is_locked = st.session_state.get("lock_style", True)
+    lock_note = "🔒 고정됨 (AI 생성 시 유지)" if is_locked else "🔓 잠금 해제 (AI가 변경)"
     if style_len > 1000:
-        st.error(f"⚠️ {style_len}/1000 — Suno 제한 초과")
+        st.error(f"⚠️ {style_len}/1000 — Suno 제한 초과 · {lock_note}")
     else:
-        st.caption(f"{style_len}/1000 · 제외 스타일은 생성 시 자동 -prefix 추가")
+        st.caption(f"{style_len}/1000 · {lock_note} · 제외 스타일 자동 -prefix")
 
     # Exclude
     exclude = st.text_input("제외 스타일", value=DEFAULT_EXCLUDE, key="form_exclude")
