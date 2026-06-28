@@ -52,26 +52,48 @@ TITLE STYLE (Seoul place-name based, like the user's favorites):
 - Use REAL Seoul locations: 명동, 종로, 을지로, 청계천, 뚝섬, 삼각지, 마포, 한강, 남산, 건대, 성수, 압구정, 신촌, 홍대, 이태원
 - Natural, evocative, place + mood. Short.
 
-LYRICS FORMAT — section headers carry production cues (Korean or English mix):
-[Intro, 한강 바람 소리 + 로즈 피아노]
+LYRICS FORMAT — follow this EXACT structure for natural 3:30 duration.
+Section headers carry production cues (Korean or English). Each line is a SHORT phrase (7-13 Korean characters, average 9). This precise length is what makes the song land at ~3:30.
+
+EXACT STRUCTURE (10 sections, ~340 chars total):
+[Intro, <production cue>]          ← NO lyrics (instrumental, leave empty)
+[Verse 1]                          ← 4 lines, 7-12 chars each
+[Pre-Chorus, <cue>]                ← 4 lines, 8-11 chars each
+[Chorus, <cue>]                    ← 5 lines, 6-13 chars (hook line = Seoul place from title)
+[Verse 2, <cue>]                   ← 4 lines, 8-12 chars each
+[Pre-Chorus]                       ← 4 lines, 8-11 chars each
+[Chorus, <cue>]                    ← 5 lines, same hook, slight variation
+[Bridge, <cue>]                    ← 4 lines, 6-9 chars each (shorter, reflective)
+[Final Chorus, <cue>]              ← 5 lines, climactic, 8-12 chars
+[Outro, <cue>]                     ← 2 lines, 10-14 chars (a specific Seoul spot)
+
+LINE LENGTH RULES (critical for 3:30 timing):
+- Verse/Pre-Chorus lines: 7-11 Korean characters
+- Chorus lines: 6-13 characters (first line = the hook with Seoul place)
+- Bridge lines: 6-9 characters (shorter, slower)
+- Outro lines: 10-14 characters
+- NEVER write long run-on lines. Keep each line a short singable phrase.
+
+FORMATTING (must be exact):
+- Blank line between every section
+- One lyric phrase per line (no commas joining multiple phrases)
+- Intro has header only, no lyric lines under it
+- Section labels stay in English: [Verse 1], [Chorus], [Bridge], [Outro]
+- Production cues in the header after comma
+
+Example of correct formatting (study the line lengths):
 [Verse 1]
-(4 lines Korean — concrete Seoul scene, real places)
-[Pre-Chorus, 레트로 패드 + 드라이브 기타]
-(4 lines Korean)
-[Chorus, 따뜻한 리듬 + 코러스 하모니]
-(5 lines Korean — hook references the Seoul place from the title)
-[Verse 2, Nylon guitar + soft percussion]
-(4 lines Korean — another Seoul location detail)
-[Pre-Chorus, 섬세한 신스 레이어]
-(4 lines Korean)
-[Chorus, 감정이 쌓이는 진행]
-(5 lines Korean — hook variation)
-[Bridge, Electric piano solo + dreamy fade]
-((4 lines Korean in parentheses, soft confession))
-[Final Chorus, Emotional climax]
-(5 lines Korean — climactic)
-[Outro, 한강 소리 + 페이드아웃 피아노]
-((2 lines Korean in parentheses — a specific Seoul spot))
+종로 오거리에서
+시계를 본 순간
+너와 마주친 그 날이
+불쑥 떠올랐어
+
+[Chorus, Hook guitar riff + Harmony]
+동대문에서 너를 떠올려
+지나간 시간 속에서
+익숙했던 그 거리 풍경이
+왜 오늘 따라
+그리운지 몰라
 
 STYLE FORMAT — write a RICH, professional Suno style prompt (Suno allows up to 1000 chars, so be detailed and evocative, 400-700 chars ideal):
 
@@ -112,6 +134,50 @@ def _make_user_prompt(concept: str, generate: str = "all") -> str:
 
 # ─── Mock Provider ───────────────────────────────────────────────────────────
 
+def _format_lyrics(lyrics: str) -> str:
+    """
+    Normalize lyrics formatting for clean aligned display:
+    - One blank line before each [Section] header (except the first)
+    - Strip trailing whitespace per line
+    - Collapse multiple blank lines into one
+    - No leading/trailing blank lines
+    """
+    if not lyrics:
+        return ""
+
+    lines = [l.rstrip() for l in lyrics.replace("\r\n", "\n").split("\n")]
+    out = []
+    for line in lines:
+        stripped = line.strip()
+        if stripped.startswith("["):
+            # Section header — ensure one blank line before it (unless first)
+            if out and out[-1] != "":
+                out.append("")
+            out.append(stripped)
+        else:
+            out.append(stripped)
+
+    # Collapse multiple consecutive blank lines into one
+    cleaned = []
+    prev_blank = False
+    for line in out:
+        if line == "":
+            if not prev_blank:
+                cleaned.append(line)
+            prev_blank = True
+        else:
+            cleaned.append(line)
+            prev_blank = False
+
+    # Trim leading/trailing blanks
+    while cleaned and cleaned[0] == "":
+        cleaned.pop(0)
+    while cleaned and cleaned[-1] == "":
+        cleaned.pop()
+
+    return "\n".join(cleaned)
+
+
 def _title_from_lyrics(lyrics: str) -> str:
     """Extract a fallback title from the chorus hook if AI didn't provide one."""
     if not lyrics:
@@ -136,124 +202,124 @@ def _title_from_lyrics(lyrics: str) -> str:
 
 MOCK_SONGS = [
     SongPromptPackage(
-        title="뚝섬 가는 밤",
+        title="동대문에서 너를 떠올려",
         style="Japanese city pop with late-1990s Seoul nostalgia, A minor, 112 BPM mid-tempo groove. Warm CP-70 electric piano and glassy DX7 FM keys lead, layered with soft analog synth pads. Chorus-drenched clean guitar, warm rounded bass, gentle brushed drums entering after a 4-bar intro. Low thick female vocal, breath-driven and intimate, soft plate reverb, subtle vibrato, no belting. Tape warmth, faint vinyl crackle, wide stereo image. Bittersweet, calm, neon-lit midnight Seoul mood, city lights on wet streets.",
-        lyrics="""[Intro, 한강 바람 소리 + 로즈 피아노]
+        lyrics="""[Intro, Guitar strums + busy city noise fade-in]
 
 [Verse 1]
-네가 먼저 웃어준 그날 밤
-뚝섬 가는 길은 짧았지
-손끝에 닿은 온기 하나로
-모든 게 선명했던 계절
+종로 오거리에서
+시계를 본 순간
+너와 마주친 그 날이
+불쑥 떠올랐어
 
-[Pre-Chorus, 레트로 패드 + 드라이브 기타]
-네 말투, 네 걸음
-아직 내 안에 살아
-그때는 몰랐던 마음
-이제서야 느껴져
+[Pre-Chorus, Bright comping guitar]
+백화점 불빛 아래
+수줍게 잡은 손
+그 작은 떨림이
+아직도 남아 있어
 
-[Chorus, 따뜻한 리듬 + 코러스 하모니]
-뚝섬 가는 밤
-우리의 마지막 여름
-아무도 없는 강변에
-너의 향기만 남았어
-서울의 밤이 조용히 물들어
+[Chorus, Hook guitar riff + Harmony]
+동대문에서 너를 떠올려
+지나간 시간 속에서
+익숙했던 그 거리 풍경이
+왜 오늘 따라
+그리운지 몰라
 
-[Verse 2, Nylon guitar + soft percussion]
-다정했던 목소리
-버스 정류장 너머로 퍼지고
-말없이 걷던 그 거리
-이제는 나 혼자야
+[Verse 2, Muted funk guitar + warm keys]
+길게 뻗은 지하철 소리
+우리 대화 같아
+조금씩 멀어지고
+사라져가는 말들
 
-[Pre-Chorus, 섬세한 신스 레이어]
-지나간 계절 속
-네가 머문 자리를
-천천히 돌아보며
-나는 너를 부르고 있어
+[Pre-Chorus]
+너 없는 주말 밤
+혼자 걷는 서울
+모든 게 그대로인데
+너만 없다는 게 달라
 
-[Chorus, 감정이 쌓이는 진행]
-뚝섬 가는 밤
-조용히 너를 그리워해
-멀어진 두 발자국 사이로
-흔들리는 내 마음
-다시 널 보내고 있어
+[Chorus, Layered rhythm + emotional lift]
+동대문에서 너를 떠올려
+멀어진 기억이지만
+이 노래가 울려 퍼지면
+어디선가 넌
+같은 하늘을 볼까
 
-[Bridge, Electric piano solo + dreamy fade]
-(조금만 더 곁에 있었다면)
-(우리의 시간은 달랐을까)
-(이젠 모든 게 흐릿해져도)
-(그 밤은 그대로 남아)
+[Bridge, Lead guitar solo + pad swell]
+우린 끝났지만
+마음은 계속 흘러
+잊으려 해도
+잊혀지지 않아
 
-[Final Chorus, Emotional climax]
-뚝섬 가는 밤
-잊지 못할 그 장면
-강물처럼 흘러가도
-네 미소만은 선명해
-이 밤은 너로 가득 차
+[Final Chorus, Expanded groove + backing vocal]
+동대문에서 너를 떠올려
+바쁜 사람들 속에도
+우리의 시간이 머물던
+그 밤 공기 속에
+네 목소릴 느껴
 
-[Outro, 한강 소리 + 페이드아웃 피아노]
-(건대입구역 출구 앞)
-(그 자리에 멈춰 선 나)""",
+[Outro, Fading city echo + single guitar note]
+동대문 네온 아래서
+너는 아직 내 안에 있어""",
     ),
     SongPromptPackage(
-        title="삼각지에서의 마지막 밤",
+        title="을지로 새벽 골목",
         style="Japanese city pop, early-1980s Seoul evening mood, F# minor, 110 BPM slow groove. Mellow Rhodes piano and Wurlitzer keys over lush analog synth pads. Soft nylon-string guitar, rounded mellow bass, light brushed percussion. Low warm female vocal, breath-driven, dreamy and nostalgic, gentle reverb, delicate falsetto touches. Vintage tape saturation, lo-fi cassette texture, plate reverb, wide stereo. Wistful, tender, late-night Seoul alley mood under amber streetlights.",
-        lyrics="""[Intro, 트래픽 노이즈 & 잔잔한 전자피아노]
+        lyrics="""[Intro, Rhodes piano + distant traffic hum]
 
 [Verse 1]
-지하철 4호선 종착역 근처
-네 손을 놓고 말았던 순간
-불 꺼진 다방 유리창 너머
-우리의 그림자만 남았어
+을지로 골목 끝에
+불 켜진 작은 창
+너와 마시던 커피
+온기가 떠올라
 
-[Pre-Chorus, 따뜻한 브라스 톤]
-너의 뒷모습을 바라보다
-한참을 서 있던 그 골목
-말 한마디 못한 채
-시간에 묻혔던 사랑
+[Pre-Chorus, Soft synth swell]
+좁은 길 사이로
+스며든 새벽 공기
+그때 네 목소리가
+귓가에 맴돌아
 
-[Chorus, 감성 코러스 + 베이스 드라이브]
-삼각지에서의 마지막 밤
-그때 넌 울지 않았지만
-네가 없는 이 거리는
-지금도 내 맘을 울려
-가로등만 너를 알고 있어
+[Chorus, Warm groove + Layered harmony]
+을지로 새벽 골목에서
+혼자 너를 그려봐
+지워진 줄 알았던 마음이
+이 거리 위에
+다시 번져가
 
-[Verse 2, 빈티지 기타 리프]
-통닭집 앞 혼잣말처럼
-자꾸만 네 이름을 부르고
-사라진 웃음, 젖은 기억
-밤마다 나를 흔들어
+[Verse 2, Nylon guitar + warm keys]
+인쇄소 불빛 아래
+밤새 걷던 우리
+말없이 나눈 시선
+이젠 흐릿해져
 
-[Pre-Chorus, 피아노 + 신스 배킹]
-이 골목엔 아직
-너의 발자국이 살아
-누가 대신 그 길을 걸어도
-난 널 잊지 못할 거야
+[Pre-Chorus]
+식어버린 골목
+너의 자리만 비어
+모든 게 그대로인데
+나만 멈춰 있어
 
-[Chorus, 가창감 있는 리드 & 하모니]
-삼각지에서의 마지막 밤
-마음은 아직 그 자리에
-돌아갈 수는 없지만
-기억은 떠나지 않아
-그날 너와 멈춘 시간
+[Chorus, Expanded rhythm + emotional lift]
+을지로 새벽 골목에서
+혼자 너를 그려봐
+멀어진 시간 속에서도
+네 미소만은
+선명히 남아
 
-[Bridge, 아날로그 베이스 + 드리미 신스]
-(마지막이라도 안아줄 걸)
-(그 말 한마디를 왜 못 했을까)
-(지금이라도 말하고 싶어)
-(삼각지의 밤은 길었어)
+[Bridge, Electric piano solo + pad swell]
+돌아갈 수 없어도
+마음은 그 골목에
+잊으려 해봐도
+발길이 멈춰
 
-[Final Chorus, 감정 폭발 하이라이트]
-삼각지에서의 마지막 밤
-우리의 계절은 끝났지만
-그날의 그 노래는
-아직도 내 안에서 흐르고 있어
-서울의 밤, 널 품고 있어
+[Final Chorus, Full band + backing vocal]
+을지로 새벽 골목에서
+너의 이름 불러봐
+우리가 머물던 그 밤이
+아직 이곳에
+숨 쉬고 있어
 
-[Outro, 도시 소음 + 로즈 피아노 페이드]
-(삼각지 사거리 불빛 아래)
-(혼자 남은 나만의 밤)""",
+[Outro, Fading echo + single piano note]
+을지로 불빛 아래서
+너는 아직 내 곁에 있어""",
     ),
 ]
 
@@ -337,7 +403,7 @@ class OpenAIProvider:
     def generate_song_package(self, concept: str, locked: dict | None = None) -> SongPromptPackage:
         data = self._call(concept, "all")
         title = data.get("title", "").strip()
-        lyrics = data.get("lyrics", "")
+        lyrics = _format_lyrics(data.get("lyrics", ""))
         if not title:
             title = _title_from_lyrics(lyrics) or "제목 없음"
         return SongPromptPackage(
@@ -501,7 +567,7 @@ class GeminiProvider:
     def generate_song_package(self, concept: str, locked: dict | None = None) -> SongPromptPackage:
         data = self._call(concept, "all")
         title = data.get("title", "").strip()
-        lyrics = data.get("lyrics", "")
+        lyrics = _format_lyrics(data.get("lyrics", ""))
         if not title:
             title = _title_from_lyrics(lyrics) or "제목 없음"
         return SongPromptPackage(

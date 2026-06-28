@@ -166,3 +166,50 @@ def test_korean_title_lyrics_preserved_utf8():
     # Check Korean characters preserved
     for char in parsed["title"]:
         assert ord(char) < 0xFFFF  # valid unicode
+
+
+# ─── Lyrics formatting + structure ───────────────────────────────────────────
+
+def test_format_lyrics_adds_blank_before_sections():
+    """_format_lyrics inserts a blank line before each section header."""
+    from providers.ai.base import _format_lyrics
+    messy = "[Verse 1]\n종로에서\n시계를 봐\n[Chorus]\n동대문에서"
+    result = _format_lyrics(messy)
+    lines = result.split("\n")
+    # There should be a blank line before [Chorus]
+    chorus_idx = lines.index("[Chorus]")
+    assert lines[chorus_idx - 1] == "", "No blank line before [Chorus]"
+
+
+def test_format_lyrics_collapses_multiple_blanks():
+    """Multiple blank lines collapse to one."""
+    from providers.ai.base import _format_lyrics
+    messy = "[Verse 1]\n가사\n\n\n\n[Chorus]\n후렴"
+    result = _format_lyrics(messy)
+    assert "\n\n\n" not in result
+
+
+def test_format_lyrics_no_leading_blank():
+    """No leading blank lines."""
+    from providers.ai.base import _format_lyrics
+    result = _format_lyrics("\n\n[Verse 1]\n가사")
+    assert not result.startswith("\n")
+
+
+def test_mock_songs_have_10_sections():
+    """Mock songs follow the 10-section structure."""
+    from providers.ai.base import MOCK_SONGS, _format_lyrics
+    for song in MOCK_SONGS:
+        formatted = _format_lyrics(song.lyrics)
+        sections = [l for l in formatted.split("\n") if l.startswith("[")]
+        assert len(sections) == 10, f"{song.title} has {len(sections)} sections, expected 10"
+
+
+def test_mock_songs_lyric_length_for_330():
+    """Mock song lyrics are ~300-360 chars for 3:30 duration."""
+    from providers.ai.base import MOCK_SONGS, _format_lyrics
+    for song in MOCK_SONGS:
+        formatted = _format_lyrics(song.lyrics)
+        lyric_lines = [l for l in formatted.split("\n") if l and not l.startswith("[")]
+        total = sum(len(l) for l in lyric_lines)
+        assert 280 <= total <= 400, f"{song.title} has {total} chars (target ~340 for 3:30)"
