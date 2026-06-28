@@ -127,3 +127,45 @@ def test_provider_status_does_not_show_cookie():
         assert "secret_cookie" not in fallback
     finally:
         os.environ.pop("SUNO_COOKIE", None)
+
+
+# ─── Auto Batch mode ─────────────────────────────────────────────────────────
+
+def test_auto_batch_function_exists():
+    """_render_auto_batch and _generate_one_auto must exist."""
+    from app.tabs.song_lab import _render_auto_batch, _generate_one_auto
+
+
+def test_generate_one_auto_uses_mock(monkeypatch, tmp_path):
+    """_generate_one_auto with mock AI returns a result dict."""
+    from app.tabs import song_lab
+    from unittest import mock
+
+    monkeypatch.setenv("SUNO_COOKIE", "fake_cookie")
+
+    # Mock SunoCliProvider so it doesn't actually call suno
+    def fake_create_song(self, title, style, lyrics, options):
+        # Simulate a downloaded file
+        dl = options.get("download_dir", str(tmp_path))
+        from pathlib import Path as P
+        P(dl).mkdir(parents=True, exist_ok=True)
+        (P(dl) / "song-abc12345.mp3").write_bytes(b"fake")
+        return "abc12345"
+
+    with mock.patch("providers.suno.suno_cli_provider.SunoCliProvider.create_song", fake_create_song):
+        result = song_lab._generate_one_auto(
+            "서울 밤", "mock", {"model": "v5.5", "vocal_gender": "Female"}
+        )
+
+    assert result["status"] == "generated"
+    assert result["title"]  # mock provides a title
+
+
+def test_auto_batch_title_style_lyrics_all_generated():
+    """Auto batch via mock generates title AND style AND lyrics."""
+    from providers.ai.base import get_ai_provider
+    ai = get_ai_provider("mock")
+    pkg = ai.generate_song_package("서울 밤")
+    assert pkg.title, "title missing"
+    assert pkg.style, "style missing"
+    assert pkg.lyrics, "lyrics missing"

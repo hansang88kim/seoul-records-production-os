@@ -105,9 +105,9 @@ def render_composer_panel() -> dict | None:
                 with st.spinner("AI 작곡 중..."):
                     try:
                         pkg = provider.generate_song_package(concept.strip())
-                        st.session_state["ai_title"] = pkg.title
-                        st.session_state["ai_lyrics"] = pkg.lyrics
-                        st.session_state["ai_style"] = pkg.style
+                        st.session_state["form_title"] = pkg.title
+                        st.session_state["form_lyrics"] = pkg.lyrics
+                        st.session_state["form_style"] = pkg.style
                         st.session_state["prompt_confirmed"] = False
                         st.rerun()
                     except Exception as e:
@@ -118,7 +118,7 @@ def render_composer_panel() -> dict | None:
             if provider and not st.session_state.get("lock_title"):
                 with st.spinner("..."):
                     try:
-                        st.session_state["ai_title"] = provider.generate_title(concept.strip())
+                        st.session_state["form_title"] = provider.generate_title(concept.strip())
                         st.session_state["prompt_confirmed"] = False
                         st.rerun()
                     except Exception as e:
@@ -129,7 +129,7 @@ def render_composer_panel() -> dict | None:
             if provider and not st.session_state.get("lock_style"):
                 with st.spinner("..."):
                     try:
-                        st.session_state["ai_style"] = provider.generate_style(concept.strip())
+                        st.session_state["form_style"] = provider.generate_style(concept.strip())
                         st.session_state["prompt_confirmed"] = False
                         st.rerun()
                     except Exception as e:
@@ -140,7 +140,7 @@ def render_composer_panel() -> dict | None:
             if provider and not st.session_state.get("lock_lyrics"):
                 with st.spinner("..."):
                     try:
-                        st.session_state["ai_lyrics"] = provider.generate_lyrics(concept.strip())
+                        st.session_state["form_lyrics"] = provider.generate_lyrics(concept.strip())
                         st.session_state["prompt_confirmed"] = False
                         st.rerun()
                     except Exception as e:
@@ -156,12 +156,15 @@ def render_composer_panel() -> dict | None:
     # ═══════════════════════════════════════════════════════════════════════
     st.markdown("#### 📝 Song Form")
 
+    # Initialize style with preset on first load
+    if "form_style" not in st.session_state:
+        st.session_state["form_style"] = CITYPOP_STYLE_PRESET
+
     # Title
     col_t, col_tl = st.columns([6, 1])
     with col_t:
         title = st.text_input(
-            "제목", value=st.session_state.get("ai_title", ""),
-            placeholder="예: 밤이 지나면", key="form_title",
+            "제목", placeholder="예: 밤이 지나면", key="form_title",
         )
     with col_tl:
         st.checkbox("🔒", key="lock_title", label_visibility="collapsed")
@@ -170,8 +173,7 @@ def render_composer_panel() -> dict | None:
     col_l, col_ll = st.columns([6, 1])
     with col_l:
         lyrics = st.text_area(
-            "가사", value=st.session_state.get("ai_lyrics", ""),
-            height=200, placeholder=LYRICS_PLACEHOLDER, key="form_lyrics",
+            "가사", height=200, placeholder=LYRICS_PLACEHOLDER, key="form_lyrics",
         )
     with col_ll:
         st.checkbox("🔒", key="lock_lyrics", label_visibility="collapsed")
@@ -180,8 +182,7 @@ def render_composer_panel() -> dict | None:
     col_s, col_sl = st.columns([6, 1])
     with col_s:
         style = st.text_area(
-            "스타일 태그", value=st.session_state.get("ai_style", CITYPOP_STYLE_PRESET),
-            height=60, key="form_style",
+            "스타일 태그", height=60, key="form_style",
         )
     with col_sl:
         st.checkbox("🔒", key="lock_style", label_visibility="collapsed")

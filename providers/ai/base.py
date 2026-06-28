@@ -345,6 +345,30 @@ class GeminiProvider:
     def is_available() -> bool:
         return bool(os.getenv("GOOGLE_GEMINI_API_KEY", "").strip())
 
+    @staticmethod
+    def list_models(api_key: str) -> list[str]:
+        """Query which models support generateContent for this key."""
+        import requests
+        try:
+            r = requests.get(
+                f"https://generativelanguage.googleapis.com/v1beta/models?key={api_key}",
+                timeout=15,
+            )
+            if r.status_code != 200:
+                return []
+            models = r.json().get("models", [])
+            usable = []
+            for m in models:
+                methods = m.get("supportedGenerationMethods", [])
+                if "generateContent" in methods:
+                    # name format: "models/gemini-2.0-flash" → "gemini-2.0-flash"
+                    name = m.get("name", "").replace("models/", "")
+                    if name and "vision" not in name and "embedding" not in name:
+                        usable.append(name)
+            return usable
+        except Exception:
+            return []
+
     def _call(self, concept: str, generate: str = "all") -> dict:
         import requests
         api_key = os.getenv("GOOGLE_GEMINI_API_KEY", "").strip()
@@ -353,13 +377,19 @@ class GeminiProvider:
 
         prompt_text = SYSTEM_PROMPT + "\n\n" + _make_user_prompt(concept, generate)
 
-        # Try the configured model, then fall back to known-good models
-        models_to_try = [self.MODEL_NAME, "gemini-2.0-flash", "gemini-1.5-flash", "gemini-2.5-flash"]
+        # Build model list: configured → live-queried available models → fallbacks
+        models_to_try = [self.MODEL_NAME]
+        available = self.list_models(api_key)
+        # Prefer flash models (faster, cheaper), then any available
+        flash_models = [m for m in available if "flash" in m and "lite" not in m]
+        models_to_try += flash_models + available
+        models_to_try += ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-2.5-flash"]
+
         seen = set()
-        last_error = ""
+        last_error = "사용 가능한 모델을 찾지 못함"
 
         for model in models_to_try:
-            if model in seen:
+            if not model or model in seen:
                 continue
             seen.add(model)
 
@@ -383,18 +413,19 @@ class GeminiProvider:
                         last_error = resp.json().get("error", {}).get("message", "")[:150]
                     except Exception:
                         last_error = f"HTTP {resp.status_code}"
-                    logger.warning("Gemini model %s failed: %s", model, last_error)
+                    logger.warning("Gemini model %s: %s", model, last_error)
                     continue
 
                 data = resp.json()
                 candidates = data.get("candidates", [])
                 if not candidates:
-                    last_error = "응답에 candidates 없음 (안전 필터 차단 가능)"
+                    last_error = "안전 필터 차단 (candidates 없음)"
                     continue
 
                 parts = candidates[0].get("content", {}).get("parts", [])
                 if not parts:
-                    last_error = "응답에 content 없음"
+                    fr = candidates[0].get("finishReason", "")
+                    last_error = f"응답 비어있음 (finishReason: {fr})"
                     continue
 
                 content = parts[0].get("text", "").strip()
@@ -402,6 +433,7 @@ class GeminiProvider:
                     content = content.split("```")[1]
                     if content.startswith("json"):
                         content = content[4:]
+                logger.info("Gemini success with model: %s", model)
                 return json.loads(content)
 
             except requests.exceptions.RequestException as e:
