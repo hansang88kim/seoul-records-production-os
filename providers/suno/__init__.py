@@ -13,6 +13,7 @@ from providers.suno.manual_import import ManualImportProvider
 from providers.suno.local_unofficial_suno import LocalUnofficialSunoProvider
 from providers.suno.playwright_suno_web import PlaywrightSunoWebProvider
 from providers.suno.third_party_suno import ThirdPartySunoProvider
+from providers.suno.suno_cli_provider import SunoCliProvider
 
 
 def get_composer_provider(name: str | None = None) -> ComposerProvider:
@@ -24,7 +25,7 @@ def get_composer_provider(name: str | None = None) -> ComposerProvider:
       2. COMPOSER_PROVIDER env var
       3. Default: MockSunoProvider
 
-    Valid keys: mock, manual_import, local_unofficial, playwright_web, third_party
+    Valid keys: mock, manual_import, local_unofficial, suno_cli, playwright_web, third_party
     """
     from app.config import COMPOSER_PROVIDER, ALLOW_THIRD_PARTY_SUNO
 
@@ -38,6 +39,8 @@ def get_composer_provider(name: str | None = None) -> ComposerProvider:
         return LocalUnofficialSunoProvider()
     if key in ("playwright", "playwright_web"):
         return PlaywrightSunoWebProvider()
+    if key in ("suno_cli", "cli"):
+        return SunoCliProvider()
     if key == "third_party":
         if not ALLOW_THIRD_PARTY_SUNO:
             raise PermissionError(
@@ -48,7 +51,7 @@ def get_composer_provider(name: str | None = None) -> ComposerProvider:
 
     raise ValueError(
         f"Unknown composer provider: {key!r}. "
-        f"Valid options: mock, manual_import, local_unofficial, playwright_web, third_party"
+        f"Valid options: mock, manual_import, local_unofficial, suno_cli, playwright_web, third_party"
     )
 
 
@@ -59,5 +62,6 @@ __all__ = [
     "LocalUnofficialSunoProvider",
     "PlaywrightSunoWebProvider",
     "ThirdPartySunoProvider",
+    "SunoCliProvider",
     "get_composer_provider",
 ]

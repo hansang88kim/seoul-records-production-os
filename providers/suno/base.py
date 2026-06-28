@@ -161,7 +161,7 @@ class ComposerProvider(ABC):
         safe = {}
         for k, v in details.items():
             s = str(v)
-            if any(w in k.lower() for w in ("cookie", "token", "key", "secret", "password")):
+            if any(w in k.lower() for w in ("cookie", "token", "key", "secret", "password", "jwt", "session", "credential", "auth")):
                 safe[k] = "***REDACTED***"
             elif len(s) > 200:
                 safe[k] = s[:200] + "..."
