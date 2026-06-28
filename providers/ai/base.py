@@ -131,11 +131,11 @@ LYRICS THEME/MOOD:
 - Avoid clichés. Make it real, specific to {city}, and deeply felt.
 
 LYRICS FORMAT — follow this EXACT structure for natural 3:30 duration.
-Lyrics must be 360-420 characters (sung text only, excluding section headers).
-If over 420 chars, CUT words until under 420.
+Lyrics must be 360-420 characters (sung text only, excluding section headers). Target duration: 3:30-3:50.
+If over 420 chars, CUT words until under 420. If under 360 chars, ADD lines.
 If under 360 chars, ADD natural phrases to reach 360.
 
-STRUCTURE (9 sections):
+STRUCTURE (10 sections — this length produces ~3:30-3:50):
 
 [Intro]
 (4마디 음원 (instrumental only))
@@ -161,8 +161,11 @@ STRUCTURE (9 sections):
 [Bridge]
 ← exactly 4 lines, in parentheses (reflective inner voice)
 
+[Final Chorus]
+← exactly 4 lines (climactic, strongest emotional moment)
+
 [Outro]
-(4마디 음원 (instrumental only))
+← exactly 2 lines
 
 SECTION HEADERS MUST BE CLEAN — NO production cues, NO arrangement notes:
 CORRECT: [Intro], [Verse 1], [Pre-Chorus], [Chorus], [Verse 2], [Bridge], [Outro]
@@ -419,7 +422,7 @@ def _make_user_prompt(concept: str, generate: str = "all", lang_key: str = DEFAU
         "for a 3:30 song. NEVER add a 5th line to any section — that makes the song too long.\n"
         f'{{"title": "{L} title with a {city} place name", '
         '"style": "authentic 1980s-90s Japanese citypop, golden-age sound, 300-500 chars, NO sax, BPM 108-114, nostalgic bittersweet", '
-        f'"lyrics": "10 sections, 4 lines each (Outro 2), all lyrics in {L}"}}'
+        f'"lyrics": "10 sections (with Final Chorus), 4 lines each (Outro 2), all lyrics in {L}"}}'
     )
 
 
@@ -546,7 +549,7 @@ def _title_from_lyrics(lyrics: str) -> str:
 MOCK_SONGS = [
     SongPromptPackage(
         title="밤이 지나면",
-        style="Authentic 1980s-1990s Japanese city pop, golden-age Tokyo sound, lush warm electric piano, glossy analog synths, smooth jazzy chord changes, silky funk guitar, melodic fretless bass, tight clean drums, BPM 112, emotional low female vocal with warm reverb and tender vibrato, deeply nostalgic and bittersweet, the wistful loneliness of city nights, vintage tape warmth",
+        style="Authentic 1980s-1990s Japanese city pop, golden-age Tokyo sound, lush warm electric piano, glossy analog synths, smooth jazzy chord changes, silky funk guitar, melodic fretless bass, tight clean drums, A minor, BPM 112, emotional low female vocal with warm reverb and tender vibrato, deeply nostalgic and bittersweet, sophisticated mellow groove, the wistful loneliness of city nights, vintage tape warmth",
         lyrics="""[Intro]
 (4마디 음원 (instrumental only))
 
@@ -592,12 +595,19 @@ MOCK_SONGS = [
 (우린 사라졌지만)
 (이 거린 그대로인데)
 
+[Final Chorus]
+그대가 떠난 거리
+오늘도 네 이름을 부르다
+누군가의 뒷모습에 너를 겹쳐보다
+또 한 번 마음을 접는다
+
 [Outro]
-(4마디 음원 (instrumental only))""",
+혼자 걸어가는 이 길
+밤은 깊어만 가네""",
     ),
     SongPromptPackage(
         title="늦은 대답",
-        style="Classic Japanese city pop (late 80s golden age), warm Rhodes electric piano, lush analog synth pads, sophisticated jazzy chords, smooth funk guitar comping, melodic bass lines, gentle tight drums, BPM 110, emotive low female vocal with vintage reverb and subtle vibrato, deeply nostalgic mellow groove, bittersweet late-night city melancholy, vintage tape warmth",
+        style="Classic Japanese city pop (late 80s golden age), warm Rhodes electric piano, lush analog synth pads, sophisticated jazzy chords, smooth funk guitar comping, melodic bass lines, gentle tight drums, B minor, BPM 110, husky low female vocal with vintage plate reverb and gentle vibrato, deeply nostalgic mellow groove, bittersweet late-night city melancholy, vintage tape warmth",
         lyrics="""[Intro]
 (4마디 음원 (instrumental only))
 
@@ -643,8 +653,15 @@ MOCK_SONGS = [
 (우린 사라졌지만)
 (이 거린 그대로인데)
 
+[Final Chorus]
+네가 머물던 그 자리
+오늘도 네 이름을 부르다
+누군가의 뒷모습에 너를 겹쳐보다
+또 한 번 마음을 접는다
+
 [Outro]
-(4마디 음원 (instrumental only))""",
+혼자 걸어가는 이 길
+밤은 깊어만 가네""",
     ),
 ]
 

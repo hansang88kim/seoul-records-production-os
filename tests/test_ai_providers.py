@@ -196,13 +196,13 @@ def test_format_lyrics_no_leading_blank():
     assert not result.startswith("\n")
 
 
-def test_mock_songs_have_9_sections():
+def test_mock_songs_have_10_sections():
     """Mock songs follow the 10-section structure."""
     from providers.ai.base import MOCK_SONGS, _format_lyrics
     for song in MOCK_SONGS:
         formatted = _format_lyrics(song.lyrics)
         sections = [l for l in formatted.split("\n") if l.startswith("[")]
-        assert len(sections) == 9, f"{song.title} has {len(sections)} sections, expected 9"
+        assert len(sections) == 10, f"{song.title} has {len(sections)} sections, expected 10"
 
 
 def test_mock_songs_lyric_length_for_330():
