@@ -308,8 +308,9 @@ def test_keep_longest_new_mp3(monkeypatch, tmp_path):
     long.write_bytes(b"l")
 
     # Mock durations: long=200s, short=150s
+    from pathlib import Path as _P
     def fake_dur(p):
-        return 200.0 if "long" in str(p) else 150.0
+        return 200.0 if _P(p).name == "new-long.mp3" else 150.0
     monkeypatch.setattr(song_lab, "_mp3_duration", fake_dur)
 
     kept = song_lab._keep_longest_new_mp3(folder, before)

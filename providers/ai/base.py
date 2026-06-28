@@ -102,10 +102,26 @@ CRITICAL RULES:
 - Total lyric content: {char_target} (not counting section headers).
 - BANNED inside sung lines: sax lead, drum fill-ins, tom fills, snare rolls, EDM, trot, enka
 
-TITLE STYLE ({city} place-name based, in {lyric_lang}):
-- Examples of the right feel: {title_examples}
-- Use REAL {city} locations + a mood word. Natural, evocative, short.
-- The title MUST be in {lyric_lang}, referencing {city}.
+TITLE STYLE (natural song titles in {lyric_lang}):
+- Write titles like a REAL singer-songwriter, NOT a geographic catalog.
+- Short (2-6 words), natural, evocative.
+- NO commas in titles.
+- NO "location + 밤/거리/블루스/기억/추억" formula.
+- In a 5-song batch, use a city place name in AT MOST 1 title.
+- The other 4 titles should be mood-based, not location-based.
+
+GOOD title examples (natural, like real songs):
+"밤이 지나면", "늦은 대답", "비가 그친 뒤", "오늘은 여기까지",
+"아무 일 없던 밤", "조금 늦은 마음", "멀어진 계절", "다시 걷는 밤",
+"창가의 불빛", "별일 아닌 척", "여름이 가도", "돌아보지 마",
+"마지막 인사처럼", "천천히 사라져", "말하지 못한 채"
+
+BAD title examples (formulaic, auto-generated feel):
+"서울의 밤거리", "청계천 거리", "명동의 밤", "을지로 블루스",
+"한강의 기억", "남산의 추억", "서울의 그리움", "청계천 거리에서"
+
+Batch diversity: if generating multiple songs, NEVER repeat similar titles.
+Each title must feel like it could be from a different album.
 
 LYRICS THEME/MOOD:
 - Core feeling: deep nostalgic loneliness in a lively city — the bittersweet ache of golden-age city pop
@@ -115,40 +131,45 @@ LYRICS THEME/MOOD:
 - Avoid clichés. Make it real, specific to {city}, and deeply felt.
 
 LYRICS FORMAT — follow this EXACT structure for natural 3:30 duration.
-Section headers carry production cues. Section labels stay in English.
-Keep it TIGHT — fewer lines = shorter song.
+Lyrics must be 360-420 characters (sung text only, excluding section headers).
+If over 420 chars, CUT words until under 420.
+If under 360 chars, ADD natural phrases to reach 360.
 
-EXACT TEMPLATE:
+STRUCTURE (9 sections):
 
-[Intro, <production cue>]
-← NO lyric lines. Header only. Instrumental.
+[Intro]
+(4마디 음원 (instrumental only))
 
 [Verse 1]
-← exactly 4 lines
-
-[Pre-Chorus, <cue>]
-← exactly 4 lines
-
-[Chorus, <cue>]
-← exactly 4 lines (line 1 = hook with the {city} place from the title)
-
-[Verse 2, <cue>]
 ← exactly 4 lines
 
 [Pre-Chorus]
 ← exactly 4 lines
 
-[Chorus, <cue>]
-← exactly 4 lines (same hook, slight variation)
+[Chorus]
+← exactly 4 lines
 
-[Bridge, <cue>]
+[Verse 2]
+← exactly 4 lines
+
+[Pre-Chorus]
+← exactly 4 lines
+
+[Chorus]
+← exactly 4 lines (same hook, slight word variation)
+
+[Bridge]
 ← exactly 4 lines, in parentheses (reflective inner voice)
 
-[Final Chorus, <cue>]
-← exactly 4 lines (climactic)
+[Outro]
+(4마디 음원 (instrumental only))
 
-[Outro, <cue>]
-← exactly 2 lines, in parentheses (a final lonely image)
+SECTION HEADERS MUST BE CLEAN — NO production cues, NO arrangement notes:
+CORRECT: [Intro], [Verse 1], [Pre-Chorus], [Chorus], [Verse 2], [Bridge], [Outro]
+WRONG: [Bridge, 일렉트릭 피아노 솔로], [Chorus, Hook guitar riff + Harmony]
+WRONG: [Outro, 도시 소음 + 페이드아웃 피아노]
+WRONG: [Verse 2, 실키 펑크 기타]
+Just write the section name. Nothing else inside the brackets.
 
 LINE LENGTH:
 - Each line is a natural, singable phrase: {line_chars}.
@@ -160,7 +181,18 @@ Do NOT add a 5th line to any chorus or verse. More lines = song too long.
 
 {_STYLE_GUIDANCE}
 
-Lyrics: realistic, lyrical, specific {city} places and scenes. Concrete imagery. Varied sentence endings, no instrument names in sung lines. Original only — never copy existing songs. Write naturally in {lyric_lang} as a native speaker would."""
+LYRICS WRITING RULES (professional lyricist quality):
+- Write in {lyric_lang} as a native speaker would
+- Natural, poetic, emotionally specific — like a professional songwriter
+- NO translation-like or explanatory language
+- NO instrument names inside sung lyrics (drums, guitar, piano, beat — BANNED)
+- NO excessive "~다" endings (vary: ~어, ~지, ~걸, ~는데, ~인데, ~잖아, ~일까)
+- NO "~야" addressing inanimate objects (don't say "비야", "바람아")
+- NO clichés or forced poetry — make it feel REAL and conversational
+- Sentence endings should be varied and natural
+- Chorus hook should be memorable but not overused
+- Bridge should offer emotional contrast or inner reflection
+- Original only — never copy existing songs"""
 
 
 
@@ -361,7 +393,15 @@ def _format_lyrics(lyrics: str) -> str:
     if not lyrics:
         return ""
 
-    lines = [l.rstrip() for l in lyrics.replace("\r\n", "\n").split("\n")]
+    # Strip production cues from section headers: [Chorus, Hook + Harmony] → [Chorus]
+    import re as _re
+    def _clean_header(line: str) -> str:
+        m = _re.match(r'^(\[\w[\w\s-]*?)\s*,.*\]$', line.strip())
+        if m:
+            return m.group(1).rstrip() + "]"
+        return line
+
+    lines = [_clean_header(l.rstrip()) for l in lyrics.replace("\r\n", "\n").split("\n")]
     out = []
     for line in lines:
         stripped = line.strip()
@@ -418,9 +458,10 @@ def _title_from_lyrics(lyrics: str) -> str:
 
 MOCK_SONGS = [
     SongPromptPackage(
-        title="명동 블루스",
+        title="밤이 지나면",
         style="Authentic 1980s-1990s Japanese city pop, golden-age Tokyo sound, lush warm electric piano, glossy analog synths, smooth jazzy chord changes, silky funk guitar, melodic fretless bass, tight clean drums, BPM 112, emotional low female vocal with warm reverb and tender vibrato, deeply nostalgic and bittersweet, the wistful loneliness of city nights, vintage tape warmth",
-        lyrics="""[Intro, 도시 소음 + 따뜻한 로즈 피아노]
+        lyrics="""[Intro]
+(4마디 음원 (instrumental only))
 
 [Verse 1]
 사람들 웃음 속에
@@ -428,56 +469,50 @@ MOCK_SONGS = [
 거리엔 음악이 흐르는데
 내 맘은 아무것도 울리지 않아
 
-[Pre-Chorus, 부드러운 신스 패드]
+[Pre-Chorus]
 쇼윈도에 비친 내 모습
 어느새 낯설어졌어
 네 손을 놓던 그날 밤
 지금도 여길 맴돌아
 
-[Chorus, 재지한 코드 + 코러스 하모니]
-명동 블루스, 그대가 떠난 거리
+[Chorus]
+그대가 떠난 거리
 불빛 아래 홀로 선 나
 이별도 사랑도 다 잊은 듯한 밤
 너만이 여전히 선명해
 
-[Verse 2, 실키 펑크 기타]
+[Verse 2]
 화려한 간판 아래
 우리 자주 걷던 길
 계절이 두 번 바뀌었어도
 너는 여전히 그 자리에 있어
 
-[Pre-Chorus, 멜로딕 프렛리스 베이스]
+[Pre-Chorus]
 우산을 나눴던 골목
 지금은 텅 비었는데
 너의 온기만 잔향처럼
 남아 있어
 
-[Chorus, 감정이 쌓이는 진행]
-명동 블루스, 웃음이 많은 그곳
+[Chorus]
+웃음이 많은 그곳
 나만 조용히 멈춘 채
 노래는 흐르지만 눈물은 속삭여
 사랑은 끝났다는 걸
 
-[Bridge, 일렉트릭 피아노 솔로]
+[Bridge]
 (혹시 너도 기억할까)
 (그 계절, 그 노래, 그 향기)
 (우린 사라졌지만)
 (이 거린 그대로인데)
 
-[Final Chorus, 감정 폭발 클라이맥스]
-명동 블루스, 그대가 떠난 거리
-오늘도 네 이름을 부르다
-누군가의 뒷모습에 너를 겹쳐보다
-또 한 번, 마음을 접는다
-
-[Outro, 도시 소음 + 페이드아웃 피아노]
-(명동, 모두가 웃는 그 밤)
-(나만, 조용히 울고 있어)""",
+[Outro]
+(4마디 음원 (instrumental only))""",
     ),
     SongPromptPackage(
-        title="을지로 블루스",
+        title="늦은 대답",
         style="Classic Japanese city pop (late 80s golden age), warm Rhodes electric piano, lush analog synth pads, sophisticated jazzy chords, smooth funk guitar comping, melodic bass lines, gentle tight drums, BPM 110, emotive low female vocal with vintage reverb and subtle vibrato, deeply nostalgic mellow groove, bittersweet late-night city melancholy, vintage tape warmth",
-        lyrics="""[Intro, 잔잔한 로즈 피아노 + 도시 잔향]
+        lyrics="""[Intro]
+(4마디 음원 (instrumental only))
 
 [Verse 1]
 좁은 골목 불빛 아래
@@ -485,51 +520,44 @@ MOCK_SONGS = [
 오늘도 같은 길 위에서
 너의 흔적을 더듬어
 
-[Pre-Chorus, 따뜻한 신스 패드]
-인쇄소 불빛 사이로
-스며든 새벽 공기
+[Pre-Chorus]
+유리창에 비친 그림자
+점점 흐릿해지는데
 그때 네 목소리가
 아직 귓가에 맴돌아
 
-[Chorus, 재지한 코드 + 하모니]
-을지로 블루스, 네가 머물던 거리
+[Chorus]
+네가 머물던 그 자리
 식어버린 커피처럼
 우리도 그렇게 멀어졌지만
 너만은 선명히 남아
 
-[Verse 2, 스무스 펑크 기타]
+[Verse 2]
 밤새 걷던 그 거리에
 이제는 나 혼자야
 계절이 바뀌어 가도
 마음은 그날에 멈춰
 
-[Pre-Chorus, 멜로딕 베이스]
+[Pre-Chorus]
 말없이 나눈 시선들
 지금은 흐릿한데
 너의 온기만 잔향처럼
 남아 있어
 
-[Chorus, 감정이 쌓이는 진행]
-을지로 블루스, 불빛이 많은 그곳
+[Chorus]
+불빛이 많은 그곳
 나만 조용히 멈춘 채
 노래는 흐르지만 마음은 속삭여
 사랑은 끝났다는 걸
 
-[Bridge, 일렉트릭 피아노 솔로]
+[Bridge]
 (돌아갈 수 없어도)
 (그 골목, 그 밤, 그 온기)
 (우린 사라졌지만)
 (이 거린 그대로인데)
 
-[Final Chorus, 감정 클라이맥스]
-을지로 블루스, 네가 머물던 거리
-오늘도 네 이름을 부르다
-누군가의 뒷모습에 너를 겹쳐보다
-또 한 번, 마음을 접는다
-
-[Outro, 도시 소음 + 페이드아웃]
-(을지로, 모두가 웃는 그 밤)
-(나만, 조용히 울고 있어)""",
+[Outro]
+(4마디 음원 (instrumental only))""",
     ),
 ]
 

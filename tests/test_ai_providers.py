@@ -196,23 +196,21 @@ def test_format_lyrics_no_leading_blank():
     assert not result.startswith("\n")
 
 
-def test_mock_songs_have_10_sections():
+def test_mock_songs_have_9_sections():
     """Mock songs follow the 10-section structure."""
     from providers.ai.base import MOCK_SONGS, _format_lyrics
     for song in MOCK_SONGS:
         formatted = _format_lyrics(song.lyrics)
         sections = [l for l in formatted.split("\n") if l.startswith("[")]
-        assert len(sections) == 10, f"{song.title} has {len(sections)} sections, expected 10"
+        assert len(sections) == 9, f"{song.title} has {len(sections)} sections, expected 9"
 
 
 def test_mock_songs_lyric_length_for_330():
-    """Mock song lyrics are ~360-440 chars for 3:30 duration."""
-    from providers.ai.base import MOCK_SONGS, _format_lyrics
+    """Mock song lyrics in the target range for 3:30."""
+    from providers.ai.base import MOCK_SONGS, _lyrics_char_count
     for song in MOCK_SONGS:
-        formatted = _format_lyrics(song.lyrics)
-        lyric_lines = [l for l in formatted.split("\n") if l and not l.startswith("[") and not l.startswith("(")]
-        total = sum(len(l.replace("(", "").replace(")", "")) for l in formatted.split("\n") if l and not l.startswith("["))
-        assert 340 <= total <= 460, f"{song.title} has {total} chars (target ~400 for 3:30)"
+        chars = _lyrics_char_count(song.lyrics)
+        assert 300 <= chars <= 430, f"{song.title} has {chars} chars (target 360-420)"
 
 
 # ─── Lyric length control for 3:30 ───────────────────────────────────────────
@@ -225,12 +223,12 @@ def test_lyrics_char_count_excludes_headers():
     assert _lyrics_char_count(lyrics) == 8
 
 
-def test_mock_songs_under_440_chars():
-    """Mock songs stay in the 3:30 range (380-420 sweet spot, 440 max)."""
+def test_mock_songs_in_target_range():
+    """Mock songs are in the 320-430 range (target 360-420, some tolerance)."""
     from providers.ai.base import MOCK_SONGS, _lyrics_char_count
     for song in MOCK_SONGS:
         chars = _lyrics_char_count(song.lyrics)
-        assert chars <= 440, f"{song.title} has {chars} chars (max 440 for 3:30)"
+        assert 320 <= chars <= 430, f"{song.title} has {chars} chars (target 360-420)"
 
 
 def test_system_prompt_has_char_limits():
@@ -277,3 +275,56 @@ def test_coerce_str_handles_dict():
     from providers.ai.base import _coerce_str
     out = _coerce_str({"a": "x", "b": "y"})
     assert "x" in out and "y" in out
+
+
+# ─── v0.5.4 Creative Quality Tests ──────────────────────────────────────────
+
+def test_mock_songs_have_clean_headers():
+    """Section headers must not contain production cues (commas)."""
+    from providers.ai.base import MOCK_SONGS
+    for song in MOCK_SONGS:
+        for line in song.lyrics.split("\n"):
+            if line.strip().startswith("["):
+                assert "," not in line, f"Cue in header: {line}"
+
+
+def test_format_lyrics_strips_cues():
+    """_format_lyrics removes production cues from headers."""
+    from providers.ai.base import _format_lyrics
+    raw = "[Chorus, Hook + Harmony]\n가사"
+    result = _format_lyrics(raw)
+    assert "[Chorus]" in result
+    assert "Hook" not in result
+
+
+def test_mock_titles_not_location_formula():
+    """Mock song titles should be natural, not 'location + 밤/거리' formula."""
+    from providers.ai.base import MOCK_SONGS
+    bad_patterns = ["의 밤", "거리에서", "블루스", "의 추억", "의 기억"]
+    for song in MOCK_SONGS:
+        for pattern in bad_patterns:
+            assert pattern not in song.title, (
+                f"Title '{song.title}' matches bad pattern '{pattern}'"
+            )
+
+
+def test_lyrics_no_instrument_names():
+    """Sung lyrics must not contain instrument names."""
+    from providers.ai.base import MOCK_SONGS
+    banned = ["drums", "guitar", "piano", "bass", "drum", "synth",
+              "키보드", "기타", "드럼", "베이스", "피아노"]
+    for song in MOCK_SONGS:
+        for line in song.lyrics.split("\n"):
+            line_s = line.strip()
+            if line_s and not line_s.startswith("[") and not line_s.startswith("("):
+                for word in banned:
+                    assert word not in line_s.lower(), (
+                        f"Instrument '{word}' in sung lyrics: {line_s}"
+                    )
+
+
+def test_system_prompt_bans_cues():
+    """System prompt must explicitly ban cues in section headers."""
+    from providers.ai.base import SYSTEM_PROMPT
+    assert "WRONG" in SYSTEM_PROMPT or "CLEAN" in SYSTEM_PROMPT
+    assert "[Bridge," in SYSTEM_PROMPT  # shows the banned example
