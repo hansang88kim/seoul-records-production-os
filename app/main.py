@@ -334,6 +334,43 @@ with st.sidebar:
             except Exception:
                 st.error("연결 실패")
 
+    # ── AI Composer API Keys ──────────────────────────────────────────────
+    st.markdown("<div style='color:#6a7a94;font-size:0.7rem;font-weight:500;text-transform:uppercase;letter-spacing:1.5px;margin:0.5rem 0 0.3rem'>🤖 AI Composer</div>", unsafe_allow_html=True)
+
+    # OpenAI
+    current_openai = _os.getenv("OPENAI_API_KEY", "")
+    if current_openai:
+        st.caption("🟢 OpenAI (ChatGPT)")
+    else:
+        st.caption("🔴 OpenAI (ChatGPT)")
+    openai_key = st.text_input(
+        "OpenAI API Key",
+        type="password",
+        placeholder="sk-...",
+        key="sidebar_openai_key",
+        label_visibility="collapsed",
+    )
+    if openai_key.strip() and openai_key.strip() != current_openai:
+        _os.environ["OPENAI_API_KEY"] = openai_key.strip()
+        st.success("✅ OpenAI 설정됨")
+
+    # Gemini
+    current_gemini = _os.getenv("GOOGLE_GEMINI_API_KEY", "")
+    if current_gemini:
+        st.caption("🟢 Gemini")
+    else:
+        st.caption("🔴 Gemini")
+    gemini_key = st.text_input(
+        "Gemini API Key",
+        type="password",
+        placeholder="AI...",
+        key="sidebar_gemini_key",
+        label_visibility="collapsed",
+    )
+    if gemini_key.strip() and gemini_key.strip() != current_gemini:
+        _os.environ["GOOGLE_GEMINI_API_KEY"] = gemini_key.strip()
+        st.success("✅ Gemini 설정됨")
+
     st.divider()
 
 render_dashboard()
