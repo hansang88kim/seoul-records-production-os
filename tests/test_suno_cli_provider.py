@@ -91,6 +91,7 @@ def test_generate_command_includes_wait_and_download(monkeypatch, tmp_path):
     fake_bin = tmp_path / "suno.exe"
     fake_bin.write_text("fake")
     monkeypatch.setenv("SUNO_CLI_BIN", str(fake_bin))
+    monkeypatch.setenv("SUNO_COOKIE", "fake_cookie")
     reload(m)
 
     p = m.SunoCliProvider()
@@ -98,8 +99,10 @@ def test_generate_command_includes_wait_and_download(monkeypatch, tmp_path):
     dl_dir = str(tmp_path / "downloads")
 
     def mock_run(cmd, **kw):
+        # credits check (--json) returns valid session
+        if "--json" in cmd:
+            return mock.Mock(returncode=0, stdout=json.dumps({"data": {"credits_left": 100}}), stderr="")
         captured.extend(cmd)
-        # Simulate downloaded file
         Path(dl_dir).mkdir(parents=True, exist_ok=True)
         (Path(dl_dir) / "test-song-abc12345.mp3").write_bytes(b"fake")
         return mock.Mock(returncode=0, stdout="", stderr="")
@@ -123,6 +126,7 @@ def test_generate_does_not_include_json_flag(monkeypatch, tmp_path):
     fake_bin = tmp_path / "suno.exe"
     fake_bin.write_text("fake")
     monkeypatch.setenv("SUNO_CLI_BIN", str(fake_bin))
+    monkeypatch.setenv("SUNO_COOKIE", "fake_cookie")
     reload(m)
 
     p = m.SunoCliProvider()
@@ -130,6 +134,8 @@ def test_generate_does_not_include_json_flag(monkeypatch, tmp_path):
     dl_dir = str(tmp_path / "dl")
 
     def mock_run(cmd, **kw):
+        if "--json" in cmd:
+            return mock.Mock(returncode=0, stdout=json.dumps({"data": {"credits_left": 100}}), stderr="")
         captured.extend(cmd)
         Path(dl_dir).mkdir(parents=True, exist_ok=True)
         (Path(dl_dir) / "song-abc12345.mp3").write_bytes(b"fake")
@@ -147,6 +153,7 @@ def test_generate_full_command_matches_cli_syntax(monkeypatch, tmp_path):
     fake_bin = tmp_path / "suno"
     fake_bin.write_text("fake")
     monkeypatch.setenv("SUNO_CLI_BIN", str(fake_bin))
+    monkeypatch.setenv("SUNO_COOKIE", "fake_cookie")
     reload(m)
 
     p = m.SunoCliProvider()
@@ -154,6 +161,8 @@ def test_generate_full_command_matches_cli_syntax(monkeypatch, tmp_path):
     dl = str(tmp_path / "out")
 
     def mock_run(cmd, **kw):
+        if "--json" in cmd:
+            return mock.Mock(returncode=0, stdout=json.dumps({"data": {"credits_left": 100}}), stderr="")
         captured.extend(cmd)
         Path(dl).mkdir(parents=True, exist_ok=True)
         (Path(dl) / "song-a1b2c3d4.mp3").write_bytes(b"fake")
@@ -188,6 +197,7 @@ def test_model_name_normalized(monkeypatch, tmp_path):
     fake_bin = tmp_path / "suno"
     fake_bin.write_text("fake")
     monkeypatch.setenv("SUNO_CLI_BIN", str(fake_bin))
+    monkeypatch.setenv("SUNO_COOKIE", "fake_cookie")
     reload(m)
 
     p = m.SunoCliProvider()
@@ -195,6 +205,8 @@ def test_model_name_normalized(monkeypatch, tmp_path):
     dl = str(tmp_path / "dl")
 
     def mock_run(cmd, **kw):
+        if "--json" in cmd:
+            return mock.Mock(returncode=0, stdout=json.dumps({"data": {"credits_left": 100}}), stderr="")
         captured.extend(cmd)
         Path(dl).mkdir(parents=True, exist_ok=True)
         (Path(dl) / "x-12345678.mp3").write_bytes(b"fake")
@@ -248,12 +260,12 @@ def test_binary_not_found():
         assert exc.value.status == "provider_unavailable"
 
 def test_exit_code_2_includes_command_args_in_error():
-    """Exit code 2 (invalid args) must include command_args in error details."""
+    """Exit code 2 maps to captcha_required (often CAPTCHA load failure)."""
     from providers.suno.suno_cli_provider import _run_suno_raw
     with mock.patch("subprocess.run", return_value=mock.Mock(returncode=2)):
         with pytest.raises(ProviderError) as exc:
             _run_suno_raw(["generate", "--title", "test"])
-    assert exc.value.status == "generation_failed"
+    assert exc.value.status == "captcha_required"
     assert "exit_code" in exc.value.details
     assert exc.value.details["exit_code"] == 2
     assert "command_args" in exc.value.details
@@ -349,3 +361,67 @@ def test_verify_ready_does_not_expose_cookie(monkeypatch, tmp_path):
         result = p.verify_ready()
 
     assert secret not in str(result)
+
+
+# ─── Auth required before generation ─────────────────────────────────────────
+
+def test_create_song_raises_without_cookie(monkeypatch, tmp_path):
+    """create_song must raise auth_required if SUNO_COOKIE is not set."""
+    from providers.suno import suno_cli_provider as m
+    from importlib import reload
+    fake_bin = tmp_path / "suno"
+    fake_bin.write_text("fake")
+    monkeypatch.setenv("SUNO_CLI_BIN", str(fake_bin))
+    monkeypatch.delenv("SUNO_COOKIE", raising=False)
+    reload(m)
+
+    p = m.SunoCliProvider()
+    with pytest.raises(ProviderError) as exc:
+        p.create_song("test", "pop", "lyrics", {"download_dir": str(tmp_path / "dl")})
+    assert exc.value.status == "auth_required"
+
+
+def test_create_song_raises_when_auth_fails(monkeypatch, tmp_path):
+    """create_song must raise auth_required if auth command fails."""
+    from providers.suno import suno_cli_provider as m
+    from importlib import reload
+    fake_bin = tmp_path / "suno"
+    fake_bin.write_text("fake")
+    monkeypatch.setenv("SUNO_CLI_BIN", str(fake_bin))
+    monkeypatch.setenv("SUNO_COOKIE", "expired_cookie")
+    reload(m)
+
+    p = m.SunoCliProvider()
+
+    def mock_run(cmd, **kw):
+        # auth --cookie returns non-zero (auth failed)
+        return mock.Mock(returncode=1, stdout="", stderr="")
+
+    with mock.patch("subprocess.run", side_effect=mock_run):
+        with pytest.raises(ProviderError) as exc:
+            p.create_song("test", "pop", "lyrics", {"download_dir": str(tmp_path / "dl")})
+    assert exc.value.status == "auth_required"
+
+
+def test_ensure_auth_verifies_via_credits(monkeypatch, tmp_path):
+    """_ensure_auth returns False if auth succeeds but credits show expired session."""
+    from providers.suno import suno_cli_provider as m
+    from importlib import reload
+    fake_bin = tmp_path / "suno"
+    fake_bin.write_text("fake")
+    monkeypatch.setenv("SUNO_CLI_BIN", str(fake_bin))
+    monkeypatch.setenv("SUNO_COOKIE", "cookie")
+    reload(m)
+
+    p = m.SunoCliProvider()
+
+    def mock_run(cmd, **kw):
+        if "--json" in cmd:
+            # credits returns auth error → session invalid
+            err = json.dumps({"status": "error", "error": {"code": "auth_expired", "message": "expired"}})
+            return mock.Mock(returncode=1, stdout=err, stderr="")
+        return mock.Mock(returncode=0)  # auth --cookie succeeds
+
+    with mock.patch("subprocess.run", side_effect=mock_run):
+        result = p._ensure_auth()
+    assert result is False  # auth cmd OK but session invalid

@@ -82,16 +82,19 @@ def test_korean_title_preserved():
     assert "諛" not in report  # mojibake check
 
 
-def test_suno_cli_command_does_not_include_json_for_generate():
+def test_suno_cli_command_does_not_include_json_for_generate(monkeypatch):
     """generate command must NOT include --json."""
     from providers.suno.suno_cli_provider import SunoCliProvider
     from unittest import mock
     import json
 
+    monkeypatch.setenv("SUNO_COOKIE", "fake_cookie")
     p = SunoCliProvider()
     captured = []
 
     def mock_run(cmd, **kw):
+        if "--json" in cmd:
+            return mock.Mock(returncode=0, stdout=json.dumps({"data": {"credits_left": 100}}), stderr="")
         captured.extend(cmd)
         return mock.Mock(returncode=0)
 

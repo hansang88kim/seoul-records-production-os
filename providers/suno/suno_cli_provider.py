@@ -157,16 +157,24 @@ def _run_suno_raw(
 
     if proc.returncode != 0:
         # Semantic exit codes from paperfoot/suno-cli:
-        #   1 = general error, 2 = usage/config, 3 = auth expired
+        #   1 = general error, 2 = config/CAPTCHA/input, 3 = auth expired
         if proc.returncode == 3:
             raise ProviderError(
                 "auth_required",
-                "Suno session expired. Run: suno auth --refresh (or suno auth --login)",
+                "Suno 세션 만료 — 새 쿠키를 입력하세요.",
+                {"exit_code": proc.returncode, "command_args": args[:6]},
+            )
+        if proc.returncode == 2:
+            # Often a CAPTCHA-loading failure or an input/style problem.
+            raise ProviderError(
+                "captcha_required",
+                "생성 실패 (exit 2) — CAPTCHA 로딩 실패 또는 입력 오류일 수 있습니다. "
+                "다시 시도하면 대부분 해결됩니다.",
                 {"exit_code": proc.returncode, "command_args": args[:6]},
             )
         raise ProviderError(
             "generation_failed",
-            f"suno exited with code {proc.returncode}",
+            f"suno 종료 코드 {proc.returncode}",
             {"exit_code": proc.returncode, "command_args": args[:6]},
         )
     return proc
@@ -237,28 +245,51 @@ class SunoCliProvider(ComposerProvider):
 
     def _ensure_auth(self) -> bool:
         """
-        Auto-authenticate using SUNO_COOKIE from env.
+        Authenticate using SUNO_COOKIE from env.
         Runs: suno auth --cookie <cookie>  (no capture — like manual CLI)
-        Returns True on success, False otherwise. Never logs the cookie.
+
+        Returns True only if auth command succeeds AND the session is
+        verified working (credits check passes). Never logs the cookie.
         """
         cookie = os.getenv("SUNO_COOKIE", "").strip()
         if not cookie:
             logger.warning("SUNO_COOKIE not set — skipping auto-auth")
             return False
 
+        # Step 1: run auth --cookie (no capture_output — needed for CLI internals)
         try:
             proc = subprocess.run(
                 [self._bin, "auth", "--cookie", cookie],
                 timeout=30,
             )
-            if proc.returncode == 0:
-                logger.info("Auto-auth succeeded")
-                return True
-            logger.warning("Auto-auth returned code %d", proc.returncode)
+            if proc.returncode != 0:
+                logger.warning("auth --cookie returned code %d", proc.returncode)
+                return False
+        except FileNotFoundError:
+            logger.error("suno binary not found at %s", self._bin)
             return False
         except Exception as e:
-            logger.warning("Auto-auth failed: %s", type(e).__name__)
+            logger.warning("auth --cookie failed: %s", type(e).__name__)
             return False
+
+        # Step 2: verify the session actually works via credits
+        # (auth can return 0 but session still be invalid)
+        try:
+            data = _run_suno_json(["credits"], timeout=20, suno_bin=self._bin)
+            credits = data.get("data", data).get("credits_left",
+                       data.get("data", data).get("credits", None))
+            logger.info("Auth verified — credits: %s", credits)
+            return True
+        except ProviderError as e:
+            if e.status == "auth_required":
+                logger.warning("Auth succeeded but session invalid (expired cookie)")
+                return False
+            # Credits check failed for non-auth reason — assume auth is OK
+            logger.warning("Credits check error (non-auth): %s", e.status)
+            return True
+        except Exception as e:
+            logger.warning("Credits verify error: %s", type(e).__name__)
+            return True  # Don't block on transient credit-check errors
 
     def verify_ready(self) -> dict:
         """
@@ -311,12 +342,29 @@ class SunoCliProvider(ComposerProvider):
         options: dict | None = None,
     ) -> str:
         """
-        suno generate --title --tags --lyrics-file --wait --download <dir>
+        Full generation flow (mirrors the working manual CLI workflow):
+          1. suno auth --cookie <cookie>   (authenticate — REQUIRED, raises on fail)
+          2. suno generate ... --wait --download <dir>
+
         NO --json flag (conflicts with --wait --download).
         Returns comma-separated clip IDs parsed from downloaded filenames.
         """
-        # Auto-authenticate from SUNO_COOKIE env
-        self._ensure_auth()
+        # ── Step 1: Authenticate (REQUIRED) ──────────────────────────────
+        # Always re-auth before every generation. The cookie session is
+        # short-lived, so this must run on each call.
+        cookie = os.getenv("SUNO_COOKIE", "").strip()
+        if not cookie:
+            raise ProviderError(
+                "auth_required",
+                "SUNO_COOKIE가 설정되지 않았습니다. 사이드바에서 쿠키를 입력하세요.",
+            )
+
+        authed = self._ensure_auth()
+        if not authed:
+            raise ProviderError(
+                "auth_required",
+                "Suno 인증 실패 — 쿠키가 만료되었습니다. 새 쿠키를 입력하세요.",
+            )
 
         opts = options or {}
 

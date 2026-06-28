@@ -66,24 +66,18 @@ def _run_generation(params: dict):
     status_container = st.empty()
     start_time = time.time()
 
-    # ── Step 1: Verify ready (auth + credits) — mirrors manual CLI workflow ──
-    status_container.info("🔐 Suno 인증 + 크레딧 확인 중...")
-    ready = provider.verify_ready()
-
-    if not ready["ok"]:
-        status_container.error(f"❌ {ready['message']}")
-        st.warning("사이드바에서 Suno 쿠키를 다시 입력하고 🔐 인증을 눌러주세요.")
+    # ── Pre-check: cookie present? ───────────────────────────────────────
+    cookie = os.getenv("SUNO_COOKIE", "").strip()
+    if not cookie:
+        status_container.error("❌ SUNO_COOKIE가 설정되지 않았습니다.")
+        st.warning("사이드바 🔑 Suno에서 쿠키를 입력하고 연결하세요.")
         return
 
-    status_container.success(f"✅ {ready['message']}")
-    time.sleep(0.5)
-
     try:
-        status_container.info("🚀 Suno에 곡 생성 요청 중... CAPTCHA 해결이 필요할 수 있습니다. (최대 10분 대기)")
+        # create_song handles auth (cookie → auth → credits verify) on every call,
+        # then generates. It raises ProviderError('auth_required') if auth fails.
+        status_container.info("🔐 Suno 인증 + 크레딧 확인 → 🚀 생성 요청 중... (CAPTCHA 해결 대기, 최대 10분)")
 
-        # Generate — this blocks until complete (--wait)
-        # Start a timer display in a separate approach
-        # Since subprocess blocks, we show status before/after
         task_id = provider.create_song(
             title=params["title"],
             style=params["style"],
@@ -184,9 +178,12 @@ def _run_generation(params: dict):
         _save_generated_song(song)
 
         if err_status == "auth_required":
-            st.warning("🔑 Suno 인증이 필요합니다. 사이드바에서 쿠키를 입력해 주세요.")
+            st.error("🔑 Suno 인증 실패 — 쿠키가 만료되었습니다.")
+            st.info("사이드바 🔑 Suno → [편집] → 새 쿠키 입력 → 연결 후 다시 생성하세요.")
         elif err_status == "captcha_required":
-            st.warning("🧩 CAPTCHA가 해결되지 않았습니다. 다시 시도해 주세요.")
+            st.warning("🧩 CAPTCHA 로딩 실패 — Suno 생성 버튼을 한 번 더 눌러주세요. (2~3회 시도 시 대부분 성공)")
+            # Store params so user can retry easily
+            st.session_state["retry_params"] = params
 
 
 def render_song_lab():
