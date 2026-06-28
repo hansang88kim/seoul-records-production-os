@@ -339,37 +339,56 @@ with st.sidebar:
 
     # OpenAI
     current_openai = _os.getenv("OPENAI_API_KEY", "")
-    if current_openai:
-        st.caption("🟢 OpenAI (ChatGPT)")
-    else:
-        st.caption("🔴 OpenAI (ChatGPT)")
+    st.caption("🟢 OpenAI (ChatGPT) 연결됨" if current_openai else "🔴 OpenAI (ChatGPT)")
     openai_key = st.text_input(
-        "OpenAI API Key",
-        type="password",
-        placeholder="sk-...",
-        key="sidebar_openai_key",
-        label_visibility="collapsed",
+        "OpenAI", type="password", placeholder="sk-...",
+        key="sidebar_openai_key", label_visibility="collapsed",
     )
-    if openai_key.strip() and openai_key.strip() != current_openai:
-        _os.environ["OPENAI_API_KEY"] = openai_key.strip()
-        st.success("✅ OpenAI 설정됨")
+    if st.button("🔗 OpenAI 연결", key="btn_openai_connect", use_container_width=True):
+        if openai_key.strip():
+            _os.environ["OPENAI_API_KEY"] = openai_key.strip()
+            # Verify with a test call
+            try:
+                import requests as _req
+                resp = _req.get(
+                    "https://api.openai.com/v1/models",
+                    headers={"Authorization": f"Bearer {openai_key.strip()}"},
+                    timeout=10,
+                )
+                if resp.status_code == 200:
+                    st.success("✅ OpenAI 인증 성공")
+                else:
+                    st.error(f"❌ 인증 실패 (HTTP {resp.status_code})")
+            except Exception as e:
+                st.error(f"❌ 연결 실패: {type(e).__name__}")
+        else:
+            st.warning("키를 입력하세요")
 
     # Gemini
     current_gemini = _os.getenv("GOOGLE_GEMINI_API_KEY", "")
-    if current_gemini:
-        st.caption("🟢 Gemini")
-    else:
-        st.caption("🔴 Gemini")
+    st.caption("🟢 Gemini 연결됨" if current_gemini else "🔴 Gemini")
     gemini_key = st.text_input(
-        "Gemini API Key",
-        type="password",
-        placeholder="AI...",
-        key="sidebar_gemini_key",
-        label_visibility="collapsed",
+        "Gemini", type="password", placeholder="AI...",
+        key="sidebar_gemini_key", label_visibility="collapsed",
     )
-    if gemini_key.strip() and gemini_key.strip() != current_gemini:
-        _os.environ["GOOGLE_GEMINI_API_KEY"] = gemini_key.strip()
-        st.success("✅ Gemini 설정됨")
+    if st.button("🔗 Gemini 연결", key="btn_gemini_connect", use_container_width=True):
+        if gemini_key.strip():
+            _os.environ["GOOGLE_GEMINI_API_KEY"] = gemini_key.strip()
+            # Verify with a test call
+            try:
+                import requests as _req
+                resp = _req.get(
+                    f"https://generativelanguage.googleapis.com/v1beta/models?key={gemini_key.strip()}",
+                    timeout=10,
+                )
+                if resp.status_code == 200:
+                    st.success("✅ Gemini 인증 성공")
+                else:
+                    st.error(f"❌ 인증 실패 (HTTP {resp.status_code})")
+            except Exception as e:
+                st.error(f"❌ 연결 실패: {type(e).__name__}")
+        else:
+            st.warning("키를 입력하세요")
 
     st.divider()
 
