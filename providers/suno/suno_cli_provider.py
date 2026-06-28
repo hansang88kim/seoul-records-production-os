@@ -239,6 +239,7 @@ class SunoCliProvider(ComposerProvider):
         """
         Auto-authenticate before generation using SUNO_COOKIE from .env.
         Runs: suno auth --cookie <cookie>
+        Output goes to console (no capture — same as manual CLI run).
         Never logs the cookie value.
         """
         cookie = os.getenv("SUNO_COOKIE", "").strip()
@@ -247,10 +248,10 @@ class SunoCliProvider(ComposerProvider):
             return
 
         try:
+            # No capture_output — let auth run exactly like manual CLI
             proc = subprocess.run(
                 [self._bin, "auth", "--cookie", cookie],
-                capture_output=True, text=True, encoding="utf-8",
-                errors="replace", timeout=30,
+                timeout=30,
             )
             if proc.returncode == 0:
                 logger.info("Auto-auth succeeded")
