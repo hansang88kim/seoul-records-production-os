@@ -54,36 +54,50 @@ TITLE STYLE (Seoul place-name based, like the user's favorites):
 - Use REAL Seoul locations: 명동, 종로, 을지로, 청계천, 뚝섬, 삼각지, 마포, 한강, 남산, 건대, 성수, 압구정, 신촌, 홍대, 이태원
 - Natural, evocative, place + mood. Short.
 
-LYRICS FORMAT — follow this EXACT structure for natural 3:30 duration.
-Section headers carry production cues (Korean or English). Each line is a SHORT phrase (7-13 Korean characters, average 9). This precise length is what makes the song land at ~3:30.
+LYRICS FORMAT — STRICT line counts and character limits for natural 3:30 duration.
+This is the MOST IMPORTANT rule. If lyrics are too long, the song runs 4:00-4:30 which is WRONG.
+Section headers carry production cues. Section labels stay in English.
 
-EXACT STRUCTURE (10 sections, 280-340 chars total — SHORTER is better for 3:30):
-[Intro, <production cue>]          ← NO lyrics (instrumental, leave empty)
-[Verse 1]                          ← 4 lines, 7-12 chars each
-[Pre-Chorus, <cue>]                ← 4 lines, 8-11 chars each
-[Chorus, <cue>]                    ← 5 lines, 6-13 chars (hook line = Seoul place from title)
-[Verse 2, <cue>]                   ← 4 lines, 8-12 chars each
-[Pre-Chorus]                       ← 4 lines, 8-11 chars each
-[Chorus, <cue>]                    ← 5 lines, same hook, slight variation
-[Bridge, <cue>]                    ← 4 lines, 6-9 chars each (shorter, reflective)
-[Final Chorus, <cue>]              ← 5 lines, climactic, 8-12 chars
-[Outro, <cue>]                     ← 2 lines, 10-14 chars (a specific Seoul spot)
+EXACT TEMPLATE (copy this structure precisely):
 
-LINE LENGTH RULES (critical for 3:30 timing):
-- Verse/Pre-Chorus lines: 7-11 Korean characters
-- Chorus lines: 6-13 characters (first line = the hook with Seoul place)
-- Bridge lines: 6-9 characters (shorter, slower)
-- Outro lines: 10-14 characters
-- NEVER write long run-on lines. Keep each line a short singable phrase.
+[Intro, <production cue>]
+← NO lyric lines here. Header only. Instrumental.
 
-FORMATTING (must be exact):
-- Blank line between every section
-- One lyric phrase per line (no commas joining multiple phrases)
-- Intro has header only, no lyric lines under it
-- Section labels stay in English: [Verse 1], [Chorus], [Bridge], [Outro]
-- Production cues in the header after comma
+[Verse 1]
+← exactly 4 lines, each 7-11 Korean characters
 
-Example of correct formatting (study the line lengths):
+[Pre-Chorus, <cue>]
+← exactly 4 lines, each 8-9 characters
+
+[Chorus, <cue>]
+← exactly 5 lines, each 7-13 characters (line 1 = hook with Seoul place from title)
+
+[Verse 2, <cue>]
+← exactly 4 lines, each 8-12 characters
+
+[Pre-Chorus]
+← exactly 4 lines, each 8-9 characters
+
+[Chorus, <cue>]
+← exactly 5 lines, same hook with slight word changes
+
+[Bridge, <cue>]
+← exactly 4 lines, each 6-9 characters (SHORT, reflective)
+
+[Final Chorus, <cue>]
+← exactly 5 lines, each 8-12 characters (climactic)
+
+[Outro, <cue>]
+← exactly 2 lines, each 10-13 characters (a Seoul spot)
+
+HARD LIMITS (NEVER violate):
+- Each line is a SHORT phrase: 6-13 Korean characters. NEVER longer.
+- Count characters per line. A line like "비가 내리는 서울의 골목길에 너와 나의 기억이" is TOO LONG (split it).
+- Verse/Pre-Chorus: 4 lines each. Chorus: 5 lines. Bridge: 4 lines. Outro: 2 lines.
+- TOTAL lyric characters (excluding headers): 280-340 MAX. Count and verify.
+- If you exceed 340 characters, DELETE words until under 340.
+
+CORRECT EXAMPLE (study the SHORT line lengths — 7-13 chars each):
 [Verse 1]
 종로 오거리에서
 시계를 본 순간
@@ -96,6 +110,21 @@ Example of correct formatting (study the line lengths):
 익숙했던 그 거리 풍경이
 왜 오늘 따라
 그리운지 몰라
+
+[Bridge, Lead guitar solo]
+우린 끝났지만
+마음은 계속 흘러
+잊으려 해도
+잊혀지지 않아
+
+[Outro, Fading city echo]
+동대문 네온 아래서
+너는 아직 내 안에 있어
+
+WRONG EXAMPLE (lines too long — DO NOT do this):
+[Verse 1]
+비가 내리는 서울의 골목길에 너와 나의 기억이 스며들어가  ← 28 chars, WAY too long
+흔들리는 불빛과 함께 걷고 싶어 이 순간을 영원히  ← too long
 
 STYLE FORMAT — write a RICH J-pop-influenced Korean city pop style (300-500 chars). NO saxophone. Match these examples:
 
@@ -125,20 +154,46 @@ Lyrics: realistic, lyrical, specific Seoul places and scenes. Concrete imagery (
 def _make_user_prompt(concept: str, generate: str = "all") -> str:
     """Build user prompt for AI generation."""
     if generate == "title":
-        return f"Concept: {concept}\n\nGenerate 1 short Korean song title. Return JSON: {{\"title\": \"...\"}}"
+        return f"Concept: {concept}\n\nGenerate 1 short Korean song title (Seoul place-name based). Return JSON: {{\"title\": \"...\"}}"
     if generate == "style":
-        return f"Concept: {concept}\n\nGenerate Suno style tags (under 200 chars, English). Return JSON: {{\"style\": \"...\"}}"
+        return f"Concept: {concept}\n\nGenerate a rich J-pop nostalgic Korean city pop style (300-500 chars, English, NO saxophone, include BPM 110-114). Return JSON: {{\"style\": \"...\"}}"
     if generate == "lyrics":
-        return f"Concept: {concept}\n\nGenerate Korean lyrics with section structure. Return JSON: {{\"lyrics\": \"...\"}}"
+        return (
+            f"Concept: {concept}\n\n"
+            "Generate Korean lyrics following the EXACT section template. "
+            "CRITICAL: each line must be 6-13 Korean characters (SHORT phrases). "
+            "Total lyrics 280-340 characters MAX so the song fits in 3:30. "
+            "Structure: Intro(instrumental)/Verse1(4)/Pre-Chorus(4)/Chorus(5)/Verse2(4)/"
+            "Pre-Chorus(4)/Chorus(5)/Bridge(4)/Final Chorus(5)/Outro(2). "
+            'Return JSON: {"lyrics": "..."}'
+        )
 
     return (
         f"Concept: {concept}\n\n"
-        "Create a Seoul Records citypop song. Return JSON only:\n"
-        '{"title": "Korean title", "style": "rich detailed Japanese city pop style (400-700 chars), MUST include BPM 108-116", "lyrics": "full lyrics with sections"}'
+        "Create a Seoul Records city pop song. Return JSON only.\n"
+        "CRITICAL LYRICS RULE: each line 6-13 Korean chars (SHORT), total 280-340 chars MAX for 3:30 duration. "
+        "Do NOT write long lines — the song must not exceed 3:30.\n"
+        '{"title": "Korean Seoul place-name title", '
+        '"style": "J-pop nostalgic Korean city pop, 300-500 chars, NO sax, BPM 110-114", '
+        '"lyrics": "10 sections, short lines, 280-340 chars total"}'
     )
 
 
 # ─── Mock Provider ───────────────────────────────────────────────────────────
+
+def _lyrics_char_count(lyrics: str) -> int:
+    """Count Korean lyric characters excluding section headers and blank lines."""
+    if not lyrics:
+        return 0
+    total = 0
+    for line in lyrics.split("\n"):
+        line = line.strip()
+        if line and not line.startswith("["):
+            # Remove parentheses content markers but count the Korean
+            cleaned = line.replace("(", "").replace(")", "")
+            total += len(cleaned)
+    return total
+
 
 def _format_lyrics(lyrics: str) -> str:
     """
@@ -417,7 +472,8 @@ class OpenAIProvider:
             style=data.get("style", ""),
             lyrics=lyrics,
             metadata={"ai_provider": "openai", "ai_model": self.MODEL_NAME,
-                       "generated_at": datetime.now(timezone.utc).isoformat(), "concept": concept},
+                       "generated_at": datetime.now(timezone.utc).isoformat(),
+                       "concept": concept, "lyric_chars": _lyrics_char_count(lyrics)},
         )
 
     def generate_title(self, concept: str) -> str:
@@ -592,7 +648,8 @@ class GeminiProvider:
             style=data.get("style", ""),
             lyrics=lyrics,
             metadata={"ai_provider": "gemini", "ai_model": self.MODEL_NAME,
-                       "generated_at": datetime.now(timezone.utc).isoformat(), "concept": concept},
+                       "generated_at": datetime.now(timezone.utc).isoformat(),
+                       "concept": concept, "lyric_chars": _lyrics_char_count(lyrics)},
         )
 
     def generate_title(self, concept: str) -> str:

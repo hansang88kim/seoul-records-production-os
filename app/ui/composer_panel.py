@@ -177,6 +177,23 @@ def render_composer_panel() -> dict | None:
     with col_ll:
         st.checkbox("🔒", key="lock_lyrics", label_visibility="collapsed")
 
+    # Lyric length + estimated duration indicator
+    if lyrics.strip():
+        lyric_chars = sum(
+            len(l.strip().replace("(", "").replace(")", ""))
+            for l in lyrics.split("\n")
+            if l.strip() and not l.strip().startswith("[")
+        )
+        # Reference: ~340 chars ≈ 3:30 at citypop tempo (calibrated)
+        est_sec = int(lyric_chars / 115 * 60) + 15  # +15 for intro/outro
+        est_min, est_s = divmod(est_sec, 60)
+        if lyric_chars > 360:
+            st.warning(f"⚠️ 가사 {lyric_chars}자 · 예상 ~{est_min}:{est_s:02d} (너무 김 — 340자 이하로)")
+        elif lyric_chars < 240:
+            st.caption(f"가사 {lyric_chars}자 · 예상 ~{est_min}:{est_s:02d} (조금 짧음)")
+        else:
+            st.caption(f"✅ 가사 {lyric_chars}자 · 예상 ~{est_min}:{est_s:02d} (3:30 적정)")
+
     # Style
     col_s, col_sl = st.columns([6, 1])
     with col_s:

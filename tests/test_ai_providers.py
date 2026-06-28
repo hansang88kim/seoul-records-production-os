@@ -213,3 +213,36 @@ def test_mock_songs_lyric_length_for_330():
         lyric_lines = [l for l in formatted.split("\n") if l and not l.startswith("[")]
         total = sum(len(l) for l in lyric_lines)
         assert 280 <= total <= 400, f"{song.title} has {total} chars (target ~340 for 3:30)"
+
+
+# ─── Lyric length control for 3:30 ───────────────────────────────────────────
+
+def test_lyrics_char_count_excludes_headers():
+    """_lyrics_char_count ignores [Section] headers."""
+    from providers.ai.base import _lyrics_char_count
+    lyrics = "[Verse 1]\n가사한줄\n[Chorus]\n후렴구절"
+    # Only counts: 가사한줄(4) + 후렴구절(4) = 8
+    assert _lyrics_char_count(lyrics) == 8
+
+
+def test_mock_songs_under_360_chars():
+    """Mock songs stay under 360 chars for ~3:30 duration."""
+    from providers.ai.base import MOCK_SONGS, _lyrics_char_count
+    for song in MOCK_SONGS:
+        chars = _lyrics_char_count(song.lyrics)
+        assert chars <= 360, f"{song.title} has {chars} chars (max 360 for 3:30)"
+
+
+def test_system_prompt_has_char_limits():
+    """SYSTEM_PROMPT must specify the 6-13 char line limit and 340 total."""
+    from providers.ai.base import SYSTEM_PROMPT
+    assert "6-13" in SYSTEM_PROMPT or "13 Korean" in SYSTEM_PROMPT
+    assert "340" in SYSTEM_PROMPT
+
+
+def test_user_prompt_emphasizes_length():
+    """User prompt for full generation emphasizes the length limit."""
+    from providers.ai.base import _make_user_prompt
+    prompt = _make_user_prompt("test", "all")
+    assert "280-340" in prompt or "340" in prompt
+    assert "3:30" in prompt
