@@ -44,7 +44,9 @@ CRITICAL RULES:
 - Vocal: Low, mature, androgynous female vocal, nostalgic tone, soft reverb
 - BPM: 108-116 (usually 112)
 - Key: often minor
-- Duration: TARGET 3:30 exactly. Keep lyrics tight (~150-180 words).
+- Duration: MUST be 3:30 or SHORTER (never exceed 3:30). Keep lyrics SHORT.
+- A song with too many lines runs 4:00-4:30 — that is TOO LONG. Cut ruthlessly.
+- Total lyric content should be ~280-340 Korean characters MAX (not counting section headers).
 - BANNED inside sung lines: sax lead, drum fill-ins, tom fills, snare rolls, EDM, trot, enka
 
 TITLE STYLE (Seoul place-name based, like the user's favorites):
@@ -55,7 +57,7 @@ TITLE STYLE (Seoul place-name based, like the user's favorites):
 LYRICS FORMAT — follow this EXACT structure for natural 3:30 duration.
 Section headers carry production cues (Korean or English). Each line is a SHORT phrase (7-13 Korean characters, average 9). This precise length is what makes the song land at ~3:30.
 
-EXACT STRUCTURE (10 sections, ~340 chars total):
+EXACT STRUCTURE (10 sections, 280-340 chars total — SHORTER is better for 3:30):
 [Intro, <production cue>]          ← NO lyrics (instrumental, leave empty)
 [Verse 1]                          ← 4 lines, 7-12 chars each
 [Pre-Chorus, <cue>]                ← 4 lines, 8-11 chars each
@@ -95,23 +97,26 @@ Example of correct formatting (study the line lengths):
 왜 오늘 따라
 그리운지 몰라
 
-STYLE FORMAT — write a RICH, professional Suno style prompt (Suno allows up to 1000 chars, so be detailed and evocative, 400-700 chars ideal):
+STYLE FORMAT — write a RICH retro Seoul city pop style (300-500 chars). Match these examples closely:
 
-Structure the style with these layers:
-1. Genre + era: "Japanese city pop, late-1990s Seoul nostalgia"
-2. Key + tempo: "A minor, 112 BPM, mid-tempo groove"
-3. Keyboards: pick from CP-70 electric piano, DX7 FM keys, Rhodes, Wurlitzer, analog synth pads
-4. Guitar: chorus guitar, clean funk guitar, nylon guitar, light wah
-5. Bass: warm bass, slap bass, mellow sub bass
-6. Texture: soft synth layers, tape warmth, vinyl crackle, plate reverb, lo-fi cassette texture, wide stereo
-7. Vocal: "low thick female vocal, breath-driven, intimate, no belting, soft reverb, subtle vibrato"
-8. Mood: calm, nostalgic, bittersweet, dreamy, late-night, neon-lit
-9. Scene: "1990s Seoul night, city lights, midnight streets"
+Example 1: "Retro Seoul city pop (1970s-80s influence), dreamy analog synths, mellow funk guitars, slow groove rhythm (BPM 112), vintage tape warmth, androgynous female vocals with soft reverb and subtle vibrato"
 
-Example (rich, ~500 chars):
-"Japanese city pop with late-1990s Seoul nostalgia, A minor, 112 BPM mid-tempo groove. Warm CP-70 electric piano and glassy DX7 FM keys lead, layered with soft analog synth pads. Chorus-drenched clean guitar, warm rounded bass, gentle brushed drums entering after a 4-bar intro. Low thick female vocal, breath-driven and intimate, soft plate reverb, subtle vibrato, no belting. Tape warmth, faint vinyl crackle, wide stereo image. Bittersweet, calm, neon-lit midnight Seoul mood, city lights reflecting on wet streets."
+Example 2: "Retro Korean city pop (late 70s Seoul), mellow tempo (BPM 111), lo-fi vinyl texture, vintage electric piano, soft brass hits, gentle funk guitar, nostalgic androgynous female vocals with light reverb and vibrato, emotional night-drive atmosphere"
 
-Vary key (A/D/F#/E/G minor), tempo (108-116 BPM), keyboards, and mood each time. Make it feel like a real professional producer wrote it.
+Example 3: "Retro Seoul city pop (early 1980s vibe), melancholic electric piano, lo-fi synth textures, steady bassline groove (BPM 110), ambient train sounds, nostalgic androgynous female vocals with analog saturation, quiet night journey feeling"
+
+Required elements (vary each time):
+- "Retro Seoul/Korean city pop" + era (late 70s / early 80s / 1970s-80s)
+- Tempo: BPM 108-114 (state it explicitly)
+- Keys/piano: vintage electric piano, melancholic electric piano, Rhodes
+- Synths: dreamy analog synths, lo-fi synth textures
+- Guitar: mellow funk guitar, gentle funk guitar
+- Texture: lo-fi vinyl texture, vintage tape warmth, analog saturation
+- Vocal: "androgynous female vocals with soft reverb and subtle vibrato"
+- Atmosphere: emotional night-drive, quiet night journey, nostalgic Seoul night
+- Optional: soft brass hits, ambient train sounds, steady bassline groove
+
+Always include "androgynous female vocals" and "BPM 108-114". Keep it evocative and cohesive like the examples.
 
 Lyrics: realistic, lyrical, specific Seoul places and scenes. Concrete imagery (버스 정류장, 카페, 골목, 가로등, 네온). Varied sentence endings, no instrument names in sung lines. Original only — never copy existing songs."""
 
@@ -203,7 +208,7 @@ def _title_from_lyrics(lyrics: str) -> str:
 MOCK_SONGS = [
     SongPromptPackage(
         title="동대문에서 너를 떠올려",
-        style="Japanese city pop with late-1990s Seoul nostalgia, A minor, 112 BPM mid-tempo groove. Warm CP-70 electric piano and glassy DX7 FM keys lead, layered with soft analog synth pads. Chorus-drenched clean guitar, warm rounded bass, gentle brushed drums entering after a 4-bar intro. Low thick female vocal, breath-driven and intimate, soft plate reverb, subtle vibrato, no belting. Tape warmth, faint vinyl crackle, wide stereo image. Bittersweet, calm, neon-lit midnight Seoul mood, city lights on wet streets.",
+        style="Retro Korean city pop (late 70s Seoul), mellow tempo (BPM 111), lo-fi vinyl texture, vintage electric piano, soft brass hits, gentle funk guitar, dreamy analog synths, nostalgic androgynous female vocals with light reverb and subtle vibrato, vintage tape warmth, emotional night-drive atmosphere, quiet Seoul night journey feeling",
         lyrics="""[Intro, Guitar strums + busy city noise fade-in]
 
 [Verse 1]
@@ -263,7 +268,7 @@ MOCK_SONGS = [
     ),
     SongPromptPackage(
         title="을지로 새벽 골목",
-        style="Japanese city pop, early-1980s Seoul evening mood, F# minor, 110 BPM slow groove. Mellow Rhodes piano and Wurlitzer keys over lush analog synth pads. Soft nylon-string guitar, rounded mellow bass, light brushed percussion. Low warm female vocal, breath-driven, dreamy and nostalgic, gentle reverb, delicate falsetto touches. Vintage tape saturation, lo-fi cassette texture, plate reverb, wide stereo. Wistful, tender, late-night Seoul alley mood under amber streetlights.",
+        style="Retro Seoul city pop (early 1980s vibe), melancholic electric piano, lo-fi synth textures, steady bassline groove (BPM 110), mellow funk guitar, ambient train sounds, dreamy analog synths, nostalgic androgynous female vocals with analog saturation and soft reverb, vintage tape warmth, quiet night journey feeling",
         lyrics="""[Intro, Rhodes piano + distant traffic hum]
 
 [Verse 1]
@@ -469,17 +474,27 @@ class GeminiProvider:
 
         prompt_text = SYSTEM_PROMPT + "\n\n" + _make_user_prompt(concept, generate)
 
-        # Build model list: live-queried available models first, then fallbacks
+        # Use ONLY models the key actually supports (from live query).
+        # Hardcoded fallbacks often don't exist for a given key/version.
         available = self.list_models(api_key)
-        flash = [m for m in available if "flash" in m and "lite" not in m]
-        models_to_try = flash + [m for m in available if m not in flash]
-        models_to_try += [
-            "gemini-flash-latest", "gemini-2.5-flash", "gemini-2.0-flash",
-            "gemini-1.5-flash", self.MODEL_NAME,
-        ]
+        if not available:
+            raise RuntimeError(
+                "Gemini 모델 목록을 가져올 수 없습니다 — API 키를 확인하세요"
+            )
+
+        # Order preference: flash (fast) → pro → others. Skip lite for quality.
+        def _rank(m):
+            if "flash" in m and "lite" not in m:
+                return 0
+            if "pro" in m:
+                return 1
+            if "flash" in m:  # flash-lite
+                return 2
+            return 3
+        models_to_try = sorted(available, key=_rank)
 
         seen = set()
-        last_error = "사용 가능한 모델을 찾지 못함"
+        last_error = "생성 가능한 모델 없음"
 
         for model in models_to_try:
             if not model or model in seen:
