@@ -300,8 +300,12 @@ def run_dry_run(mock: bool = False) -> dict:
         clip_id = cand.get("suno_clip_id", task_id)
         log(f"Candidate {cid}: duration={cand.get('duration_seconds', '?')}s status={cand.get('status')}")
 
+        # Build filename with Korean title
+        safe_title = TEST_TITLE.replace("/", "_").replace("\\", "_").replace(":", "_")
+        clip_short = clip_id[-8:] if len(clip_id) > 8 else clip_id
+
         # Try WAV
-        wav_path = cands_dir / f"candidate_{cid}.wav"
+        wav_path = cands_dir / f"{safe_title}_candidate_{cid}_{clip_short}.wav"
         try:
             provider.download_wav(clip_id, wav_path)
             if wav_path.exists() and wav_path.stat().st_size > 100:
@@ -312,7 +316,7 @@ def run_dry_run(mock: bool = False) -> dict:
             log(f"  WAV unavailable: {type(e).__name__}")
 
         # Try MP3 preview
-        mp3_path = cands_dir / f"candidate_{cid}_preview.mp3"
+        mp3_path = cands_dir / f"{safe_title}_candidate_{cid}_{clip_short}.mp3"
         try:
             result = provider.download_mp3_preview(clip_id, mp3_path)
             if result and mp3_path.exists():
