@@ -4,7 +4,7 @@ build-backend = "setuptools.backends.legacy:build"
 
 [project]
 name = "seoul-records-production-os"
-version = "0.4.2"
+version = "0.5.0"
 description = "Seoul Records Production OS — AI Music Label Harness"
 readme = "README.md"
 requires-python = ">=3.11"

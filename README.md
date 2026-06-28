@@ -1,6 +1,6 @@
 # Seoul Records Production OS
 
-**AI Music Label Production Harness — v0.4.2**
+**AI Music Label Production Harness — v0.5.0**
 
 > Creative direction: controlled by ChatGPT and the user.
 > Engineering: this repository.
@@ -51,7 +51,7 @@
 
 Seoul Records Production OS is a local MVP application for creating AI-generated city pop album projects. It provides a full 5-tab production pipeline from song generation through music distribution, with mock providers for v0.1.x and a clear upgrade path to real integrations.
 
-**v0.4.2: Local WAV import pipeline — no real Suno, Canva, YouTube, or UnitedMasters APIs. Manual WAV import → FFmpeg render → Distribution package.**
+**v0.5.0: Local WAV import pipeline — no real Suno, Canva, YouTube, or UnitedMasters APIs. Manual WAV import → FFmpeg render → Distribution package.**
 
 **Core creative identity: Seoul Records City Pop Core**
 - Japanese nostalgic city pop, sophisticated 1990s urban feeling
@@ -149,7 +149,7 @@ seoul-records-production-os/
 
 ## Production Tabs
 
-| Tab | Purpose | v0.4.2 Status |
+| Tab | Purpose | v0.5.0 Status |
 |-----|---------|---------------|
 | 🎵 Song Generation | Prompt generation, mock Suno, WAV import, candidate selection | ✅ Mock + Manual Import |
 | 🖼 Thumbnail & Cover | 16:9 YouTube thumbnail + 1:1 DSP cover | ✅ Mock (Pillow) |
@@ -263,7 +263,8 @@ No backend code changes required. Planned packs:
 | v0.3.4 | Real dry-run result, provider fallback hardening | ✅ Released |
 | v0.4.0 | SunoCliProvider (paperfoot/suno-cli subprocess adapter) | ✅ Released |
 | v0.4.1 | SunoCliProvider docs, dry-run suno_cli support | ✅ Released |
-| v0.4.2 | SunoCliProvider --wait --download fix, SUNO_CLI_BIN support | ✅ Current |
+| v0.4.2 | SunoCliProvider fixes, real dry-run success | ✅ Released |
+| v0.5.0 | Song Lab UX redesign, Quick Single mode, Korean UI | ✅ Current |
 | v0.3 | LocalUnofficialSunoProvider (user's own Suno credits) | Planned |
 | v0.4 | Flow / Nano Banana image, Canva MCP template design | Planned |
 | v0.5 | YouTube private upload (YouTube Data API v3) | Planned |

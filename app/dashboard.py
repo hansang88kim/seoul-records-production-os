@@ -4,6 +4,7 @@ Seoul Records Production OS — Dashboard / Router
 import streamlit as st
 from app.config import APP_NAME, APP_VERSION
 from app.tabs.project_screen import render_project_screen
+from app.tabs.song_lab import render_song_lab
 from app.tabs.tab1_song_generation import render_tab_song_generation
 from app.tabs.tab2_thumbnail import render_tab_thumbnail
 from app.tabs.tab3_video import render_tab_video
@@ -62,7 +63,18 @@ def render_dashboard():
         st.session_state.current_output_folder = None
 
     if st.session_state.current_project is None:
-        render_project_screen()
+        # Show mode selector: Song Lab or Project Setup
+        lab_mode = st.radio(
+            "",
+            ["🎵 Song Lab", "📁 프로젝트 관리"],
+            horizontal=True,
+            key="home_mode",
+            label_visibility="collapsed",
+        )
+        if "Song Lab" in lab_mode:
+            render_song_lab()
+        else:
+            render_project_screen()
     else:
         render_production_tabs()
 
@@ -85,7 +97,7 @@ def render_production_tabs():
 
     # Tabs
     tab1, tab2, tab3, tab4, tab5 = st.tabs([
-        "🎵 곡 생성",
+        "🎵 Song Lab",
         "🖼️ 썸네일",
         "🎬 영상 제작",
         "▶️ YouTube",
@@ -93,7 +105,7 @@ def render_production_tabs():
     ])
 
     with tab1:
-        render_tab_song_generation()
+        render_song_lab()
     with tab2:
         render_tab_thumbnail()
     with tab3:
