@@ -112,3 +112,94 @@ def test_job_plan_saved_to_disk(tmp_path):
     assert plan_path.exists()
     loaded = json.loads(plan_path.read_text(encoding="utf-8"))
     assert len(loaded) == 2
+
+
+# ─── Background Worker / Job Manager tests ───────────────────────────────────
+
+def test_start_generation_job_creates_settings():
+    from services.generation_job_manager import start_generation_job
+    from pathlib import Path
+    from unittest import mock
+    import json
+    plan = [{"title": "곡1", "style": "citypop", "lyrics": "가사", "status": "drafted"}]
+    settings = {"model": "v5.5", "vocal_gender": "Female"}
+    # Mock subprocess so we don't need suno binary
+    fake_proc = mock.Mock(pid=12345)
+    with mock.patch("subprocess.Popen", return_value=fake_proc):
+        result = start_generation_job("test_project", plan, settings)
+    assert result.get("job_id")
+    import services.job_store as js
+    jobs_dir = js._jobs_dir()
+    settings_path = jobs_dir / result["job_id"] / "settings.json"
+    assert settings_path.exists()
+    loaded = json.loads(settings_path.read_text())
+    assert loaded["model"] == "v5.5"
+
+
+def test_duplicate_job_prevented():
+    from services.job_store import create_job, update_job
+    from services.generation_job_manager import start_generation_job
+    # Create a running job for the same project
+    j = create_job(project="dup_test")
+    update_job(j["job_id"], status="running")
+    # Try to start another
+    result = start_generation_job("dup_test", [{"title": "곡"}], {})
+    assert result.get("error") == "duplicate"
+    assert "진행 중" in result.get("message", "")
+
+
+def test_check_worker_alive():
+    from services.generation_job_manager import check_worker_alive
+    import os
+    # Current process should be alive
+    assert check_worker_alive(os.getpid()) is True
+    # Non-existent PID
+    assert check_worker_alive(99999999) is False
+    assert check_worker_alive(None) is False
+
+
+def test_recover_interrupted_jobs():
+    from services.job_store import create_job, update_job
+    from services.generation_job_manager import recover_jobs_from_disk
+    # Create a "running" job with a dead PID
+    j = create_job(project="recovery_test")
+    update_job(j["job_id"], status="running", pid=99999999)  # dead PID
+    recovered = recover_jobs_from_disk()
+    assert len(recovered) >= 1
+    # Check it was marked as interrupted
+    from services.job_store import load_job
+    loaded = load_job(j["job_id"])
+    assert loaded["status"] == "interrupted"
+
+
+def test_retry_failed_tracks():
+    from services.job_store import create_job
+    from services.generation_job_manager import retry_failed_tracks
+    from unittest import mock
+    import json
+    import services.job_store as js
+    # Create a job with a plan that has mixed results
+    j = create_job(project="retry_test_proj")
+    plan = [
+        {"title": "성공곡", "status": "generated"},
+        {"title": "실패곡", "status": "failed", "error": "captcha"},
+    ]
+    plan_path = js._jobs_dir() / j["job_id"] / "plan.json"
+    plan_path.write_text(json.dumps(plan))
+    settings_path = js._jobs_dir() / j["job_id"] / "settings.json"
+    settings_path.write_text(json.dumps({"model": "v5.5"}))
+    # Mock subprocess
+    fake_proc = mock.Mock(pid=12345)
+    with mock.patch("subprocess.Popen", return_value=fake_proc):
+        result = retry_failed_tracks(j["job_id"])
+    assert result is not None
+    assert result.get("job_id") != j["job_id"]  # new job
+
+
+def test_job_history():
+    from services.generation_job_manager import list_job_history
+    from services.job_store import create_job
+    create_job(project="hist1")
+    create_job(project="hist2")
+    history = list_job_history()
+    assert len(history) >= 2

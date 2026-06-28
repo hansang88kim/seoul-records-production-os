@@ -403,6 +403,13 @@ with st.sidebar:
     st.divider()
 
     # ── Job Status Panel ─────────────────────────────────────────────
+    # Recover interrupted jobs on each render (detects dead workers)
+    try:
+        from services.generation_job_manager import mark_interrupted_jobs
+        mark_interrupted_jobs()
+    except Exception:
+        pass
+
     try:
         from services.job_store import get_active_jobs, list_jobs
         active = get_active_jobs()

@@ -135,3 +135,100 @@ def test_sanitize_command_masks_all_sensitive():
     clean = sanitize_command(cmd)
     assert "real_cookie_value" not in clean
     assert "jwt_value" not in clean
+
+
+# ─── Full Metadata Pipeline ─────────────────────────────────────────────────
+
+def test_prompt_snapshot_has_all_fields(tmp_path):
+    """Prompt snapshot must include all required fields."""
+    from services.metadata_consistency_service import create_prompt_snapshot
+    snap = create_prompt_snapshot(
+        tmp_path / "track",
+        title="밤이 지나면", style="citypop", lyrics="가사",
+        settings={"model": "v5.5", "vocal_gender": "Female", "weirdness": 35},
+    )
+    required = ["prompt_id", "confirmed_at", "title", "style_prompt",
+                "lyrics", "prompt_hash", "model", "vocal_gender"]
+    for field in required:
+        assert field in snap, f"missing: {field}"
+
+
+def test_submitted_payload_matches_snapshot(tmp_path):
+    """submitted_payload should match the prompt snapshot."""
+    from services.metadata_consistency_service import (
+        create_prompt_snapshot, compare_prompt_snapshot_to_submitted,
+    )
+    snap = create_prompt_snapshot(
+        tmp_path / "track", title="제목", style="style", lyrics="lyrics",
+        settings={"model": "v5.5", "vocal_gender": "Female"},
+    )
+    # Matching payload
+    payload = {
+        "title_sent": "제목", "tags_sent": "style",
+        "model_sent": "v5.5", "vocal_sent": "Female",
+    }
+    assert compare_prompt_snapshot_to_submitted(snap, payload) == []
+
+    # Mismatched payload
+    bad_payload = {
+        "title_sent": "다른제목", "tags_sent": "style",
+        "model_sent": "v5.5", "vocal_sent": "Female",
+    }
+    issues = compare_prompt_snapshot_to_submitted(snap, bad_payload)
+    assert len(issues) == 1
+    assert "title" in issues[0]
+
+
+def test_provider_response_does_not_overwrite_canonical(tmp_path):
+    """Provider response metadata is separate from canonical."""
+    import json
+    from services.metadata_consistency_service import create_prompt_snapshot
+    track_dir = tmp_path / "track"
+    # Save canonical
+    snap = create_prompt_snapshot(
+        track_dir, title="정식 제목", style="citypop", lyrics="가사",
+        settings={"model": "v5.5"},
+    )
+    # Save provider response (Suno may return different title)
+    provider_resp = {
+        "provider_title": "suno-returned-title",
+        "provider_model": "chirp-fenix",
+    }
+    (track_dir / "provider_response.json").write_text(
+        json.dumps(provider_resp), encoding="utf-8"
+    )
+    # Canonical must still be the original
+    from services.metadata_consistency_service import load_prompt_snapshot
+    loaded = load_prompt_snapshot(track_dir)
+    assert loaded["title"] == "정식 제목"  # NOT suno-returned-title
+
+
+def test_validate_consistency_with_payload(tmp_path):
+    """Full consistency check with submitted_payload."""
+    import json
+    from services.metadata_consistency_service import (
+        create_prompt_snapshot, validate_track_metadata_consistency,
+    )
+    track_dir = tmp_path / "track"
+    create_prompt_snapshot(
+        track_dir, title="제목", style="style", lyrics="lyrics",
+        settings={"model": "v5.5", "vocal_gender": "Female"},
+    )
+    # Matching payload
+    payload = {
+        "title_sent": "제목", "tags_sent": "style",
+        "model_sent": "v5.5", "vocal_sent": "Female",
+    }
+    (track_dir / "submitted_payload.json").write_text(
+        json.dumps(payload), encoding="utf-8"
+    )
+    result = validate_track_metadata_consistency(track_dir)
+    assert result["consistent"] is True
+
+    # Now make it inconsistent
+    payload["title_sent"] = "변경된 제목"
+    (track_dir / "submitted_payload.json").write_text(
+        json.dumps(payload), encoding="utf-8"
+    )
+    result = validate_track_metadata_consistency(track_dir)
+    assert result["consistent"] is False
