@@ -54,10 +54,14 @@ def test_suno_cli_bin_absolute_path_is_used(monkeypatch):
     from providers.suno import suno_cli_provider as m
     from importlib import reload
 
-    monkeypatch.setenv("SUNO_CLI_BIN", "C:/tools/suno/suno.exe")
+    env_val = "C:/tools/suno/suno.exe"
+    monkeypatch.setenv("SUNO_CLI_BIN", env_val)
     reload(m)
     result = m._get_suno_bin()
-    assert result == "C:/tools/suno/suno.exe"
+    # On Linux: returned as-is. On Windows: Path normalizes to backslash.
+    # Either way, resolved path must contain 'suno.exe'
+    assert "suno.exe" in result
+    assert result == env_val or result == str(Path(env_val))
 
 
 def test_suno_cli_bin_windows_path_supported(monkeypatch):
@@ -65,11 +69,13 @@ def test_suno_cli_bin_windows_path_supported(monkeypatch):
     from providers.suno import suno_cli_provider as m
     from importlib import reload
 
-    monkeypatch.setenv("SUNO_CLI_BIN", "C:\\tools\\suno\\suno.exe")
+    win_path = "C:\\tools\\suno\\suno.exe"
+    monkeypatch.setenv("SUNO_CLI_BIN", win_path)
     reload(m)
     result = m._get_suno_bin()
     assert "suno" in result.lower()
-    assert result == "C:\\tools\\suno\\suno.exe"
+    # Value preserved as-is from env (OS normalizes on actual use)
+    assert result == win_path
 
 
 def test_suno_available_uses_env_path_before_path_lookup(monkeypatch, tmp_path):
