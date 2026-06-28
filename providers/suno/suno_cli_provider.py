@@ -186,6 +186,8 @@ def _map_error_code(code: str) -> str:
         "auth_missing": "auth_required",
         "auth_failed": "auth_required",
         "captcha": "captcha_required",
+        "config_error": "captcha_required",  # "hcaptcha never finished loading"
+        "hcaptcha": "captcha_required",
         "rate_limit": "rate_limited",
         "insufficient_credits": "generation_failed",
         "generation_failed": "generation_failed",
@@ -454,10 +456,35 @@ class SunoCliProvider(ComposerProvider):
 
         logger.info("suno generate: title=%s download=%s", title, download_path)
 
+        # ── Generate with CAPTCHA auto-retry ─────────────────────────────
+        # CAPTCHA loading on suno.com is intermittent (server-side). Retry
+        # up to 3 times, re-authenticating before each attempt.
+        max_attempts = 3
+        proc = None
+        last_err = None
         try:
-            proc = _run_suno_raw(cmd, timeout=_GENERATE_TIMEOUT, suno_bin=self._bin)
+            for attempt in range(1, max_attempts + 1):
+                try:
+                    if attempt > 1:
+                        logger.info("CAPTCHA retry %d/%d — re-authenticating", attempt, max_attempts)
+                        # Re-auth before retry (session may need refresh)
+                        self._ensure_auth()
+                        import time as _t
+                        _t.sleep(2)  # brief pause before retry
+                    proc = _run_suno_raw(cmd, timeout=_GENERATE_TIMEOUT, suno_bin=self._bin)
+                    break  # success
+                except ProviderError as e:
+                    last_err = e
+                    # Only retry on CAPTCHA failures; re-raise others immediately
+                    if e.status == "captcha_required" and attempt < max_attempts:
+                        logger.warning("CAPTCHA failed (attempt %d/%d), retrying...", attempt, max_attempts)
+                        continue
+                    raise
         finally:
             lyrics_file.unlink(missing_ok=True)
+
+        if proc is None and last_err is not None:
+            raise last_err
 
         self._last_download_dir = str(download_path)
 

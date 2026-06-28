@@ -452,3 +452,50 @@ def test_extract_credits_no_attribute_error_on_none_or_str():
     assert _extract_credits("not a dict") is None
     assert _extract_credits({}) is None
     assert _extract_credits({"data": None}) is None
+
+
+# ─── CAPTCHA auto-retry ──────────────────────────────────────────────────────
+
+def test_captcha_retries_then_succeeds(monkeypatch, tmp_path):
+    """create_song retries on CAPTCHA failure and succeeds on a later attempt."""
+    from providers.suno import suno_cli_provider as m
+    from importlib import reload
+    fake_bin = tmp_path / "suno"
+    fake_bin.write_text("fake")
+    monkeypatch.setenv("SUNO_CLI_BIN", str(fake_bin))
+    monkeypatch.setenv("SUNO_COOKIE", "cookie")
+    reload(m)
+
+    p = m.SunoCliProvider()
+    dl = str(tmp_path / "dl")
+    generate_calls = [0]
+
+    def mock_run(cmd, **kw):
+        if "--json" in cmd:  # credits/auth verify
+            return mock.Mock(returncode=0, stdout=json.dumps({"data": {"credits_left": 100}}), stderr="")
+        if "generate" in cmd:
+            generate_calls[0] += 1
+            if generate_calls[0] < 2:
+                # First attempt: CAPTCHA failure (exit 2)
+                return mock.Mock(returncode=2, stdout="", stderr="")
+            # Second attempt: success
+            from pathlib import Path as P
+            P(dl).mkdir(parents=True, exist_ok=True)
+            (P(dl) / "song-abc12345.mp3").write_bytes(b"fake")
+            return mock.Mock(returncode=0, stdout="", stderr="")
+        return mock.Mock(returncode=0)
+
+    with mock.patch("subprocess.run", side_effect=mock_run), \
+         mock.patch("time.sleep"):  # skip the retry delay
+        task_id = p.create_song("test", "pop", "lyrics", {"download_dir": dl})
+
+    # Should have retried generate at least twice
+    assert generate_calls[0] >= 2
+    assert task_id  # got a result
+
+
+def test_config_error_maps_to_captcha():
+    """config_error (hcaptcha never loaded) maps to captcha_required."""
+    from providers.suno.suno_cli_provider import _map_error_code
+    assert _map_error_code("config_error") == "captcha_required"
+    assert _map_error_code("hcaptcha") == "captcha_required"
