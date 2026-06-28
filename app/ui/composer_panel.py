@@ -306,10 +306,11 @@ def render_composer_panel() -> dict | None:
             # Send exclude styles SEPARATELY (→ Suno --exclude flag → Exclude styles box).
             # Do NOT merge into the style text — that makes Suno ADD those instruments.
             # Strip any leading "-" the user may have typed (the flag handles negation).
+            _hyphens = "\u002d\u2010\u2011\u2012\u2013\u2014\u2212"
             exclude_list = [
-                s.strip().lstrip("-").strip()
+                s.strip().lstrip(_hyphens).strip()
                 for s in exclude.split(",")
-                if s.strip().lstrip("-").strip()
+                if s.strip().lstrip(_hyphens).strip()
             ]
 
             return {

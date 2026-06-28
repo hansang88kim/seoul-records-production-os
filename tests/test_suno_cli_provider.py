@@ -556,3 +556,83 @@ def test_empty_style_rejected(monkeypatch, tmp_path):
     with mock.patch("subprocess.run", side_effect=mock_run):
         with pytest.raises(m.ProviderError):
             p.create_song("title", "   ", "lyrics", {"download_dir": str(tmp_path)})
+
+
+# ─── Style cleaning: negatives must NOT stay in style tags ───────────────────
+
+def test_split_style_removes_negatives():
+    """Negative tokens (-sax) are pulled out of style into excludes."""
+    from providers.suno.suno_cli_provider import _split_style_and_excludes
+    style = "Japanese city pop, warm piano, -sax lead, -trot, -EDM"
+    clean, excludes = _split_style_and_excludes(style)
+    assert "sax" not in clean.lower()
+    assert "trot" not in clean.lower()
+    assert "sax lead" in excludes
+    assert "trot" in excludes
+    assert "EDM" in excludes
+
+
+def test_split_style_handles_special_hyphens():
+    """Non-breaking hyphen (U+2011) and other dash variants are handled."""
+    from providers.suno.suno_cli_provider import _split_style_and_excludes
+    # U+2011 non-breaking hyphen (the exact char from the user's bug)
+    style = "Japanese city pop, \u2011sax lead, \u2011strong sax, \u2011trot"
+    clean, excludes = _split_style_and_excludes(style)
+    assert "sax" not in clean.lower()
+    assert "sax lead" in excludes
+    assert "strong sax" in excludes
+    assert "trot" in excludes
+
+
+def test_split_style_keeps_internal_hyphens():
+    """Hyphens INSIDE words (1980s-1990s, golden-age) must be kept."""
+    from providers.suno.suno_cli_provider import _split_style_and_excludes
+    style = "Authentic 1980s-1990s Japanese city pop, golden-age Tokyo sound"
+    clean, excludes = _split_style_and_excludes(style)
+    assert "1980s-1990s" in clean
+    assert "golden-age" in clean
+    assert excludes == []  # no leading-hyphen tokens
+
+
+def test_create_song_moves_style_negatives_to_exclude(monkeypatch, tmp_path):
+    """End-to-end: negatives in style end up in --exclude, not --tags."""
+    from providers.suno import suno_cli_provider as m
+    from importlib import reload
+    fake_bin = tmp_path / "suno"
+    fake_bin.write_text("fake")
+    monkeypatch.setenv("SUNO_CLI_BIN", str(fake_bin))
+    monkeypatch.setenv("SUNO_COOKIE", "cookie")
+    reload(m)
+
+    p = m.SunoCliProvider()
+    captured = []
+    dl = str(tmp_path / "dl")
+
+    def mock_run(cmd, **kw):
+        if "--json" in cmd:
+            return mock.Mock(returncode=0, stdout=json.dumps({"data": {"credits_left": 100}}), stderr="")
+        captured.extend(cmd)
+        from pathlib import Path as P
+        P(dl).mkdir(parents=True, exist_ok=True)
+        (P(dl) / "x-12345678.mp3").write_bytes(b"fake")
+        return mock.Mock(returncode=0, stdout="", stderr="")
+
+    with mock.patch("subprocess.run", side_effect=mock_run):
+        # Style with negatives baked in (simulating the leaked state)
+        p.create_song(
+            "test",
+            "Japanese city pop, warm piano, -sax lead, -trot",
+            "lyrics",
+            {"download_dir": dl, "exclude_styles": ["EDM"]},
+        )
+
+    tags_value = captured[captured.index("--tags") + 1]
+    exclude_value = captured[captured.index("--exclude") + 1]
+    # Style is clean
+    assert "sax" not in tags_value.lower()
+    assert "trot" not in tags_value.lower()
+    assert "warm piano" in tags_value
+    # Excludes contain both the explicit one and the extracted ones
+    assert "sax lead" in exclude_value
+    assert "trot" in exclude_value
+    assert "EDM" in exclude_value

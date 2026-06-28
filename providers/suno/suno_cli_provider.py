@@ -248,6 +248,45 @@ def _extract_credits(data) -> int | None:
     return None
 
 
+# Hyphen variants that may prefix a "negative" style token:
+#   - U+002D hyphen-minus, U+2010 hyphen, U+2011 non-breaking hyphen,
+#   - U+2012 figure dash, U+2013 en dash, U+2014 em dash, U+2212 minus sign
+_NEG_HYPHENS = "\u002d\u2010\u2011\u2012\u2013\u2014\u2212"
+
+
+def _split_style_and_excludes(style: str) -> tuple[str, list[str]]:
+    """
+    Clean the style tags: remove any "negative" tokens (e.g. "-sax lead",
+    "‑trot") and return them separately so they go to --exclude instead.
+
+    Suno treats anything inside --tags as a POSITIVE style, so a leading
+    hyphen does NOT negate — it actually makes Suno add that instrument.
+    Negatives must go to the --exclude flag. This guards against negatives
+    leaking into the style text from any source (old session state, manual
+    entry, special hyphen characters, etc.).
+
+    Returns (clean_style, extracted_excludes).
+    """
+    if not style:
+        return "", []
+    parts = [p.strip() for p in style.split(",")]
+    clean_parts: list[str] = []
+    extracted: list[str] = []
+    for part in parts:
+        if not part:
+            continue
+        # Does this token start with any hyphen/dash variant? → it's a negative
+        first = part[0]
+        if first in _NEG_HYPHENS:
+            term = part.lstrip(_NEG_HYPHENS).strip()
+            if term:
+                extracted.append(term)
+        else:
+            clean_parts.append(part)
+    clean_style = ", ".join(clean_parts)
+    return clean_style, extracted
+
+
 class SunoCliProvider(ComposerProvider):
     """
     Subprocess adapter for paperfoot/suno-cli.
@@ -400,9 +439,11 @@ class SunoCliProvider(ComposerProvider):
 
         opts = options or {}
 
-        # Guard: empty style produces ", female vocals" junk tags in Suno.
-        # Require a non-empty style so songs get the proper citypop tags.
-        style = (style or "").strip()
+        # SAFETY: strip any negative tokens (e.g. "-sax lead", "‑trot") that
+        # leaked into the style text — they must go to --exclude, not --tags.
+        # (Suno reads --tags as positive styles, so "-sax" would ADD sax.)
+        style, extracted_negs = _split_style_and_excludes(style or "")
+        style = style.strip()
         if not style:
             raise ProviderError(
                 "generation_failed",
@@ -431,8 +472,14 @@ class SunoCliProvider(ComposerProvider):
             "--download", str(download_path),
         ]
 
-        # Optional flags
-        exclude = opts.get("exclude_styles", [])
+        # Optional flags — combine explicit excludes + any negatives pulled
+        # out of the style text. Dedupe while preserving order.
+        exclude = list(opts.get("exclude_styles", []) or [])
+        for neg in extracted_negs:
+            if neg not in exclude:
+                exclude.append(neg)
+        # Also strip any stray hyphen prefixes from the exclude items themselves
+        exclude = [e.lstrip(_NEG_HYPHENS).strip() for e in exclude if e.lstrip(_NEG_HYPHENS).strip()]
         if exclude:
             cmd.extend(["--exclude", ", ".join(exclude)])
 
