@@ -12,7 +12,7 @@ DEFAULT_EXCLUDE = (
     "trot, enka, EDM, bleepy sounds, toy percussion"
 )
 CITYPOP_STYLE_PRESET = (
-    "Japanese citypop, CP-70 electric piano, DX7, chorus guitar, "
+    "Japanese citypop, 112 BPM, CP-70 electric piano, DX7, chorus guitar, "
     "warm bass, soft synth, low thick female vocal, calm, intimate"
 )
 SUNO_MODELS = ["v5.5", "v5", "v4.5", "v4", "v3.5"]

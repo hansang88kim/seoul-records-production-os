@@ -43,21 +43,22 @@ Style rules:
 - Vocal: Low, thick 20s female vocal, breath-driven, no belting
 - Instruments: CP-70/DX7/Wurlitzer/FM bell/chorus guitar intro (no drums initially)
 - BANNED: sax lead, drum fill-ins, tom fills, snare rolls, EDM risers, trot, enka, toy percussion
-- BPM: 110-114, usually minor key
-- Duration: 3:30-4:00
+- BPM: 108-116, usually minor key
+- Duration: MAXIMUM 3:30 (DO NOT exceed 3 minutes 30 seconds)
 - Title: Short natural Korean (like "밤이 지나면"), no region+emotion combos
-- Lyrics: Realistic lyrical young-adult, varied endings, ~160 words
+- Lyrics: Realistic lyrical young-adult, varied endings
+- Lyrics length: 120-140 words MAX to keep song under 3:30
+- CRITICAL: shorter lyrics = shorter song. Keep it concise.
 - Theme: Seoul locale, 1980-90s/Y2K mood
 
 Lyrics structure:
 [Intro] - "(4마디 음원 (instrumental only))"
-[Verse 1] - 4 lines
+[Verse 1] - 3-4 lines (concise)
 [Pre-Chorus] - 2 lines
-[Chorus] - 4 lines (unique hook)
-[Verse 2] - 4 lines
-[Pre-Chorus] - 2 lines
-[Chorus] - same as first
-[Bridge] - 2 lines
+[Chorus] - 3-4 lines (unique hook, memorable)
+[Verse 2] - 3-4 lines
+[Chorus] - same as first (repeat)
+[Bridge] - 2 lines (optional, keep short)
 [Outro] - "(4마디 음원 (instrumental only))"
 
 No instrument names in lyrics. No "~다" overuse. Original only."""
@@ -75,7 +76,7 @@ def _make_user_prompt(concept: str, generate: str = "all") -> str:
     return (
         f"Concept: {concept}\n\n"
         "Create a Seoul Records citypop song. Return JSON only:\n"
-        '{"title": "Korean title", "style": "tags under 200 chars", "lyrics": "full lyrics with sections"}'
+        '{"title": "Korean title", "style": "tags under 200 chars, MUST include BPM 108-116", "lyrics": "full lyrics with sections"}'
     )
 
 
@@ -84,7 +85,7 @@ def _make_user_prompt(concept: str, generate: str = "all") -> str:
 MOCK_SONGS = [
     SongPromptPackage(
         title="늦은 전화",
-        style="Japanese citypop, A minor, DX7, chorus guitar, warm bass, soft synth, low female vocal, calm",
+        style="Japanese citypop, 112 BPM, A minor, DX7, chorus guitar, warm bass, soft synth, low female vocal, calm",
         lyrics="""[Intro]
 (4마디 음원 (instrumental only))
 
@@ -129,7 +130,7 @@ MOCK_SONGS = [
     ),
     SongPromptPackage(
         title="서울 끝자락",
-        style="Japanese citypop, F# minor, CP-70, FM bell, mellow bass, synth pad, low female vocal, nostalgic",
+        style="Japanese citypop, 110 BPM, F# minor, CP-70, FM bell, mellow bass, synth pad, low female vocal, nostalgic",
         lyrics="""[Intro]
 (4마디 음원 (instrumental only))
 
