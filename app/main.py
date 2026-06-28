@@ -25,7 +25,10 @@ st.markdown("""
 <style>
     /* ── Base ──────────────────────────────────────────────────────────── */
     .stApp {
-        background: #080d1a;
+        background:
+            radial-gradient(ellipse 80% 50% at 50% -20%, rgba(200, 185, 122, 0.06), transparent),
+            radial-gradient(ellipse 60% 50% at 100% 100%, rgba(80, 110, 180, 0.05), transparent),
+            #070b16;
         font-family: 'Inter', 'Noto Sans KR', -apple-system, sans-serif;
     }
     .block-container {
@@ -51,6 +54,13 @@ st.markdown("""
         color: #c0b070;
         font-weight: 600;
         font-size: 1.05rem;
+    }
+    h4 {
+        color: #d4c48a;
+        font-weight: 600;
+        font-size: 1rem;
+        letter-spacing: -0.2px;
+        margin: 0.5rem 0;
     }
     h5 {
         color: #9a8d6a;
@@ -256,11 +266,115 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# ─── Sidebar: Suno 인증 ─────────────────────────────────────────────────────
-suno_bin = _os.getenv("SUNO_CLI_BIN", "suno")
+# ─── Credential helper ───────────────────────────────────────────────────────
+def _credential_field(label, env_var, placeholder, verify_fn=None, persist_env=False):
+    """
+    Render a credential field that retains its value across reruns.
+    Shows status + edit button. Only re-prompts when 편집 is clicked.
+    """
+    state_key = f"_editing_{env_var}"
+    current = _os.getenv(env_var, "")
 
+    is_editing = st.session_state.get(state_key, not bool(current))
+
+    if current and not is_editing:
+        # Connected — show status + edit button
+        col_status, col_edit = st.columns([3, 1])
+        with col_status:
+            st.markdown(f"<div style='color:#5ec27a;font-size:0.78rem;padding-top:6px'>🟢 {label} 연결됨</div>", unsafe_allow_html=True)
+        with col_edit:
+            if st.button("편집", key=f"edit_{env_var}", use_container_width=True):
+                st.session_state[state_key] = True
+                st.rerun()
+        return
+
+    # Editing mode — show input + connect button
+    st.markdown(f"<div style='color:#c08070;font-size:0.78rem'>🔴 {label}</div>", unsafe_allow_html=True)
+    new_val = st.text_input(
+        label, type="password", placeholder=placeholder,
+        key=f"input_{env_var}", label_visibility="collapsed",
+    )
+    col_connect, col_cancel = st.columns([2, 1]) if current else st.columns([1, 0.001])
+    with col_connect:
+        if st.button(f"🔗 연결", key=f"connect_{env_var}", use_container_width=True):
+            if new_val.strip():
+                _os.environ[env_var] = new_val.strip()
+                if persist_env:
+                    _persist_env(env_var, new_val.strip())
+                ok, msg = (True, "연결됨") if not verify_fn else verify_fn(new_val.strip())
+                if ok:
+                    st.session_state[state_key] = False
+                    st.success(f"✅ {msg}")
+                    st.rerun()
+                else:
+                    st.error(f"❌ {msg}")
+            else:
+                st.warning("값을 입력하세요")
+    if current:
+        with col_cancel:
+            if st.button("취소", key=f"cancel_{env_var}", use_container_width=True):
+                st.session_state[state_key] = False
+                st.rerun()
+
+
+def _persist_env(key, value):
+    """Write key=value to .env (update or append)."""
+    env_path = Path(__file__).resolve().parent.parent / ".env"
+    if env_path.exists():
+        lines = env_path.read_text(encoding="utf-8").splitlines()
+        updated = False
+        for i, line in enumerate(lines):
+            if line.startswith(f"{key}="):
+                lines[i] = f"{key}={value}"
+                updated = True
+                break
+        if not updated:
+            lines.append(f"{key}={value}")
+        env_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    else:
+        env_path.write_text(f"{key}={value}\n", encoding="utf-8")
+
+
+def _verify_suno(cookie):
+    try:
+        from providers.suno.suno_cli_provider import SunoCliProvider
+        ready = SunoCliProvider().verify_ready()
+        return ready["ok"], ready["message"]
+    except Exception as e:
+        return False, f"{type(e).__name__}"
+
+
+def _verify_openai(key):
+    try:
+        import requests
+        r = requests.get("https://api.openai.com/v1/models",
+                         headers={"Authorization": f"Bearer {key}"}, timeout=10)
+        if r.status_code == 200:
+            return True, "ChatGPT 인증 성공"
+        return False, f"HTTP {r.status_code}"
+    except Exception as e:
+        return False, f"{type(e).__name__}"
+
+
+def _verify_gemini(key):
+    try:
+        import requests
+        r = requests.get(f"https://generativelanguage.googleapis.com/v1beta/models?key={key}", timeout=12)
+        if r.status_code == 200:
+            return True, "Gemini 인증 성공"
+        if r.status_code == 400:
+            return False, "키 형식 오류"
+        if r.status_code == 403:
+            return False, "키 비활성화/권한 없음"
+        return False, f"HTTP {r.status_code}"
+    except requests.exceptions.ConnectionError:
+        return False, "네트워크 연결 실패"
+    except Exception as e:
+        return False, f"{type(e).__name__}"
+
+
+# ─── Sidebar ─────────────────────────────────────────────────────────────────
 with st.sidebar:
-    # Logo area
     st.markdown(f"""
     <div style="text-align:center;padding:0.5rem 0 0.2rem">
         <div style="font-size:1.3rem;font-weight:700;color:#e8dcc0;letter-spacing:-0.5px">🎵 Seoul Records</div>
@@ -269,121 +383,13 @@ with st.sidebar:
     """, unsafe_allow_html=True)
     st.divider()
 
-    # Suno Auth
-    st.markdown("<div style='color:#6a7a94;font-size:0.7rem;font-weight:500;text-transform:uppercase;letter-spacing:1.5px;margin:0.5rem 0 0.3rem'>🔑 Suno 인증</div>", unsafe_allow_html=True)
+    st.markdown("<div style='color:#6a7a94;font-size:0.7rem;font-weight:600;text-transform:uppercase;letter-spacing:1.5px;margin:0.3rem 0'>🔑 Suno</div>", unsafe_allow_html=True)
+    _credential_field("Suno 쿠키", "SUNO_COOKIE", "suno.com 쿠키", verify_fn=_verify_suno, persist_env=True)
 
-    current_cookie = _os.getenv("SUNO_COOKIE", "")
-    if current_cookie:
-        st.caption(f"🟢 쿠키 설정됨 ({len(current_cookie)}자)")
-    else:
-        st.caption("🔴 쿠키 미설정 — 아래에 입력하세요")
-
-    new_cookie = st.text_input(
-        "Cookie",
-        type="password",
-        placeholder="suno.com → F12 → Network → Cookie 복사",
-        key="sidebar_suno_cookie",
-        label_visibility="collapsed",
-    )
-
-    if st.button("🔐 인증 + 크레딧 확인", key="sidebar_auth", use_container_width=True):
-        if new_cookie.strip():
-            _os.environ["SUNO_COOKIE"] = new_cookie.strip()
-            # Persist to .env
-            env_path = Path(__file__).resolve().parent.parent / ".env"
-            if env_path.exists():
-                lines = env_path.read_text(encoding="utf-8").splitlines()
-                updated = False
-                for i, line in enumerate(lines):
-                    if line.startswith("SUNO_COOKIE="):
-                        lines[i] = f"SUNO_COOKIE={new_cookie.strip()}"
-                        updated = True
-                        break
-                if not updated:
-                    lines.append(f"SUNO_COOKIE={new_cookie.strip()}")
-                env_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
-            else:
-                env_path.write_text(f"SUNO_COOKIE={new_cookie.strip()}\n", encoding="utf-8")
-
-            # Full verify: auth + credits (same as manual CLI workflow)
-            with st.spinner("인증 + 크레딧 확인 중..."):
-                try:
-                    from providers.suno.suno_cli_provider import SunoCliProvider
-                    ready = SunoCliProvider().verify_ready()
-                    if ready["ok"]:
-                        st.success(f"✅ {ready['message']}")
-                    else:
-                        st.error(f"❌ {ready['message']}")
-                except Exception as e:
-                    st.error(f"❌ 오류: {type(e).__name__}")
-        else:
-            st.warning("쿠키를 입력하세요")
-
-    # ── AI Composer API Keys ──────────────────────────────────────────────
-    st.markdown("<div style='color:#6a7a94;font-size:0.7rem;font-weight:500;text-transform:uppercase;letter-spacing:1.5px;margin:0.5rem 0 0.3rem'>🤖 AI Composer</div>", unsafe_allow_html=True)
-
-    # OpenAI
-    current_openai = _os.getenv("OPENAI_API_KEY", "")
-    st.caption("🟢 OpenAI (ChatGPT) 연결됨" if current_openai else "🔴 OpenAI (ChatGPT)")
-    openai_key = st.text_input(
-        "OpenAI", type="password", placeholder="sk-...",
-        key="sidebar_openai_key", label_visibility="collapsed",
-    )
-    if st.button("🔗 OpenAI 연결", key="btn_openai_connect", use_container_width=True):
-        if openai_key.strip():
-            _os.environ["OPENAI_API_KEY"] = openai_key.strip()
-            # Verify with a test call
-            try:
-                import requests as _req
-                resp = _req.get(
-                    "https://api.openai.com/v1/models",
-                    headers={"Authorization": f"Bearer {openai_key.strip()}"},
-                    timeout=10,
-                )
-                if resp.status_code == 200:
-                    st.success("✅ OpenAI 인증 성공")
-                else:
-                    st.error(f"❌ 인증 실패 (HTTP {resp.status_code})")
-            except Exception as e:
-                st.error(f"❌ 연결 실패: {type(e).__name__}")
-        else:
-            st.warning("키를 입력하세요")
-
-    # Gemini
-    current_gemini = _os.getenv("GOOGLE_GEMINI_API_KEY", "")
-    st.caption("🟢 Gemini 연결됨" if current_gemini else "🔴 Gemini")
-    gemini_key = st.text_input(
-        "Gemini", type="password", placeholder="AI...",
-        key="sidebar_gemini_key", label_visibility="collapsed",
-    )
-    if st.button("🔗 Gemini 연결", key="btn_gemini_connect", use_container_width=True):
-        if gemini_key.strip():
-            _os.environ["GOOGLE_GEMINI_API_KEY"] = gemini_key.strip()
-            try:
-                import requests as _req
-                # Try v1beta endpoint
-                url = f"https://generativelanguage.googleapis.com/v1beta/models?key={gemini_key.strip()}"
-                resp = _req.get(url, timeout=15)
-                if resp.status_code == 200:
-                    st.success("✅ Gemini 인증 성공")
-                elif resp.status_code == 400:
-                    st.error("❌ API 키 형식이 올바르지 않습니다")
-                elif resp.status_code == 403:
-                    st.error("❌ API 키가 비활성화되었거나 권한이 없습니다. Google AI Studio에서 키를 확인하세요.")
-                else:
-                    try:
-                        err = resp.json().get("error", {}).get("message", "")
-                    except Exception:
-                        err = resp.text[:200]
-                    st.error(f"❌ HTTP {resp.status_code}: {err}")
-            except _req.exceptions.ConnectionError:
-                st.error("❌ 네트워크 연결 실패 — 인터넷 연결을 확인하세요")
-            except _req.exceptions.Timeout:
-                st.error("❌ 응답 시간 초과 — 다시 시도하세요")
-            except Exception as e:
-                st.error(f"❌ {type(e).__name__}: {e}")
-        else:
-            st.warning("키를 입력하세요")
+    st.markdown("<div style='color:#6a7a94;font-size:0.7rem;font-weight:600;text-transform:uppercase;letter-spacing:1.5px;margin:0.8rem 0 0.3rem'>🤖 AI Composer</div>", unsafe_allow_html=True)
+    _credential_field("ChatGPT", "OPENAI_API_KEY", "sk-...", verify_fn=_verify_openai, persist_env=True)
+    st.markdown("")
+    _credential_field("Gemini", "GOOGLE_GEMINI_API_KEY", "AI...", verify_fn=_verify_gemini, persist_env=True)
 
     st.divider()
 

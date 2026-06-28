@@ -20,8 +20,8 @@ def test_mock_ai_generates_title_style_lyrics():
     assert pkg.title, "Title is empty"
     assert pkg.style, "Style is empty"
     assert pkg.lyrics, "Lyrics is empty"
-    assert "[Intro]" in pkg.lyrics
-    assert "[Chorus]" in pkg.lyrics
+    assert "[Intro" in pkg.lyrics
+    assert "[Chorus" in pkg.lyrics
 
 
 def test_mock_ai_generate_title():

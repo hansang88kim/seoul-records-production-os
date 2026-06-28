@@ -12,8 +12,9 @@ DEFAULT_EXCLUDE = (
     "trot, enka, EDM, bleepy sounds, toy percussion"
 )
 CITYPOP_STYLE_PRESET = (
-    "Japanese citypop, 112 BPM, CP-70 electric piano, DX7, chorus guitar, "
-    "warm bass, soft synth, low thick female vocal, calm, intimate"
+    "Classic Korean city pop (early 80s Seoul style), warm Rhodes piano, "
+    "analog synths with tape noise, vintage slow groove (BPM 112), "
+    "sentimental female vocals with lo-fi warmth, nostalgic Seoul mood"
 )
 SUNO_MODELS = ["v5.5", "v5", "v4.5", "v4", "v3.5"]
 LYRICS_PLACEHOLDER = """[Intro]
