@@ -340,36 +340,23 @@ class SunoCliProvider(ComposerProvider):
 
     # ─── auto-auth ───────────────────────────────────────────────────────
 
-    # Class-level session cache: once authenticated, valid for a while.
-    _auth_cache_until = 0.0
-    _auth_cache_cookie_hash = None
-
     def _ensure_auth(self, force: bool = False) -> bool:
         """
         Authenticate using SUNO_COOKIE from env.
         Runs: suno auth --cookie <cookie>  (no capture — like manual CLI)
 
-        Caches a successful auth for 4 minutes to avoid re-authenticating
-        on every single generation. Pass force=True to bypass the cache.
+        Always re-authenticates (no caching) — re-running auth --cookie
+        before every generation/retry gives the most reliable session for
+        the piloted-Chrome hCaptcha flow.
 
         Returns True only if auth command succeeds AND the session is
         verified working (credits check passes). Never logs the cookie.
         """
-        import time as _t
-        import hashlib as _h
         from services.metadata_consistency_service import redact_sensitive
         cookie = os.getenv("SUNO_COOKIE", "").strip()
         if not cookie:
             logger.warning("SUNO_COOKIE not set — skipping auto-auth")
             return False
-
-        # Check cache: skip re-auth if recently authenticated with same cookie
-        cookie_hash = _h.sha256(cookie.encode()).hexdigest()[:16]
-        if (not force
-                and SunoCliProvider._auth_cache_cookie_hash == cookie_hash
-                and _t.time() < SunoCliProvider._auth_cache_until):
-            logger.info("Auth cache hit — skipping re-authentication")
-            return True
 
         # Step 1: run auth --cookie (no capture_output — needed for CLI internals)
         try:
@@ -393,10 +380,6 @@ class SunoCliProvider(ComposerProvider):
             data = _run_suno_json(["credits"], timeout=20, suno_bin=self._bin)
             credits = _extract_credits(data)
             logger.info("Auth verified — credits: %s", credits)
-            # Cache this successful auth for 4 minutes
-            import time as _t2
-            SunoCliProvider._auth_cache_until = _t2.time() + 240
-            SunoCliProvider._auth_cache_cookie_hash = cookie_hash
             return True
         except ProviderError as e:
             if e.status == "auth_required":
@@ -573,14 +556,10 @@ class SunoCliProvider(ComposerProvider):
             for attempt in range(1, max_attempts + 1):
                 try:
                     if attempt > 1:
-                        logger.info("CAPTCHA retry %d/%d", attempt, max_attempts)
-                        # Re-auth only every 3rd attempt (session likely still valid;
-                        # uses cache otherwise). Forces fresh auth on 3rd, 6th, 9th try.
-                        if attempt % 3 == 0:
-                            self._ensure_auth(force=True)
-                        else:
-                            self._ensure_auth()  # cached, near-instant
-                        # Longer backoff gives hCaptcha time to load: 3s,4s,5s...12s
+                        logger.info("CAPTCHA retry %d/%d — re-authenticating", attempt, max_attempts)
+                        # Re-auth before EVERY retry (fresh session each time)
+                        self._ensure_auth()
+                        # Backoff gives hCaptcha time to load: 3s,4.5s,6s...12s
                         delay = min(3 + (attempt - 2) * 1.5, 12)
                         _t.sleep(delay)
                     proc = _run_suno_raw(cmd, timeout=_GENERATE_TIMEOUT, suno_bin=self._bin)
