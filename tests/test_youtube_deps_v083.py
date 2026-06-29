@@ -64,10 +64,10 @@ def test_dependency_check_reports_available():
 
 
 def test_real_upload_disabled_when_google_libs_missing():
-    """The UI gates real upload on google_libs_available()."""
+    """The UI gates real upload on the dependency check."""
     src = Path("app/tabs/youtube_package.py").read_text(encoding="utf-8")
-    # The UI checks lib availability and disables the real-API checkbox
-    assert "google_libs_available" in src
+    # The UI checks lib availability (structured report) and disables the toggle
+    assert "check_youtube_api_dependencies" in src
     assert "disabled=not libs_ok" in src
 
 

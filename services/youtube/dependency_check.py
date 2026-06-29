@@ -61,3 +61,50 @@ def oauth_install_hint() -> str:
         "OAuth 인증에는 google-auth-oauthlib 설치가 필요합니다.\n"
         "설치: pip install google-auth-oauthlib google-auth"
     )
+
+# ─── v0.8.3 spec API (explicit function names + module-level checks) ─────────
+
+# Exact import targets the spec asks us to verify
+_SPEC_MODULES = [
+    ("googleapiclient.discovery", "google-api-python-client"),
+    ("googleapiclient.http", "google-api-python-client"),
+    ("google_auth_oauthlib.flow", "google-auth-oauthlib"),
+    ("google.oauth2.credentials", "google-auth"),
+    ("google.auth.transport.requests", "google-auth-httplib2"),
+]
+
+
+def get_missing_youtube_api_dependencies() -> list[str]:
+    """Return the unique pip package names whose modules are not importable."""
+    missing = []
+    for module_name, pip_name in _SPEC_MODULES:
+        if not _module_available(module_name) and pip_name not in missing:
+            missing.append(pip_name)
+    return missing
+
+
+def is_real_youtube_upload_available() -> bool:
+    """True only if every module needed for a real upload is importable."""
+    return len(get_missing_youtube_api_dependencies()) == 0
+
+
+def check_youtube_api_dependencies() -> dict:
+    """
+    Structured dependency report for the UI / worker.
+    {
+      "available": bool,
+      "missing": [pip names],
+      "message": str,
+    }
+    """
+    missing = get_missing_youtube_api_dependencies()
+    available = len(missing) == 0
+    if available:
+        message = "YouTube API dependencies 설치됨 — 실제 업로드 가능"
+    else:
+        message = (
+            "실제 YouTube 업로드를 위해 Google API dependencies 설치가 필요합니다. "
+            "pip install -r requirements.txt 실행 후 다시 시도하세요. "
+            f"(누락: {', '.join(missing)})"
+        )
+    return {"available": available, "missing": missing, "message": message}

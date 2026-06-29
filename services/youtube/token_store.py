@@ -15,6 +15,7 @@ from pathlib import Path
 
 # OAuth statuses surfaced to the UI (never the token itself)
 STATUS_NOT_CONFIGURED = "not_configured"
+STATUS_DEPENDENCIES_MISSING = "dependencies_missing"
 STATUS_CLIENT_LOADED = "client_secrets_loaded"
 STATUS_AUTHORIZED = "authorized"
 STATUS_EXPIRED = "token_expired"

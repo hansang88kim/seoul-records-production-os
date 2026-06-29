@@ -245,16 +245,18 @@ def _render_oauth_and_upload(pkg: dict, privacy: str):
     st.warning("YouTube API 업로드는 기본적으로 private로 진행됩니다. "
                "공개 전 YouTube Studio에서 직접 확인하세요.")
 
-    # v0.8.3: real-API dependency status
-    libs_ok = DEP.google_libs_available()
+    # v0.8.3: real-API dependency status (structured report)
+    dep_report = DEP.check_youtube_api_dependencies()
+    libs_ok = dep_report["available"]
     if libs_ok:
-        st.caption("🟢 Google API 라이브러리 설치됨 — 실제 업로드 가능")
+        st.success("✅ YouTube API dependencies: Ready — 실제 업로드 가능")
     else:
-        missing = DEP.missing_google_libs()
-        st.error("실제 YouTube 업로드를 위해 google-api-python-client / "
-                 "google-auth-oauthlib 설치가 필요합니다.")
-        st.caption(f"누락: {', '.join(missing)}")
-        st.code(f"pip install {' '.join(missing)}")
+        st.error("❌ YouTube API dependencies: Missing")
+        st.caption("실제 YouTube 업로드를 위해 google-api-python-client / "
+                   "google-auth-oauthlib 설치가 필요합니다. "
+                   "pip install -r requirements.txt 실행 후 다시 시도하세요.")
+        st.caption(f"누락 패키지: {', '.join(dep_report['missing'])}")
+        st.code("pip install -r requirements.txt")
 
     status = oauth.get_auth_status()
     status_labels = {

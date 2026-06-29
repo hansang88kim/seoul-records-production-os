@@ -38,6 +38,34 @@ def run_upload_job(upload_job_id: str, use_mock: bool = True,
                         last_message="인증 확인 중")
     append_upload_log(upload_job_id, "업로드 작업 시작")
 
+    # ── Worker-stage dependency guard (real mode only) ───────────────────
+    # If real API is requested but the Google libraries are missing, fail
+    # gracefully with a sanitized message. NEVER touch token/secret material.
+    if not use_mock:
+        from services.youtube.dependency_check import check_youtube_api_dependencies
+        dep = check_youtube_api_dependencies()
+        if not dep["available"]:
+            update_upload_state(
+                upload_job_id, status="failed",
+                completed_at=datetime.now(timezone.utc).isoformat(),
+                errors=state.get("errors", []) + dep["missing"],
+                last_message="YouTube API dependencies are missing",
+            )
+            append_upload_log(
+                upload_job_id,
+                "실제 업로드 불가 — Google API dependencies 누락: "
+                + ", ".join(dep["missing"]),
+                "error",
+            )
+            save_upload_result(upload_job_id, {
+                "upload_job_id": upload_job_id,
+                "package_id": state.get("package_id"),
+                "status": "failed", "video_id": None,
+                "errors": dep["missing"],
+                "warnings": ["real upload requires google api libraries"],
+            })
+            return
+
     # Load the payload snapshot
     jd = _job_path(upload_job_id)
     try:

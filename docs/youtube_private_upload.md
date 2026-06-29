@@ -17,6 +17,47 @@ The YouTube Package tab can now:
 
 You review the result in YouTube Studio and publish manually if and when you choose.
 
+
+## YouTube API dependency installation
+
+Real uploads require these Google libraries (already declared in
+`requirements.txt` and `pyproject.toml`):
+
+- `google-api-python-client`
+- `google-auth`
+- `google-auth-oauthlib`
+- `google-auth-httplib2`
+
+Install them:
+
+```
+pip install -r requirements.txt
+```
+
+Verify the install:
+
+```
+python -c "import googleapiclient; import google_auth_oauthlib; print('ok')"
+```
+
+If the YouTube Package tab shows **YouTube API dependencies: Missing**, run the
+install command above and reload the app. Until they are installed, the real-API
+toggle and the OAuth button are disabled — but **mock upload and Manual Package
+generation keep working**.
+
+### Troubleshooting
+
+- **`ModuleNotFoundError: googleapiclient`** — `google-api-python-client` is not
+  installed. Run `pip install -r requirements.txt`.
+- **`ModuleNotFoundError: google_auth_oauthlib`** — `google-auth-oauthlib` is not
+  installed. Run `pip install google-auth-oauthlib google-auth`.
+- **OAuth flow fails before the browser opens** — usually a missing
+  `google-auth-oauthlib`, or a malformed `client_secret.json`. Re-download the
+  OAuth client (Desktop app) and re-upload it.
+- **Dependency status is "Missing" in the UI** — the Python environment running
+  Streamlit does not have the libraries. Make sure you installed into the same
+  virtualenv that runs `streamlit run app/main.py`.
+
 ## Step-by-step
 
 ### 1. Create a Google Cloud project
