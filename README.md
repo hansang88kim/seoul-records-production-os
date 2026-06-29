@@ -1,6 +1,6 @@
 # Seoul Records Production OS
 
-**AI Music Label Production Harness — v1.0.0-alpha.4**
+**AI Music Label Production Harness — v1.0.0-alpha.5**
 
 > Creative direction: controlled by ChatGPT and the user.
 > Engineering: this repository.
@@ -77,6 +77,8 @@ to point the console at a live backend.
 ## What This Is
 
 Seoul Records Production OS is a local MVP application for creating AI-generated city pop album projects. It provides a full 5-tab production pipeline from song generation through music distribution, with mock providers for v0.1.x and a clear upgrade path to real integrations.
+
+**v1.0.0-alpha.5: Thumbnail Studio — Inline Image Preview — Prompt Lab now renders the generated thumbnails inline (a grid right under the generate button) instead of only listing prompt text, so "generate → see images" happens on one screen without switching to the Candidate Gallery tab. Failed generations surface their error inline, and mock outputs show a hint on how to enable real Gemini generation. Pure UI; backend + tests unchanged (642 passing).**
 
 **v1.0.0-alpha.4: Thumbnail Studio — Project Linking + Real Image Generation — Thumbnail Studio can now bind to a Song Lab project, so generated images save into that project's `thumbnails/` folder, kept separate from audio in `songs/` (same project directory, separate subfolders). Prompt Lab's batch (1/5/10) no longer just emits prompt text — it renders ACTUAL images through a provider abstraction: a zero-cost PIL mock by default, or the OFFICIAL Google Gemini API ("Nano Banana" = gemini-2.5-flash-image; Imagen 4 also supported) when "use real images" is enabled and `google-genai` + a `GEMINI_API_KEY` are present (Google Flow has no official developer API; we use the same underlying image model via the official Gemini API — API-key auth only, no browser automation, no CAPTCHA solving, key never logged). Country/theme/volume drive the prompts. Generated images flow straight into the existing Candidate Gallery → select → Brand Thumbnail (Canva) pipeline. New modules `services/thumbnail/image_provider.py` + `image_gen_deps.py`; `session_store` gains project binding + `generate_images`. 13 new mock-only tests (no network). `pip install google-genai` (or the `imagegen` extra) enables the real path.**
 

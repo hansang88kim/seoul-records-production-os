@@ -167,14 +167,40 @@ def _render_prompt_lab():
                 f"→ **Candidate Gallery** 탭에서 선택하세요. (세션: {sid})"
             )
 
-    # Show generated prompts
+    # Show generated images (inline preview) FIRST, then the prompts for reference.
     prompts = st.session_state.get("thumb_prompts", [])
+    sid = st.session_state.get("thumb_session_id")
+    if prompts and sid:
+        cands = ss.load_candidates(sid)
+        gen = [c for c in cands if c.get("uploaded_image_path")]
+        failed = [c for c in cands if c.get("status") == "generation_failed"]
+
+        st.divider()
+        st.markdown(f"#### 🖼️ 생성된 이미지 ({len(gen)}/{len(cands)})")
+        if gen:
+            ncol = min(3, len(gen))
+            cols = st.columns(ncol)
+            for idx, c in enumerate(gen):
+                fp = c["uploaded_image_path"]
+                with cols[idx % ncol]:
+                    if fp and Path(fp).exists():
+                        st.image(fp, use_container_width=True,
+                                 caption=f"{c['candidate_id']} · {c.get('concept', '')}")
+                    else:
+                        st.warning(f"{c['candidate_id']}: 파일을 찾을 수 없음")
+            if gen[0].get("gen_provider") == "mock":
+                st.caption("ℹ️ 목업(placeholder) 이미지입니다. 실제 생성: `pip install google-genai` + "
+                           "`GEMINI_API_KEY` 설정 후 위의 '실제 이미지 생성' 토글을 켜세요.")
+            st.caption("→ **🖼️ Candidate Gallery** 탭에서 이미지를 선택하면 Brand Thumbnail(Canva)로 넘어갑니다.")
+        if failed:
+            st.error(f"❌ {len(failed)}개 생성 실패 — 사유: {failed[0].get('gen_error') or '알 수 없음'}")
+        if not gen and not failed:
+            st.info("아직 생성된 이미지가 없습니다. 위에서 배치 수를 고르고 생성하세요.")
+
     if prompts:
         st.divider()
-        st.markdown(f"**생성된 프롬프트 ({len(prompts)}개)**")
-        st.caption("아래는 각 이미지에 사용된 프롬프트입니다 (참고/재현용). "
-                   "실제 생성된 이미지는 **Candidate Gallery** 탭에서 확인·선택하세요. "
-                   "이미지에는 텍스트/로고가 없습니다 (제목은 Canva가 입힙니다).")
+        st.markdown(f"**프롬프트 ({len(prompts)}개 · 참고/재현용)**")
+        st.caption("각 이미지에 사용된 프롬프트입니다. 이미지에는 텍스트/로고가 없습니다 (제목은 Canva가 입힙니다).")
 
         for i, p in enumerate(prompts, 1):
             with st.expander(f"#{i} · {p['scene']} · {p['title_safe_area']}", expanded=(i == 1)):
