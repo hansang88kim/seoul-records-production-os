@@ -216,3 +216,19 @@ def get_selected_candidates(session_id: str) -> list[dict]:
 
 def session_path(session_id: str) -> Path:
     return _studio_root() / session_id
+
+def inputs_match_session(session: dict, country: str, theme: str,
+                         title: str, volume: int, subtitle: str) -> bool:
+    """
+    Return True if the given inputs match the session's saved inputs.
+    Used to decide whether to reuse a session or create a fresh one.
+    """
+    if not session:
+        return False
+    return (
+        session.get("country") == country
+        and session.get("theme") == theme
+        and session.get("title") == title
+        and session.get("volume") == volume
+        and session.get("subtitle") == subtitle
+    )

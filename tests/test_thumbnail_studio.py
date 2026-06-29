@@ -282,3 +282,74 @@ def test_thumbnail_studio_renderable():
     """render_thumbnail_studio imports cleanly (no music dependency)."""
     from app.tabs.thumbnail_studio import render_thumbnail_studio
     assert callable(render_thumbnail_studio)
+
+
+# ─── New session on input change (v0.6.0 UX fix) ─────────────────────────────
+
+def test_new_thumbnail_session_created_when_country_changes():
+    """Changing country → inputs_match_session returns False → new session needed."""
+    from services.thumbnail import session_store as ss
+    sess = ss.create_session("korea", "rainy night", "CityPop Vol.1", 1, "sub")
+    # Same inputs → match
+    assert ss.inputs_match_session(sess, "korea", "rainy night", "CityPop Vol.1", 1, "sub")
+    # Country changed → no match (new session needed)
+    assert not ss.inputs_match_session(sess, "japan", "rainy night", "CityPop Vol.1", 1, "sub")
+
+
+def test_new_thumbnail_session_created_when_title_changes():
+    """Changing title → inputs_match_session returns False."""
+    from services.thumbnail import session_store as ss
+    sess = ss.create_session("korea", "night", "CityPop Vol.1", 1, "")
+    assert ss.inputs_match_session(sess, "korea", "night", "CityPop Vol.1", 1, "")
+    # Title changed
+    assert not ss.inputs_match_session(sess, "korea", "night", "CityPop Vol.2", 1, "")
+    # Volume changed
+    assert not ss.inputs_match_session(sess, "korea", "night", "CityPop Vol.1", 2, "")
+    # Subtitle changed
+    assert not ss.inputs_match_session(sess, "korea", "night", "CityPop Vol.1", 1, "new sub")
+    # Theme changed
+    assert not ss.inputs_match_session(sess, "korea", "day", "CityPop Vol.1", 1, "")
+
+
+def test_existing_session_assets_preserved_when_new_session_created():
+    """
+    When inputs change and a NEW session is created, the OLD session's
+    uploads/candidates/branding must be preserved on disk (not deleted).
+    """
+    from services.thumbnail import session_store as ss
+    from services.thumbnail.prompt_generator import generate_prompt_batch
+    from pathlib import Path
+
+    # Session 1: Korea, with prompts + an uploaded image
+    s1 = ss.create_session("korea", "night", "Korea Vol.1", 1, "")
+    ss.save_prompts(s1["session_id"], generate_prompt_batch("korea", "night", 3))
+    ss.upload_flow_image_bytes(s1["session_id"], "cand_001", b"korea_image", ".png")
+    ss.select_for_branding(s1["session_id"], "cand_001", True)
+
+    s1_candidates_before = ss.load_candidates(s1["session_id"])
+    s1_img_path = next(c["uploaded_image_path"] for c in s1_candidates_before
+                       if c["candidate_id"] == "cand_001")
+    assert Path(s1_img_path).exists()
+
+    # Inputs changed → create session 2 (Vietnam)
+    assert not ss.inputs_match_session(
+        ss.load_session(s1["session_id"]), "vietnam", "night", "Vietnam Vol.1", 1, ""
+    )
+    s2 = ss.create_session("vietnam", "night", "Vietnam Vol.1", 1, "")
+    ss.save_prompts(s2["session_id"], generate_prompt_batch("vietnam", "night", 3))
+
+    # Session 1 must be fully intact
+    assert s1["session_id"] != s2["session_id"]
+    assert ss.load_session(s1["session_id"]) is not None
+    assert ss.load_session(s1["session_id"])["country"] == "korea"
+    s1_candidates_after = ss.load_candidates(s1["session_id"])
+    assert len(s1_candidates_after) == 3
+    # The uploaded image still exists
+    assert Path(s1_img_path).exists()
+    # Branding selection preserved
+    selected = ss.get_selected_candidates(s1["session_id"])
+    assert len(selected) == 1
+
+    # Session 2 manifest has the NEW inputs (correct, not stale)
+    assert ss.load_session(s2["session_id"])["country"] == "vietnam"
+    assert ss.load_session(s2["session_id"])["title"] == "Vietnam Vol.1"

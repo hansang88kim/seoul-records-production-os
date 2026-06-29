@@ -75,18 +75,45 @@ def _render_prompt_lab():
 
     batch = st.radio("배치 수", [1, 5, 10], horizontal=True, key="thumb_batch")
 
-    if st.button(f"🎨 {batch}개 프롬프트 생성", type="primary", use_container_width=True):
-        # Create or reuse session
+    # Optional: explicit new-session button
+    col_gen, col_new = st.columns([3, 1])
+    with col_new:
+        force_new = st.button("🆕 새 세션", use_container_width=True,
+                              help="새 썸네일 세션을 시작합니다 (기존 세션 자산은 보존됨)")
+    with col_gen:
+        do_generate = st.button(f"🎨 {batch}개 프롬프트 생성", type="primary",
+                                use_container_width=True)
+
+    if force_new:
+        # Start a fresh session immediately
+        sess = ss.create_session(country_key, theme, title, volume, subtitle)
+        st.session_state["thumb_session_id"] = sess["session_id"]
+        st.session_state.pop("thumb_prompts", None)
+        st.session_state.pop("brand_results", None)
+        st.success(f"🆕 새 세션 시작: {sess['session_id']}")
+        st.rerun()
+
+    if do_generate:
+        # Decide whether to reuse the current session or create a new one.
+        # If inputs changed vs the saved session_manifest, start a fresh
+        # session so the manifest stays consistent. Old session + its
+        # uploads/candidates/branding are preserved on disk (not deleted).
         sid = st.session_state.get("thumb_session_id")
-        if not sid:
+        current_sess = ss.load_session(sid) if sid else None
+
+        if not sid or not ss.inputs_match_session(
+            current_sess, country_key, theme, title, volume, subtitle
+        ):
             sess = ss.create_session(country_key, theme, title, volume, subtitle)
             sid = sess["session_id"]
             st.session_state["thumb_session_id"] = sid
+            # Clear stale prompt/brand display from the previous session
+            st.session_state.pop("brand_results", None)
 
         prompts = generate_prompt_batch(country_key, theme, batch)
         ss.save_prompts(sid, prompts)
         st.session_state["thumb_prompts"] = prompts
-        st.success(f"✅ {batch}개 프롬프트 생성 완료! 아래에서 복사해 Google Flow에 붙여넣으세요.")
+        st.success(f"✅ {batch}개 프롬프트 생성 완료! (세션: {sid}) 아래에서 복사해 Google Flow에 붙여넣으세요.")
 
     # Show generated prompts
     prompts = st.session_state.get("thumb_prompts", [])
