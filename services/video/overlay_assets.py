@@ -216,3 +216,89 @@ def list_overlay_assets(session_path: str) -> list[dict]:
     if not d.exists():
         return []
     return [{"name": p.name, "path": str(p)} for p in sorted(d.glob("*.png"))]
+
+def save_uploaded_asset(session_path: str, role: str, data: bytes,
+                        track_no: int | None = None) -> str:
+    """Save an uploaded Canva PNG to the overlay_assets folder."""
+    d = overlay_dir(session_path)
+    if role == "cta":
+        name = "cta_sticker.png"
+    elif role == "frame":
+        name = "visualizer_frame.png"
+    elif role == "now_playing":
+        name = f"now_playing_{track_no:03d}.png"
+    elif role == "center":
+        name = "center_title.png"
+    else:
+        name = f"{role}.png"
+    path = d / name
+    path.write_bytes(data)
+    return str(path)
+
+
+def build_overlay_asset_library_with_uploads(
+    session_path: str,
+    playlist_plan: dict,
+    accent_color: str = "#ff4d6d",
+    cta_text: str = "구독 + 좋아요",
+    uploaded: dict | None = None,
+    make_center: bool = False,
+    center_title_text: str = "",
+) -> dict:
+    """
+    Build the overlay asset library, preferring UPLOADED Canva PNGs and falling
+    back to mock generation for anything not uploaded.
+
+    uploaded: {
+      "cta": bytes,
+      "frame": bytes,
+      "now_playing": [bytes, bytes, ...]   # per track, in order
+    }
+    """
+    uploaded = uploaded or {}
+
+    library = {
+        AT.NOW_PLAYING_CARD_ASSET: [],
+        AT.CTA_STICKER_ASSET: None,
+        AT.VISUALIZER_FRAME_ASSET: None,
+        AT.CENTER_TITLE_ASSET: None,
+    }
+
+    # Unique tracks in order
+    seen = {}
+    for entry in playlist_plan.get("entries", []):
+        name = entry["name"]
+        if name in seen:
+            continue
+        seen[name] = len(seen) + 1
+
+    # Now Playing — use uploaded per-track PNGs if provided, else mock
+    np_uploads = uploaded.get("now_playing") or []
+    for name, track_no in seen.items():
+        if track_no - 1 < len(np_uploads):
+            path = save_uploaded_asset(session_path, "now_playing",
+                                       np_uploads[track_no - 1], track_no)
+        else:
+            path = make_now_playing_card(session_path, track_no, name, accent_color)
+        if path:
+            library[AT.NOW_PLAYING_CARD_ASSET].append({
+                "track_no": track_no, "track_name": name, "path": path,
+            })
+
+    # CTA
+    if uploaded.get("cta"):
+        library[AT.CTA_STICKER_ASSET] = save_uploaded_asset(session_path, "cta", uploaded["cta"])
+    else:
+        library[AT.CTA_STICKER_ASSET] = make_cta_sticker(session_path, cta_text, accent_color)
+
+    # Visualizer frame
+    if uploaded.get("frame"):
+        library[AT.VISUALIZER_FRAME_ASSET] = save_uploaded_asset(session_path, "frame", uploaded["frame"])
+    else:
+        library[AT.VISUALIZER_FRAME_ASSET] = make_visualizer_frame(session_path, accent_color)
+
+    # Center title (optional)
+    if make_center and center_title_text:
+        library[AT.CENTER_TITLE_ASSET] = make_center_title(session_path, center_title_text, accent_color)
+
+    return library

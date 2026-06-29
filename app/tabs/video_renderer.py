@@ -15,7 +15,7 @@ import streamlit as st
 from services.video.playlist_builder import (
     scan_mp3_files, build_playlist_plan, format_chapters_txt,
 )
-from services.video.overlay_assets import build_overlay_asset_library
+from services.video.overlay_assets import build_overlay_asset_library, build_overlay_asset_library_with_uploads
 from services.video.visualizer import visualizer_config, VISUALIZER_STYLES
 from services.video import render_plan as rp
 from services.thumbnail import asset_types as AT
@@ -104,6 +104,35 @@ def render_video_renderer():
         en_center = st.checkbox("중앙 타이틀", value=False, key="vr_center",
                                help="기본 OFF — 재생 영상에는 보통 사용하지 않습니다.")
 
+    # Asset source: Canva uploads vs mock
+    asset_mode = st.radio(
+        "오버레이 자산 소스",
+        ["Canva PNG 업로드", "Mock 자산 (테스트용 자동 생성)"],
+        horizontal=True, key="vr_asset_mode",
+        help="실제 사용 시 Canva에서 export한 PNG를 업로드하세요. Mock은 테스트 fallback입니다.",
+    )
+    uploaded_assets = {}
+    if asset_mode.startswith("Canva"):
+        with st.expander("📤 Canva PNG 업로드", expanded=True):
+            up_cta = st.file_uploader("CTA 스티커 PNG", type=["png"], key="vr_up_cta")
+            up_frame = st.file_uploader("비주얼라이저 프레임 PNG", type=["png"], key="vr_up_frame")
+            up_now = st.file_uploader(
+                "Now Playing 카드 PNG (트랙 순서대로 여러 개)", type=["png"],
+                accept_multiple_files=True, key="vr_up_now",
+            )
+            if up_cta:
+                uploaded_assets["cta"] = up_cta
+            if up_frame:
+                uploaded_assets["frame"] = up_frame
+            if up_now:
+                uploaded_assets["now_playing"] = up_now
+            st.caption("업로드하지 않은 항목은 Mock으로 자동 대체됩니다.")
+
+    st.session_state["vr_preview_cta"] = st.checkbox(
+        "프리뷰에서 CTA 즉시 표시 (Preview CTA Now)", value=True, key="vr_prev_cta",
+        help="프리뷰 짧은 클립 동안 CTA 스티커를 계속 보여줍니다.",
+    )
+
     # ── 4. Visualizer ────────────────────────────────────────────────
     if en_viz:
         st.markdown("#### 4️⃣ 비주얼라이저 (오디오 반응형)")
@@ -143,10 +172,18 @@ def render_video_renderer():
 
     if prev15 or prev30 or full:
         accent = viz_cfg.get("color", "#ff4d6d")
-        # Generate Canva overlay PNGs
-        lib = build_overlay_asset_library(session_path, plan, accent,
-                                          make_center=en_center,
-                                          center_title_text=selected_tracks[0]["name"])
+        # Build overlay PNGs — prefer uploaded Canva assets, fall back to mock
+        uploaded_bytes = {}
+        if uploaded_assets.get("cta"):
+            uploaded_bytes["cta"] = uploaded_assets["cta"].getvalue()
+        if uploaded_assets.get("frame"):
+            uploaded_bytes["frame"] = uploaded_assets["frame"].getvalue()
+        if uploaded_assets.get("now_playing"):
+            uploaded_bytes["now_playing"] = [f.getvalue() for f in uploaded_assets["now_playing"]]
+        lib = build_overlay_asset_library_with_uploads(
+            session_path, plan, accent, uploaded=uploaded_bytes,
+            make_center=en_center, center_title_text=selected_tracks[0]["name"],
+        )
         plans = rp.build_render_plan(
             session_path, plan, bg_info, lib, viz_cfg,
             enable_now_playing=en_now, enable_cta=en_cta,
@@ -157,11 +194,17 @@ def render_video_renderer():
 
         if prev15 or prev30:
             seconds = 15 if prev15 else 30
-            cmd = rp.build_preview_command(concat, bg_info.get("path") or "", out_dir, seconds)
+            cmd = rp.build_preview_command(
+                concat, bg_info.get("path") or "", out_dir, seconds,
+                render_plan=plans["render_plan"], overlay_plan=plans["overlay_plan"],
+                preview_cta_now=st.session_state.get("vr_preview_cta", True),
+            )
             _run_or_show(cmd, f"{seconds}초 프리뷰")
         else:
-            cmd = rp.build_full_render_command(concat, bg_info.get("path") or "", out_dir,
-                                               plan["total_seconds"])
+            cmd = rp.build_full_render_command(
+                concat, bg_info.get("path") or "", out_dir, plan["total_seconds"],
+                render_plan=plans["render_plan"], overlay_plan=plans["overlay_plan"],
+            )
             _run_or_show(cmd, "전체 영상")
 
         # Show generated plans

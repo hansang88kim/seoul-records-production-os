@@ -187,30 +187,91 @@ def build_render_plan(
     return {"overlay_plan": overlay_plan, "render_plan": render_plan}
 
 
+def _build_overlay_aware_command(
+    concat_list: str,
+    background_path: str,
+    out_dir: str,
+    duration: int,
+    out_filename: str,
+    render_plan: dict | None = None,
+    overlay_plan: dict | None = None,
+    preview_seconds: int | None = None,
+    preview_cta_now: bool = False,
+) -> dict:
+    """
+    Core builder. If an overlay_plan is given, composes a real -filter_complex
+    with the visualizer + Canva PNG overlays (Now Playing / CTA / frame /
+    center / grain). Otherwise falls back to a simple bg+audio render.
+
+    Input order: 0=background (loop), 1=MP3 concat audio, 2..=overlay PNGs.
+    """
+    from services.video.filter_complex_builder import (
+        build_video_filter_complex, AUDIO_INPUT,
+    )
+
+    out_path = str(Path(out_dir) / out_filename)
+    bg = background_path or ""
+
+    # Base inputs: background (looped) + MP3 concat audio
+    cmd = [
+        "ffmpeg", "-y",
+        "-loop", "1", "-i", bg,
+        "-f", "concat", "-safe", "0", "-i", concat_list,
+    ]
+
+    if overlay_plan:
+        fc = build_video_filter_complex(
+            render_plan or {}, overlay_plan,
+            preview_seconds=preview_seconds, preview_cta_now=preview_cta_now,
+        )
+        # Add overlay PNG inputs in index order (start at input 2)
+        for ov in fc["overlay_inputs"]:
+            cmd += ["-i", ov["path"]]
+
+        cmd += [
+            "-filter_complex", fc["filter_complex"],
+            "-map", fc["final_video_label"],
+            "-map", fc["map_audio"],
+            "-t", str(int(duration)),
+            "-c:v", "libx264", "-pix_fmt", "yuv420p",
+            "-c:a", "aac", "-shortest",
+            out_path,
+        ]
+    else:
+        # Fallback: simple bg + audio (no overlays)
+        cmd += [
+            "-t", str(int(duration)),
+            "-vf", "scale=1920:1080",
+            "-c:v", "libx264", "-pix_fmt", "yuv420p",
+            "-c:a", "aac", "-shortest",
+            out_path,
+        ]
+
+    return {"command": cmd, "output": out_path}
+
+
 def build_preview_command(
     concat_list: str,
     background_path: str,
     out_dir: str,
     seconds: int = 30,
+    render_plan: dict | None = None,
+    overlay_plan: dict | None = None,
+    preview_cta_now: bool = False,
 ) -> dict:
     """
-    Build a short preview render command (15s / 30s) so the user can check the
+    Build a short preview render command (15s / 30s) that includes the REAL
+    overlay composition (visualizer + Canva PNGs) so the user can check the
     visual effects before the full render. MP3 input, no WAV.
-    Returns {"command": [...], "output": path}.
     """
-    out_path = str(Path(out_dir) / f"preview_{seconds}s.mp4")
-    bg = background_path or ""
-    cmd = [
-        "ffmpeg", "-y",
-        "-loop", "1", "-i", bg,                         # background image
-        "-f", "concat", "-safe", "0", "-i", concat_list,  # MP3 audio
-        "-t", str(seconds),
-        "-vf", "scale=1920:1080",
-        "-c:v", "libx264", "-pix_fmt", "yuv420p",
-        "-c:a", "aac", "-shortest",
-        out_path,
-    ]
-    return {"command": cmd, "output": out_path, "seconds": seconds}
+    result = _build_overlay_aware_command(
+        concat_list, background_path, out_dir, seconds,
+        f"preview_{seconds}s.mp4",
+        render_plan=render_plan, overlay_plan=overlay_plan,
+        preview_seconds=seconds, preview_cta_now=preview_cta_now,
+    )
+    result["seconds"] = seconds
+    return result
 
 
 def build_full_render_command(
@@ -218,21 +279,19 @@ def build_full_render_command(
     background_path: str,
     out_dir: str,
     total_seconds: float,
+    render_plan: dict | None = None,
+    overlay_plan: dict | None = None,
 ) -> dict:
-    """Build the full-length render command. MP3 input, 16:9, no WAV."""
-    out_path = str(Path(out_dir) / "final_video.mp4")
-    bg = background_path or ""
-    cmd = [
-        "ffmpeg", "-y",
-        "-loop", "1", "-i", bg,
-        "-f", "concat", "-safe", "0", "-i", concat_list,
-        "-t", str(int(total_seconds)),
-        "-vf", "scale=1920:1080",
-        "-c:v", "libx264", "-pix_fmt", "yuv420p",
-        "-c:a", "aac", "-shortest",
-        out_path,
-    ]
-    return {"command": cmd, "output": out_path}
+    """
+    Build the full-length render command with the REAL overlay composition.
+    MP3 input, 16:9, no WAV.
+    """
+    return _build_overlay_aware_command(
+        concat_list, background_path, out_dir, int(total_seconds),
+        "final_video.mp4",
+        render_plan=render_plan, overlay_plan=overlay_plan,
+        preview_seconds=None,
+    )
 
 
 def save_plans(out_dir: str, plans: dict, playlist_plan: dict) -> dict:
