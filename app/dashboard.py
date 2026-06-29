@@ -101,7 +101,9 @@ def render_production_tabs():
         from app.tabs.thumbnail_studio import render_thumbnail_studio
         render_thumbnail_studio()
     with tab3:
-        render_tab_video()
+        # v0.7.1: MP3-first Video Renderer (Canva overlays + audio-reactive visualizer)
+        from app.tabs.video_renderer import render_video_renderer
+        render_video_renderer()
     with tab4:
         render_tab_youtube()
     with tab5:

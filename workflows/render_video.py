@@ -84,6 +84,7 @@ def export_video_package(
     manifest: ProjectManifest,
     output_folder: Path,
     background_image_path: Path | None = None,
+    make_audio_mix: bool = False,
 ) -> dict:
     """
     Generate timestamps, chapters, FFmpeg command, and optionally render video.
@@ -116,10 +117,19 @@ def export_video_package(
         abs_str = abs_str.replace("'", "'\\''")
         return f"file '{abs_str}'"
 
+    # MP3-first: accept selected_wav_path OR any selected audio (mp3/wav).
+    # No WAV is required; MP3 inputs are fully supported.
     audio_lines = []
     for t in tracks:
-        if t.selected_wav_path and Path(t.selected_wav_path).exists():
-            audio_lines.append(_ffmpeg_path_escape(Path(t.selected_wav_path)))
+        audio_path = None
+        # Prefer an explicitly selected file (could be mp3 or wav)
+        for attr in ("selected_wav_path", "selected_audio_path", "file_path"):
+            val = getattr(t, attr, None)
+            if val and Path(val).exists():
+                audio_path = Path(val)
+                break
+        if audio_path:
+            audio_lines.append(_ffmpeg_path_escape(audio_path))
     audio_list_path = input_dir / "selected_audio_list.txt"
     audio_list_path.write_text("\n".join(audio_lines), encoding="utf-8")
 
@@ -184,20 +194,24 @@ def export_video_package(
             log_action(output_folder, "video_render", "ffmpeg_render_failed",
                        {"error": str(e)}, level="WARNING", project_id=manifest.project_id)
 
-        # ── 4b: Generate final_audio_mix.wav (audio-only concat pass) ────────
-        try:
-            audio_mix_path = out_dir / "final_audio_mix.wav"
-            audio_mix_cmd = (
-                f'ffmpeg -y -f concat -safe 0 -i "{audio_list_path}" '
-                f'-c:a pcm_s16le "{audio_mix_path}"'
-            )
-            mix_result = subprocess.run(
-                audio_mix_cmd, shell=True, capture_output=True, text=True, timeout=300
-            )
-            if mix_result.returncode != 0 or not audio_mix_path.exists():
+        # ── 4b: Generate final_audio_mix.mp3 (OPTIONAL audio-only concat) ────
+        # MP3-first: no WAV is created by default and no fake WAV is ever made.
+        # Set make_audio_mix=True to produce an MP3 mix.
+        audio_mix_path = None
+        if make_audio_mix:
+            try:
+                audio_mix_path = out_dir / "final_audio_mix.mp3"
+                audio_mix_cmd = (
+                    f'ffmpeg -y -f concat -safe 0 -i "{audio_list_path}" '
+                    f'-c:a libmp3lame -q:a 2 "{audio_mix_path}"'
+                )
+                mix_result = subprocess.run(
+                    audio_mix_cmd, shell=True, capture_output=True, text=True, timeout=300
+                )
+                if mix_result.returncode != 0 or not audio_mix_path.exists():
+                    audio_mix_path = None
+            except Exception:
                 audio_mix_path = None
-        except Exception:
-            audio_mix_path = None
     elif not _ffmpeg_available():
         log_action(output_folder, "video_render", "ffmpeg_not_available",
                    {"note": "install ffmpeg to render video"},
