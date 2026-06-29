@@ -8,8 +8,14 @@ import streamlit as st
 from providers.ai.base import get_ai_provider, get_available_ai_providers, SongPromptPackage
 
 DEFAULT_EXCLUDE = (
-    "sax lead, strong sax, drum fill-ins, tom fills, snare rolls, "
-    "trot, enka, EDM, bleepy sounds, toy percussion"
+    # Instruments / genre exclusions
+    "sax lead, strong sax, drum fill-ins, excessive drum fills, busy drum fills, "
+    "tom fills, snare rolls, drum rolls, cymbal crashes, "
+    "trot, enka, EDM, rock, hard rock, bleepy sounds, toy percussion, "
+    # Vocal exclusions — city pop is gentle and lyrical, NOT belted rock
+    "high belting, belting, powerful belting, screaming vocals, shouting, "
+    "loud high notes, soaring high notes, rock vocals, aggressive vocals, "
+    "vocal runs, melisma, riffing"
 )
 
 # Suno-style negative prompt: prepend "-" to each exclude term
@@ -20,10 +26,13 @@ def _format_exclude_as_negatives(exclude_str: str) -> str:
 CITYPOP_STYLE_PRESET = (
     "Authentic 1980s-1990s Japanese city pop, golden-age Tokyo sound, "
     "lush warm electric piano, glossy analog synths, smooth jazzy chord changes, "
-    "silky funk guitar, melodic fretless bass, tight clean drums, C major, BPM 112, "
-    "emotional low female vocal with warm reverb and tender vibrato, "
-    "deeply nostalgic and bittersweet, sophisticated mellow groove, "
-    "the wistful loneliness of city nights, vintage tape warmth"
+    "silky funk guitar, melodic fretless bass, soft steady drums with minimal fills, "
+    "C major, BPM 112, "
+    "gentle restrained low female vocal, soft and lyrical, never belting, "
+    "calm even dynamics throughout, warm reverb and tender vibrato, "
+    "deeply nostalgic and bittersweet, mellow and laid-back, sophisticated and smooth, "
+    "the wistful loneliness of city nights, vintage tape warmth, "
+    "consistent soft dynamics, no loud climaxes, no high belting"
 )
 
 SUNO_MODELS = ["v5.5", "v5", "v4.5", "v4", "v3.5"]

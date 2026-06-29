@@ -461,3 +461,57 @@ def test_apply_variation_sets_male_vocal():
             assert "male vocal" in style.lower()
         else:
             assert "female vocal" in style.lower()
+
+
+# ─── Gentle city pop (no belting, minimal drum fills) ────────────────────────
+
+def test_exclude_bans_belting():
+    """DEFAULT_EXCLUDE must ban high belting / rock vocals."""
+    from app.ui.composer_panel import DEFAULT_EXCLUDE
+    for term in ["high belting", "belting", "rock vocals", "soaring high notes", "shouting"]:
+        assert term in DEFAULT_EXCLUDE, f"'{term}' should be excluded"
+
+
+def test_exclude_bans_excessive_drum_fills():
+    """DEFAULT_EXCLUDE must ban excessive drum fills (뽕짝 feel)."""
+    from app.ui.composer_panel import DEFAULT_EXCLUDE
+    for term in ["excessive drum fills", "busy drum fills", "tom fills", "snare rolls"]:
+        assert term in DEFAULT_EXCLUDE, f"'{term}' should be excluded"
+
+
+def test_preset_emphasizes_gentle_vocals():
+    """Style preset must emphasize gentle/restrained, never belting."""
+    from app.ui.composer_panel import CITYPOP_STYLE_PRESET
+    preset = CITYPOP_STYLE_PRESET.lower()
+    assert "never belting" in preset or "no high belting" in preset
+    assert "gentle" in preset or "restrained" in preset
+    assert "minimal fills" in preset or "minimal drum" in preset
+
+
+def test_vocal_tones_are_restrained():
+    """All batch vocal tones should be gentle/soft, none encourage belting."""
+    from providers.ai.base import _BATCH_FEMALE_VOCALS, _BATCH_MALE_VOCALS
+    for tone in _BATCH_FEMALE_VOCALS + _BATCH_MALE_VOCALS:
+        t = tone.lower()
+        # Each tone should signal restraint
+        assert any(word in t for word in ["gentle", "soft", "restrained", "tender",
+                                           "calm", "mellow", "quiet", "breathy", "smooth"]), \
+            f"Tone not restrained: {tone}"
+        # And explicitly not belting
+        assert "belting" not in t or "never belting" in t or "no" in t
+
+
+def test_system_prompt_discourages_belting():
+    """System prompt must tell the AI to keep vocals gentle, not belted."""
+    from providers.ai.base import SYSTEM_PROMPT
+    sp = SYSTEM_PROMPT.lower()
+    assert "belting" in sp  # mentioned (to forbid it)
+    assert "gentle" in sp or "restrained" in sp
+
+
+def test_apply_variation_keeps_minimal_drums():
+    """Variation preserves the 'minimal fills' drum direction."""
+    from providers.ai.base import apply_batch_variation
+    from app.ui.composer_panel import CITYPOP_STYLE_PRESET
+    v = apply_batch_variation(CITYPOP_STYLE_PRESET, 0, 10)
+    assert "minimal fills" in v.lower() or "soft steady drums" in v.lower()

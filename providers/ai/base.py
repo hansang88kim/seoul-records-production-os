@@ -55,14 +55,16 @@ Required elements (vary each time):
 - Chords: smooth jazzy chord changes, sophisticated jazz chord voicings
 - Guitar: silky funk guitar, smooth funk guitar comping
 - Bass: melodic fretless bass, melodic bass lines (signature citypop)
-- Drums: tight clean drums, gentle tight drums
-- Vocal: "emotional/tender low female vocal with warm/vintage reverb and subtle vibrato"
+- Drums: soft steady drums with MINIMAL fills — no busy drum fills, no tom fills, no snare rolls (excessive fills sound like trot/뽕짝, WRONG for city pop)
+- Vocal: GENTLE, restrained, soft and lyrical low female vocal with warm reverb and tender vibrato. City pop vocals are quiet, intimate, and even — NEVER belting, NEVER soaring high notes, NEVER rock-style shouting.
+- DYNAMICS: keep dynamics calm and even THROUGHOUT, including the Final Chorus. City pop builds emotion through warmth and nuance, NOT through loud high belting. The Final Chorus should stay soft and lyrical, just slightly fuller — never a loud rock climax.
 - MOOD (critical): deeply nostalgic, bittersweet, sophisticated, the wistful/quiet loneliness of city nights, late-night city melancholy, golden-age warmth
 
 AVOID these words: bright, summer, crisp, upbeat, sparkling, refreshing, sunny, calm, dreamy, laid-back. Always say "Japanese city pop". Those are WRONG for this mood.
-USE these: nostalgic, bittersweet, mellow, sophisticated, wistful, warm, emotional, golden-age, lush, silky, tender, lonely city nights.
+AVOID these sounds: high belting, powerful belting, soaring high notes, rock vocals, screaming, busy drum fills, tom fills, snare rolls (these break the gentle city pop mood).
+USE these: nostalgic, bittersweet, mellow, sophisticated, wistful, warm, gentle, restrained, soft, lyrical, smooth, golden-age, lush, silky, tender, lonely city nights.
 
-CRITICAL: NEVER mention saxophone, sax, brass solos, or horn leads. Keys+guitar+synth driven."""
+CRITICAL: NEVER mention saxophone, sax, brass solos, or horn leads. Keys+guitar+synth driven. Vocals stay gentle and soft — city pop is serene and lyrical, NOT rock."""
 
 
 def build_system_prompt(lang_key: str = DEFAULT_LANGUAGE) -> str:
@@ -94,7 +96,7 @@ THIS SONG'S LANGUAGE & CITY:
 
 CRITICAL RULES:
 - Language: {lyric_lang} lyrics only (section labels + production cues in headers stay in English)
-- Vocal: Low, mature, expressive female vocal with retro reverb and subtle vibrato
+- Vocal: Low, gentle, restrained female vocal with retro reverb and subtle vibrato — soft and lyrical, never belting
 - BPM: 108-116 (usually 112)
 - Key: BOTH major and minor are good (major = brighter nostalgic, minor = wistful bittersweet)
 - Duration: MUST be 3:30 or SHORTER. Keep lyrics SHORT.
@@ -163,7 +165,7 @@ STRUCTURE (10 sections — this length produces ~3:30-3:50):
 ← exactly 4 lines, in parentheses (reflective inner voice)
 
 [Final Chorus]
-← exactly 4 lines (climactic, strongest emotional moment)
+← exactly 4 lines (emotionally resonant but SOFT — slightly fuller than the chorus, NOT a loud climax; city pop stays gentle and lyrical here, no belting)
 
 [Outro]
 ← exactly 2 lines
@@ -314,22 +316,22 @@ _BATCH_KEYS = [
     "E minor", "Bb major", "C# minor", "Eb major", "F# minor",
     "Ab major", "B minor", "D major", "G# minor",
 ]
-# Female vocal tones — low to mid range, early-20s to mid-30s feel
+# Female vocal tones — low to mid range, gentle and restrained (NO belting)
 _BATCH_FEMALE_VOCALS = [
-    "emotional low female vocal, early-20s warmth, warm reverb and tender vibrato",
-    "husky low-alto female vocal, mid-30s maturity, vintage plate reverb and gentle vibrato",
-    "intimate mid-low female vocal, late-20s softness, soft reverb and subtle warmth",
-    "calm smoky mid-range female vocal, early-30s composure, warm analog reverb",
-    "breath-led low female vocal, early-20s freshness, vintage reverb and airy vibrato",
-    "tender mid-low female vocal, mid-20s tenderness, glossy reverb and soft vibrato",
+    "gentle low female vocal, early-20s warmth, soft and restrained, warm reverb and tender vibrato, never belting",
+    "soft husky low-alto female vocal, mid-30s maturity, calm and lyrical, vintage plate reverb, no loud high notes",
+    "intimate mid-low female vocal, late-20s softness, breathy and tender, soft reverb, even gentle dynamics",
+    "calm smoky mid-range female vocal, early-30s composure, mellow and laid-back, warm analog reverb, no belting",
+    "breath-led low female vocal, early-20s freshness, airy and soft, vintage reverb, restrained delivery",
+    "tender mid-low female vocal, mid-20s tenderness, smooth and quiet, glossy reverb, no soaring high notes",
 ]
 
-# Male vocal tones — low to mid range, early-20s to mid-30s feel
+# Male vocal tones — low to mid range, gentle and restrained (NO belting)
 _BATCH_MALE_VOCALS = [
-    "warm low male vocal, mid-30s maturity, smooth baritone with vintage reverb",
-    "gentle mid-range male vocal, late-20s softness, breathy tenor with warm reverb",
-    "mellow low male vocal, early-30s composure, rich baritone with subtle vibrato",
-    "tender mid-low male vocal, early-20s freshness, soft tenor with gentle reverb",
+    "warm low male vocal, mid-30s maturity, smooth gentle baritone, soft delivery, vintage reverb, never belting",
+    "soft mid-range male vocal, late-20s softness, breathy tender tenor, warm reverb, calm even dynamics",
+    "mellow low male vocal, early-30s composure, rich quiet baritone, subtle vibrato, no loud high notes",
+    "tender mid-low male vocal, early-20s freshness, soft restrained tenor, gentle reverb, laid-back",
 ]
 
 # Backward compat alias
@@ -611,7 +613,7 @@ def _title_from_lyrics(lyrics: str) -> str:
 MOCK_SONGS = [
     SongPromptPackage(
         title="밤이 지나면",
-        style="Authentic 1980s-1990s Japanese city pop, golden-age Tokyo sound, lush warm electric piano, glossy analog synths, smooth jazzy chord changes, silky funk guitar, melodic fretless bass, tight clean drums, C major, BPM 112, emotional low female vocal with warm reverb and tender vibrato, deeply nostalgic and bittersweet, sophisticated mellow groove, the wistful loneliness of city nights, vintage tape warmth",
+        style="Authentic 1980s-1990s Japanese city pop, golden-age Tokyo sound, lush warm electric piano, glossy analog synths, smooth jazzy chord changes, silky funk guitar, melodic fretless bass, soft steady drums with minimal fills, C major, BPM 112, gentle restrained low female vocal, soft and lyrical never belting, warm reverb and tender vibrato, deeply nostalgic and bittersweet, mellow and laid-back, calm even dynamics, the wistful loneliness of city nights, vintage tape warmth",
         lyrics="""[Intro]
 (2마디 음원 (instrumental only))
 
@@ -669,7 +671,7 @@ MOCK_SONGS = [
     ),
     SongPromptPackage(
         title="늦은 대답",
-        style="Classic Japanese city pop (late 80s golden age), warm Rhodes electric piano, lush analog synth pads, sophisticated jazzy chords, smooth funk guitar comping, melodic bass lines, gentle tight drums, B minor, BPM 110, husky low female vocal with vintage plate reverb and gentle vibrato, deeply nostalgic mellow groove, bittersweet late-night city melancholy, vintage tape warmth",
+        style="Classic Japanese city pop (late 80s golden age), warm Rhodes electric piano, lush analog synth pads, sophisticated jazzy chords, smooth funk guitar comping, melodic bass lines, soft steady drums with minimal fills, B minor, BPM 110, gentle husky low female vocal, soft and restrained never belting, vintage plate reverb and gentle vibrato, deeply nostalgic and mellow, calm even dynamics, bittersweet late-night city melancholy, vintage tape warmth",
         lyrics="""[Intro]
 (2마디 음원 (instrumental only))
 
