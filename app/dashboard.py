@@ -113,9 +113,15 @@ def render_production_tabs():
 
 
 def render_home_tabs():
-    """Home screen: Song Lab + Thumbnail Studio + Project management in tabs."""
-    tab_lab, tab_thumb, tab_project = st.tabs(
-        ["🎵 Song Lab", "🖼️ Thumbnail Studio", "📁 프로젝트 관리"]
+    """
+    Home screen tabs. v0.8.1: Video Renderer and YouTube Package are now
+    available here too — they scan the global outputs/ folder and do not need
+    an open project. Song Lab / Thumbnail Studio / Project management keep
+    their existing behavior; only tab exposure changed (no logic changes).
+    """
+    tab_lab, tab_thumb, tab_video, tab_youtube, tab_project = st.tabs(
+        ["🎵 Song Lab", "🖼️ Thumbnail Studio", "🎬 Video Renderer",
+         "▶️ YouTube Package", "📁 프로젝트 관리"]
     )
 
     with tab_lab:
@@ -124,6 +130,20 @@ def render_home_tabs():
     with tab_thumb:
         from app.tabs.thumbnail_studio import render_thumbnail_studio
         render_thumbnail_studio()
+
+    with tab_video:
+        # v0.8.1: usable without an open project (scans outputs/ globally)
+        st.info("프로젝트를 열지 않아도 기존 outputs 폴더의 MP3와 썸네일을 "
+                "선택해 영상을 만들 수 있습니다.")
+        from app.tabs.video_renderer import render_video_renderer
+        render_video_renderer()
+
+    with tab_youtube:
+        # v0.8.1: usable without an open project (scans outputs/ globally)
+        st.info("생성된 final_video.mp4와 YouTube 썸네일을 선택해 "
+                "업로드 패키지를 만들 수 있습니다.")
+        from app.tabs.youtube_package import render_youtube_package
+        render_youtube_package()
 
     with tab_project:
         render_project_screen()

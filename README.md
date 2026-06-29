@@ -1,6 +1,6 @@
 # Seoul Records Production OS
 
-**AI Music Label Production Harness — v0.8.0**
+**AI Music Label Production Harness — v0.8.1**
 
 > Creative direction: controlled by ChatGPT and the user.
 > Engineering: this repository.
@@ -50,6 +50,8 @@
 ## What This Is
 
 Seoul Records Production OS is a local MVP application for creating AI-generated city pop album projects. It provides a full 5-tab production pipeline from song generation through music distribution, with mock providers for v0.1.x and a clear upgrade path to real integrations.
+
+**v0.8.1: Home Navigation UX — Video Renderer and YouTube Package are now reachable from the home screen (no open project required); both scan the global outputs/ folder, so MP3s, thumbnails, final_video.mp4, and chapters can be selected without opening a project. Tab exposure only — no changes to music generation, Thumbnail Studio, Video Renderer, or YouTube Package logic.**
 
 **v0.8.0: YouTube Package Studio — a new top tab builds a complete YouTube upload package from final_video.mp4 + youtube_thumbnail_16x9 + chapters.txt. Generates title/description/tags/hashtags/pinned comment + a copy-ready chapters section (Korean preserved, no mojibake), validates the thumbnail (16:9, ≤2MB, compresses over-size into a separate upload-ready file without overwriting the original), writes a YouTube upload payload (privacyStatus private by default), an upload checklist, package_manifest.json, and an optional manual_upload_package.zip. Upload mode defaults to Manual Package Only; optional API upload is private-default and uses a mock client (no real API calls, OAuth tokens/Authorization headers always redacted). Music generation, Thumbnail Studio, and Video Renderer are untouched.**
 
@@ -165,7 +167,7 @@ seoul-records-production-os/
 
 ## Production Tabs
 
-| Tab | Purpose | v0.8.0 Status |
+| Tab | Purpose | v0.8.1 Status |
 |-----|---------|---------------|
 | 🎵 Song Generation | Prompt generation, mock Suno, WAV import, candidate selection | ✅ Mock + Manual Import |
 | 🖼 Thumbnail & Cover | 16:9 YouTube thumbnail + 1:1 DSP cover | ✅ Mock (Pillow) |
