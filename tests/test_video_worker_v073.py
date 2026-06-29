@@ -112,7 +112,7 @@ def test_ffmpeg_progress_jsonl_written(render_setup):
     append_progress(jid, {"out_time_ms": "10000000", "speed": "2.4x", "progress": "continue"})
     p = _jobs_dir() / jid / "ffmpeg_progress.jsonl"
     assert p.exists()
-    lines = p.read_text().strip().splitlines()
+    lines = p.read_text(encoding="utf-8").strip().splitlines()
     assert len(lines) == 2
     rec = json.loads(lines[0])
     assert rec["speed"] == "2.5x"

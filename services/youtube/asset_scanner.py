@@ -27,7 +27,7 @@ def _video_duration(path: str) -> float:
         out = subprocess.run(
             ["ffprobe", "-v", "quiet", "-print_format", "json",
              "-show_format", path],
-            capture_output=True, text=True, timeout=30,
+            capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=30,
         )
         if out.returncode == 0:
             data = json.loads(out.stdout)

@@ -142,7 +142,7 @@ def test_upload_progress_jsonl_written(tmp_path):
     run_upload_job(jid, use_mock=True)
     p = _jobs_dir() / jid / "upload_progress.jsonl"
     assert p.exists()
-    assert len(p.read_text().strip().splitlines()) >= 1
+    assert len(p.read_text(encoding="utf-8").strip().splitlines()) >= 1
 
 
 def test_upload_result_json_created(tmp_path):
@@ -154,7 +154,7 @@ def test_upload_result_json_created(tmp_path):
     run_upload_job(jid, use_mock=True)
     rp = _jobs_dir() / jid / "upload_result.json"
     assert rp.exists()
-    result = json.loads(rp.read_text())
+    result = json.loads(rp.read_text(encoding="utf-8"))
     assert result["status"] in ("completed", "partial_success")
     assert result["video_id"]
 

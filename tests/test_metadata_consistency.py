@@ -121,8 +121,8 @@ def test_cookie_value_not_in_manifest(tmp_path):
         "songs": [{"title": "곡", "status": "completed", "cookie": "REDACTED"}],
     }
     path = tmp_path / "manifest.json"
-    path.write_text(json.dumps(manifest))
-    content = path.read_text()
+    path.write_text(json.dumps(manifest), encoding="utf-8")
+    content = path.read_text(encoding="utf-8")
     # The cookie key exists but is redacted
     assert "REDACTED" in content or "cookie" not in content.lower()
 

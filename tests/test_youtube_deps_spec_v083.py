@@ -121,7 +121,7 @@ def test_worker_fails_gracefully_when_real_api_dependencies_missing(upload_tmp):
     assert "dependencies are missing" in state["last_message"].lower()
     assert any("google-api-python-client" in e for e in state["errors"])
     # Result file written with the missing list
-    result = json.loads((_jobs_dir() / jid / "upload_result.json").read_text())
+    result = json.loads((_jobs_dir() / jid / "upload_result.json").read_text(encoding="utf-8"))
     assert result["status"] == "failed"
     assert "google-api-python-client" in result["errors"]
 

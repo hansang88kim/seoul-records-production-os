@@ -110,7 +110,7 @@ def test_cancel_does_not_delete_logs(tmp_path):
     assert (jd / "command_sanitized.txt").exists()
     assert (jd / "render_state.json").exists()
     # Logs retain content
-    assert (jd / "render_log.jsonl").read_text().strip() != ""
+    assert (jd / "render_log.jsonl").read_text(encoding="utf-8").strip() != ""
 
 
 # ─── PID separation ──────────────────────────────────────────────────────────
@@ -208,7 +208,7 @@ def test_rerun_recovers_active_render_job():
 
 def test_worker_has_no_subprocess_timeout():
     """The worker must NOT impose a subprocess timeout (long renders)."""
-    src = Path("workers/video_render_worker.py").read_text()
+    src = Path("workers/video_render_worker.py").read_text(encoding="utf-8")
     # No 'timeout=' kwarg in the worker's subprocess usage
     assert "timeout=" not in src
 

@@ -86,7 +86,7 @@ def run_render_job(render_job_id: str):
 
         proc = subprocess.Popen(
             command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-            text=True, bufsize=1,
+            text=True, encoding="utf-8", errors="replace", bufsize=1,
         )
         # Record BOTH pids separately: this process is the worker, proc is ffmpeg
         update_render_state(render_job_id, worker_pid=_os.getpid(), ffmpeg_pid=proc.pid)

@@ -46,7 +46,7 @@ def _write_minimal_manifest(folder: Path, project_name: str = "Test", status: st
         "updated_at": now,
     }
     folder.mkdir(parents=True, exist_ok=True)
-    (folder / "project_manifest.json").write_text(json.dumps(data, indent=2))
+    (folder / "project_manifest.json").write_text(json.dumps(data, indent=2), encoding="utf-8")
 
 
 # ─── Tests ───────────────────────────────────────────────────────────────────

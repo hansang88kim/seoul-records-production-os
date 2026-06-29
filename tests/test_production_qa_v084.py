@@ -264,7 +264,7 @@ def test_production_report_created(outputs_tree, monkeypatch, tmp_path):
     for key in ["production_status", "production_checklist", "missing_assets", "next_steps"]:
         assert Path(result["files"][key]).exists()
     # production_status.json is valid JSON with scores
-    status = json.loads(Path(result["files"]["production_status"]).read_text())
+    status = json.loads(Path(result["files"]["production_status"]).read_text(encoding="utf-8"))
     assert "scores" in status
     assert "overall_readiness" in status
 

@@ -35,7 +35,7 @@ def _get_audio_duration_ffprobe(wav_path: Path) -> float | None:
         result = subprocess.run(
             ["ffprobe", "-v", "error", "-show_entries", "format=duration",
              "-of", "default=noprint_wrappers=1:nokey=1", str(wav_path)],
-            capture_output=True, text=True, timeout=10
+            capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=10
         )
         return float(result.stdout.strip())
     except Exception:
@@ -177,7 +177,7 @@ def export_video_package(
         # ── 4a: Render final_video.mp4 ────────────────────────────────────────
         try:
             result = subprocess.run(
-                ffmpeg_cmd, shell=True, capture_output=True, text=True, timeout=600
+                ffmpeg_cmd, shell=True, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=600
             )
             if result.returncode == 0 and output_video_path.exists():
                 rendered = True
@@ -206,7 +206,7 @@ def export_video_package(
                     f'-c:a libmp3lame -q:a 2 "{audio_mix_path}"'
                 )
                 mix_result = subprocess.run(
-                    audio_mix_cmd, shell=True, capture_output=True, text=True, timeout=300
+                    audio_mix_cmd, shell=True, capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=300
                 )
                 if mix_result.returncode != 0 or not audio_mix_path.exists():
                     audio_mix_path = None

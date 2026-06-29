@@ -1,6 +1,6 @@
 # Seoul Records Production OS
 
-**AI Music Label Production Harness — v1.0.0-alpha.2**
+**AI Music Label Production Harness — v1.0.0-alpha.3**
 
 > Creative direction: controlled by ChatGPT and the user.
 > Engineering: this repository.
@@ -77,6 +77,8 @@ to point the console at a live backend.
 ## What This Is
 
 Seoul Records Production OS is a local MVP application for creating AI-generated city pop album projects. It provides a full 5-tab production pipeline from song generation through music distribution, with mock providers for v0.1.x and a clear upgrade path to real integrations.
+
+**v1.0.0-alpha.3: Korean Windows (cp949) Hardening + Deterministic Job Ordering — every file read/write/open and every text-mode subprocess capture now pins `encoding="utf-8"` (subprocess also `errors="replace"`), so the app and the full test suite run cleanly on Korean Windows, where the locale default is cp949 (previously Korean paths, em-dashes, and UTF-8 JSON tripped UnicodeDecodeError). `list_jobs` now orders newest-first by the microsecond `created_at` timestamp (with `job_id` tiebreaker) instead of filesystem mtime, which on NTFS could tie within one coarse tick and flip the order. Proven clean under `python -X warn_default_encoding -W error::EncodingWarning` across all 629 tests; production file I/O has zero locale-default calls. No behavior change beyond encoding/ordering.**
 
 **v1.0.0-alpha.1: Frontend Modernization — a parallel, modern dark-theme Studio Console under frontend/, built with Next.js 15 (App Router, React 19), TypeScript (strict, @/* alias), Tailwind CSS v4, and shadcn/ui components. Hybrid strategy (Option C): the existing Streamlit app is untouched and remains the legacy/admin fallback; the Next.js console shares the same outputs/ folder and Python services via a sanitized, framework-free snapshot bridge (api/snapshot.py) that never returns tokens/cookies/keys. Routes: Dashboard + Song Lab / Thumbnail Studio / Video Renderer / YouTube Package / Production QA / UnitedMasters / Remote Control / Settings, with a responsive sidebar+topbar shell, design tokens (cyan/magenta/amber accents), and read-only status pages wired to a mock-first typed API. No backend regressions.**
 

@@ -105,7 +105,7 @@ def _qc_via_ffprobe(path: Path) -> AudioQCResult:
                 "-show_streams", "-show_format",
                 str(path),
             ],
-            capture_output=True, text=True, timeout=15,
+            capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=15,
         )
         if proc.returncode != 0:
             result.warnings.append("ffprobe_error")

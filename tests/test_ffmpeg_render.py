@@ -71,7 +71,7 @@ def test_ffmpeg_command_generation_works(tmp_path, monkeypatch):
     from workflows.render_video import build_ffmpeg_command
 
     audio_list = tmp_path / "audio_list.txt"
-    audio_list.write_text("file '/some/track.wav'\n")
+    audio_list.write_text("file '/some/track.wav'\n", encoding="utf-8")
     bg = tmp_path / "bg.jpg"
     bg.write_bytes(b"JFIF")
     out = tmp_path / "final_video.mp4"

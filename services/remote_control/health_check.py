@@ -67,7 +67,7 @@ def tailscale_status() -> dict:
     if not exe:
         return {"available": False, "status": None}
     try:
-        out = subprocess.run([exe, "status"], capture_output=True, text=True, timeout=5)
+        out = subprocess.run([exe, "status"], capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=5)
         ok = out.returncode == 0
         return {"available": True, "status": "up" if ok else "down"}
     except Exception:

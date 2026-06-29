@@ -132,7 +132,7 @@ def test_start_generation_job_creates_settings():
     jobs_dir = js._jobs_dir()
     settings_path = jobs_dir / result["job_id"] / "settings.json"
     assert settings_path.exists()
-    loaded = json.loads(settings_path.read_text())
+    loaded = json.loads(settings_path.read_text(encoding="utf-8"))
     assert loaded["model"] == "v5.5"
 
 
@@ -177,8 +177,8 @@ def test_start_next_queued_job():
     update_job(j["job_id"], status="queued")
     # Need a plan + settings for the worker
     import services.job_store as js, json
-    (js._jobs_dir() / j["job_id"] / "plan.json").write_text(json.dumps([{"title": "곡"}]))
-    (js._jobs_dir() / j["job_id"] / "settings.json").write_text(json.dumps({}))
+    (js._jobs_dir() / j["job_id"] / "plan.json").write_text(json.dumps([{"title": "곡"}]), encoding="utf-8")
+    (js._jobs_dir() / j["job_id"] / "settings.json").write_text(json.dumps({}), encoding="utf-8")
     with mock.patch("subprocess.Popen", return_value=mock.Mock(pid=222)):
         started = start_next_queued_job()
     assert started is not None
@@ -238,9 +238,9 @@ def test_retry_failed_tracks():
         {"title": "실패곡", "status": "failed", "error": "captcha"},
     ]
     plan_path = js._jobs_dir() / j["job_id"] / "plan.json"
-    plan_path.write_text(json.dumps(plan))
+    plan_path.write_text(json.dumps(plan), encoding="utf-8")
     settings_path = js._jobs_dir() / j["job_id"] / "settings.json"
-    settings_path.write_text(json.dumps({"model": "v5.5"}))
+    settings_path.write_text(json.dumps({"model": "v5.5"}), encoding="utf-8")
     # Mock subprocess
     fake_proc = mock.Mock(pid=12345)
     with mock.patch("subprocess.Popen", return_value=fake_proc):
@@ -352,8 +352,8 @@ def test_restart_job():
     update_job(j["job_id"], status="cancelled")
     plan = [{"title": "완료곡", "status": "generated"},
             {"title": "미완료곡", "status": "failed"}]
-    (js._jobs_dir() / j["job_id"] / "plan.json").write_text(json.dumps(plan))
-    (js._jobs_dir() / j["job_id"] / "settings.json").write_text(json.dumps({"model": "v5.5"}))
+    (js._jobs_dir() / j["job_id"] / "plan.json").write_text(json.dumps(plan), encoding="utf-8")
+    (js._jobs_dir() / j["job_id"] / "settings.json").write_text(json.dumps({"model": "v5.5"}), encoding="utf-8")
     with mock.patch("subprocess.Popen", return_value=mock.Mock(pid=333)):
         result = restart_job(j["job_id"])
     assert result is not None

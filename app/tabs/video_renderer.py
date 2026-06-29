@@ -397,7 +397,7 @@ def _run_or_show(cmd: dict, label: str):
     # Check background exists
     try:
         with st.spinner(f"{label} 렌더링 중..."):
-            result = subprocess.run(cmd["command"], capture_output=True, text=True, timeout=600)
+            result = subprocess.run(cmd["command"], capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=600)
         if result.returncode == 0 and Path(cmd["output"]).exists():
             st.success(f"✅ {label} 완료!")
             st.video(cmd["output"])

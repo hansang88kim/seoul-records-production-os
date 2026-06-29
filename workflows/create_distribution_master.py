@@ -130,7 +130,7 @@ def create_distribution_master(
     try:
         proc = subprocess.run(
             cmd,
-            capture_output=True, text=True, timeout=120,
+            capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=120,
         )
         if proc.returncode == 0 and dest.exists():
             result.success = True

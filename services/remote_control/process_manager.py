@@ -61,7 +61,7 @@ def _find_streamlit_pids_fallback() -> list[int]:
         return []
     try:
         out = subprocess.run(["ps", "-eo", "pid,args"], capture_output=True,
-                             text=True, timeout=5)
+                             text=True, encoding="utf-8", errors="replace", timeout=5)
         pids = []
         for line in out.stdout.splitlines()[1:]:
             parts = line.strip().split(None, 1)

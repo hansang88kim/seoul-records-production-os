@@ -40,7 +40,7 @@ def test_supervisor_status_file_created(rc_dir):
          mock.patch.object(SUP.PM, "find_streamlit_pids", return_value=[4321]):
         SUP.health_and_maybe_restart(auto_restart=False)
     assert (rc_dir / "supervisor_status.json").exists()
-    status = json.loads((rc_dir / "supervisor_status.json").read_text())
+    status = json.loads((rc_dir / "supervisor_status.json").read_text(encoding="utf-8"))
     assert status["streamlit_running"] is True
     assert status["streamlit_pid"] == 4321
 
@@ -114,7 +114,7 @@ def test_telegram_rejects_unknown_chat_id(rc_dir, enable_telegram):
     assert result["ok"] is False
     assert result.get("rejected") is True
     # Rejection is audited
-    audit = (rc_dir / "audit.jsonl").read_text()
+    audit = (rc_dir / "audit.jsonl").read_text(encoding="utf-8")
     assert "999" in audit
 
 
@@ -208,7 +208,7 @@ def test_no_secrets_in_supervisor_status(rc_dir, enable_telegram):
                                          "port_open": True}), \
          mock.patch.object(SUP.PM, "find_streamlit_pids", return_value=[1]):
         SUP.health_and_maybe_restart(auto_restart=False)
-    blob = (rc_dir / "supervisor_status.json").read_text()
+    blob = (rc_dir / "supervisor_status.json").read_text(encoding="utf-8")
     assert "FAKE" not in blob       # the fake token value
     assert "TELEGRAM_BOT_TOKEN" not in blob
     assert "ya29." not in blob

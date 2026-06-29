@@ -137,7 +137,7 @@ def test_preview_render_command_created(mp3_outputs, tmp_path):
     assert cmd["output"].endswith("preview_30s.mp4")
     # Concat list references MP3 (no WAV)
     assert Path(concat).exists()
-    content = Path(concat).read_text()
+    content = Path(concat).read_text(encoding="utf-8")
     assert ".mp3" in content
     assert ".wav" not in content
 
@@ -308,7 +308,7 @@ def test_no_fake_wav_created(mp3_outputs, tmp_path):
     assert plans["render_plan"]["audio_source"] == "mp3"
     assert plans["render_plan"]["no_fake_wav"] is True
     # No .wav anywhere in the concat list
-    assert ".wav" not in Path(concat).read_text()
+    assert ".wav" not in Path(concat).read_text(encoding="utf-8")
 
 
 def test_center_title_off_by_default(mp3_outputs, tmp_path):

@@ -180,7 +180,7 @@ def test_exclude_sent_via_flag_not_in_style(monkeypatch, tmp_path):
     from unittest import mock
     from pathlib import Path
     fake_bin = tmp_path / "suno"
-    fake_bin.write_text("fake")
+    fake_bin.write_text("fake", encoding="utf-8")
     monkeypatch.setenv("SUNO_CLI_BIN", str(fake_bin))
     monkeypatch.setenv("SUNO_COOKIE", "cookie")
     reload(m)

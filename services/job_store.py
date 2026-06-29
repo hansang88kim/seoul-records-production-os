@@ -118,21 +118,34 @@ def load_job(job_id: str) -> dict | None:
 
 
 def list_jobs(status_filter: str | None = None, limit: int = 20) -> list[dict]:
-    """List jobs, newest first. Optionally filter by status."""
-    jobs = []
+    """List jobs, newest first. Optionally filter by status.
+
+    Ordering uses the stored ``created_at`` (microsecond ISO timestamp) with
+    ``job_id`` as a tiebreaker — NOT filesystem mtime. On Windows/NTFS multiple
+    job directories created within the same coarse mtime tick would otherwise
+    sort non-deterministically and flip the newest-first guarantee.
+    """
     jdir = _jobs_dir()
     if not jdir.exists():
         return []
-    for d in sorted(jdir.iterdir(), key=lambda p: p.stat().st_mtime, reverse=True):
+    states = []
+    for d in jdir.iterdir():
         if not d.is_dir():
             continue
         state = load_job(d.name)
         if state:
-            if status_filter and state.get("status") != status_filter:
-                continue
-            jobs.append(state)
-            if len(jobs) >= limit:
-                break
+            states.append(state)
+    states.sort(
+        key=lambda s: (s.get("created_at", ""), s.get("job_id", "")),
+        reverse=True,
+    )
+    jobs = []
+    for state in states:
+        if status_filter and state.get("status") != status_filter:
+            continue
+        jobs.append(state)
+        if len(jobs) >= limit:
+            break
     return jobs
 
 

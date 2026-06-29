@@ -49,7 +49,7 @@ class ManualUploadProvider:
             metadata_dir,
             "youtube_hashtags.txt",
         )
-        with open(os.path.join(metadata_dir, "upload_config.json"), "w") as f:
+        with open(os.path.join(metadata_dir, "upload_config.json"), "w", encoding="utf-8") as f:
             json.dump(
                 {
                     "visibility": "private",

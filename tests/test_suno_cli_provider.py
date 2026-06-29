@@ -58,7 +58,7 @@ def test_suno_available_uses_env_path_before_path_lookup(monkeypatch, tmp_path):
     from providers.suno import suno_cli_provider as m
     from importlib import reload
     fake_bin = tmp_path / "suno.exe"
-    fake_bin.write_text("fake")
+    fake_bin.write_text("fake", encoding="utf-8")
     monkeypatch.setenv("SUNO_CLI_BIN", str(fake_bin))
     reload(m)
     assert m._suno_available() is True
@@ -89,7 +89,7 @@ def test_generate_command_includes_wait_and_download(monkeypatch, tmp_path):
     from providers.suno import suno_cli_provider as m
     from importlib import reload
     fake_bin = tmp_path / "suno.exe"
-    fake_bin.write_text("fake")
+    fake_bin.write_text("fake", encoding="utf-8")
     monkeypatch.setenv("SUNO_CLI_BIN", str(fake_bin))
     monkeypatch.setenv("SUNO_COOKIE", "fake_cookie")
     reload(m)
@@ -124,7 +124,7 @@ def test_generate_does_not_include_json_flag(monkeypatch, tmp_path):
     from providers.suno import suno_cli_provider as m
     from importlib import reload
     fake_bin = tmp_path / "suno.exe"
-    fake_bin.write_text("fake")
+    fake_bin.write_text("fake", encoding="utf-8")
     monkeypatch.setenv("SUNO_CLI_BIN", str(fake_bin))
     monkeypatch.setenv("SUNO_COOKIE", "fake_cookie")
     reload(m)
@@ -151,7 +151,7 @@ def test_generate_full_command_matches_cli_syntax(monkeypatch, tmp_path):
     from providers.suno import suno_cli_provider as m
     from importlib import reload
     fake_bin = tmp_path / "suno"
-    fake_bin.write_text("fake")
+    fake_bin.write_text("fake", encoding="utf-8")
     monkeypatch.setenv("SUNO_CLI_BIN", str(fake_bin))
     monkeypatch.setenv("SUNO_COOKIE", "fake_cookie")
     reload(m)
@@ -195,7 +195,7 @@ def test_model_name_normalized(monkeypatch, tmp_path):
     from providers.suno import suno_cli_provider as m
     from importlib import reload
     fake_bin = tmp_path / "suno"
-    fake_bin.write_text("fake")
+    fake_bin.write_text("fake", encoding="utf-8")
     monkeypatch.setenv("SUNO_CLI_BIN", str(fake_bin))
     monkeypatch.setenv("SUNO_COOKIE", "fake_cookie")
     reload(m)
@@ -316,7 +316,7 @@ def test_verify_ready_success(monkeypatch, tmp_path):
     from providers.suno import suno_cli_provider as m
     from importlib import reload
     fake_bin = tmp_path / "suno"
-    fake_bin.write_text("fake")
+    fake_bin.write_text("fake", encoding="utf-8")
     monkeypatch.setenv("SUNO_CLI_BIN", str(fake_bin))
     monkeypatch.setenv("SUNO_COOKIE", "fake_cookie_value")
     reload(m)
@@ -344,7 +344,7 @@ def test_verify_ready_does_not_expose_cookie(monkeypatch, tmp_path):
     from providers.suno import suno_cli_provider as m
     from importlib import reload
     fake_bin = tmp_path / "suno"
-    fake_bin.write_text("fake")
+    fake_bin.write_text("fake", encoding="utf-8")
     secret = "SUPER_SECRET_COOKIE_xyz789"
     monkeypatch.setenv("SUNO_CLI_BIN", str(fake_bin))
     monkeypatch.setenv("SUNO_COOKIE", secret)
@@ -370,7 +370,7 @@ def test_create_song_raises_without_cookie(monkeypatch, tmp_path):
     from providers.suno import suno_cli_provider as m
     from importlib import reload
     fake_bin = tmp_path / "suno"
-    fake_bin.write_text("fake")
+    fake_bin.write_text("fake", encoding="utf-8")
     monkeypatch.setenv("SUNO_CLI_BIN", str(fake_bin))
     monkeypatch.delenv("SUNO_COOKIE", raising=False)
     reload(m)
@@ -386,7 +386,7 @@ def test_create_song_raises_when_auth_fails(monkeypatch, tmp_path):
     from providers.suno import suno_cli_provider as m
     from importlib import reload
     fake_bin = tmp_path / "suno"
-    fake_bin.write_text("fake")
+    fake_bin.write_text("fake", encoding="utf-8")
     monkeypatch.setenv("SUNO_CLI_BIN", str(fake_bin))
     monkeypatch.setenv("SUNO_COOKIE", "expired_cookie")
     reload(m)
@@ -408,7 +408,7 @@ def test_ensure_auth_verifies_via_credits(monkeypatch, tmp_path):
     from providers.suno import suno_cli_provider as m
     from importlib import reload
     fake_bin = tmp_path / "suno"
-    fake_bin.write_text("fake")
+    fake_bin.write_text("fake", encoding="utf-8")
     monkeypatch.setenv("SUNO_CLI_BIN", str(fake_bin))
     monkeypatch.setenv("SUNO_COOKIE", "cookie")
     reload(m)
@@ -461,7 +461,7 @@ def test_captcha_retries_then_succeeds(monkeypatch, tmp_path):
     from providers.suno import suno_cli_provider as m
     from importlib import reload
     fake_bin = tmp_path / "suno"
-    fake_bin.write_text("fake")
+    fake_bin.write_text("fake", encoding="utf-8")
     monkeypatch.setenv("SUNO_CLI_BIN", str(fake_bin))
     monkeypatch.setenv("SUNO_COOKIE", "cookie")
     reload(m)
@@ -508,7 +508,7 @@ def test_captcha_retries_configurable(monkeypatch, tmp_path):
     from providers.suno import suno_cli_provider as m
     from importlib import reload
     fake_bin = tmp_path / "suno"
-    fake_bin.write_text("fake")
+    fake_bin.write_text("fake", encoding="utf-8")
     monkeypatch.setenv("SUNO_CLI_BIN", str(fake_bin))
     monkeypatch.setenv("SUNO_COOKIE", "cookie")
     monkeypatch.setenv("SUNO_CAPTCHA_RETRIES", "10")
@@ -542,7 +542,7 @@ def test_empty_style_rejected(monkeypatch, tmp_path):
     from providers.suno import suno_cli_provider as m
     from importlib import reload
     fake_bin = tmp_path / "suno"
-    fake_bin.write_text("fake")
+    fake_bin.write_text("fake", encoding="utf-8")
     monkeypatch.setenv("SUNO_CLI_BIN", str(fake_bin))
     monkeypatch.setenv("SUNO_COOKIE", "cookie")
     reload(m)
@@ -599,7 +599,7 @@ def test_create_song_moves_style_negatives_to_exclude(monkeypatch, tmp_path):
     from providers.suno import suno_cli_provider as m
     from importlib import reload
     fake_bin = tmp_path / "suno"
-    fake_bin.write_text("fake")
+    fake_bin.write_text("fake", encoding="utf-8")
     monkeypatch.setenv("SUNO_CLI_BIN", str(fake_bin))
     monkeypatch.setenv("SUNO_COOKIE", "cookie")
     reload(m)
@@ -645,7 +645,7 @@ def test_create_song_accepts_progress_callback(monkeypatch, tmp_path):
     from providers.suno import suno_cli_provider as m
     from importlib import reload
     fake_bin = tmp_path / "suno"
-    fake_bin.write_text("fake")
+    fake_bin.write_text("fake", encoding="utf-8")
     monkeypatch.setenv("SUNO_CLI_BIN", str(fake_bin))
     monkeypatch.setenv("SUNO_COOKIE", "cookie")
     reload(m)
