@@ -1,4 +1,4 @@
-import { Radio, RotateCw } from "lucide-react";
+import { RotateCw } from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
 import { MetricCard } from "@/components/shared/metric-card";
 import { LogViewer } from "@/components/shared/log-viewer";

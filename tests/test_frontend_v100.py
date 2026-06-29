@@ -196,3 +196,50 @@ def test_snapshot_bridge_builds_and_is_secret_free(monkeypatch):
     js = snapshot_json()
     assert "SECRETLEAK" not in js
     assert "123:" not in js
+
+# ─── v1.0.0-alpha.1 build-fix regression guards ─────────────────────────────
+
+def test_frontend_does_not_use_google_fonts():
+    """next/font/google requires network at build time — must be absent."""
+    for ext in ("*.tsx", "*.ts"):
+        for f in FE.rglob(ext):
+            text = f.read_text(encoding="utf-8")
+            assert "next/font/google" not in text, f"next/font/google in {f}"
+            assert "next/font" not in text, f"next/font in {f}"
+
+
+def test_frontend_uses_system_font_stack():
+    """globals.css defines an offline system font stack (no Geist vars)."""
+    css = _read("styles/globals.css")
+    assert "--font-sans:" in css
+    assert "system-ui" in css
+    assert "--font-geist-sans" not in css
+    assert "--font-geist-mono" not in css
+    # body actually applies the token
+    assert "font-family: var(--font-sans)" in css
+
+
+def test_layout_has_no_font_import():
+    layout = _read("app/layout.tsx")
+    assert "next/font" not in layout
+    assert "Geist" not in layout
+    # body uses the system font utility
+    assert "font-sans" in layout
+
+
+def test_lint_script_not_deprecated_next_lint():
+    """lint should use the ESLint CLI, not the deprecated `next lint`."""
+    pkg = json.loads(_read("package.json"))
+    lint = pkg["scripts"]["lint"]
+    assert "eslint" in lint
+    assert lint.strip() != "next lint"
+
+
+def test_remote_control_has_no_unused_radio_import():
+    """The earlier TS6133 'Radio' unused-import blocker must stay fixed."""
+    src = _read("app/remote-control/page.tsx")
+    # If Radio is imported, it must be used; simplest guard: it isn't imported here
+    import re as _re
+    imported = bool(_re.search(r'import\s*\{[^}]*\bRadio\b[^}]*\}\s*from\s*"lucide-react"', src))
+    assert not imported, "remote-control should not import an unused Radio icon"
+

@@ -1,6 +1,6 @@
 # Seoul Records Production OS
 
-**AI Music Label Production Harness — v1.0.0-alpha**
+**AI Music Label Production Harness — v1.0.0-alpha.1**
 
 > Creative direction: controlled by ChatGPT and the user.
 > Engineering: this repository.
@@ -17,7 +17,7 @@ pip install -r requirements.txt
 streamlit run app/main.py
 ```
 
-**Next.js Frontend (v1.0.0-alpha — modern dark Studio Console):**
+**Next.js Frontend (v1.0.0-alpha.1 — modern dark Studio Console):**
 ```
 cd frontend
 npm install
@@ -29,7 +29,7 @@ npm run lint
 
 The Next.js console runs **in parallel** with Streamlit. It shares the same
 `outputs/` folder and Python services via a sanitized snapshot bridge
-(`api/snapshot.py`) that never returns tokens/cookies/keys. v1.0.0-alpha is the
+(`api/snapshot.py`) that never returns tokens/cookies/keys. v1.0.0-alpha.1 is the
 frontend **shell + read-only dashboard + route structure + mock/API-ready UI**
 stage; Streamlit remains the legacy/admin fallback. Set `NEXT_PUBLIC_API_BASE`
 to point the console at a live backend.
@@ -78,7 +78,7 @@ to point the console at a live backend.
 
 Seoul Records Production OS is a local MVP application for creating AI-generated city pop album projects. It provides a full 5-tab production pipeline from song generation through music distribution, with mock providers for v0.1.x and a clear upgrade path to real integrations.
 
-**v1.0.0-alpha: Frontend Modernization — a parallel, modern dark-theme Studio Console under frontend/, built with Next.js 15 (App Router, React 19), TypeScript (strict, @/* alias), Tailwind CSS v4, and shadcn/ui components. Hybrid strategy (Option C): the existing Streamlit app is untouched and remains the legacy/admin fallback; the Next.js console shares the same outputs/ folder and Python services via a sanitized, framework-free snapshot bridge (api/snapshot.py) that never returns tokens/cookies/keys. Routes: Dashboard + Song Lab / Thumbnail Studio / Video Renderer / YouTube Package / Production QA / UnitedMasters / Remote Control / Settings, with a responsive sidebar+topbar shell, design tokens (cyan/magenta/amber accents), and read-only status pages wired to a mock-first typed API. No backend regressions.**
+**v1.0.0-alpha.1: Frontend Modernization — a parallel, modern dark-theme Studio Console under frontend/, built with Next.js 15 (App Router, React 19), TypeScript (strict, @/* alias), Tailwind CSS v4, and shadcn/ui components. Hybrid strategy (Option C): the existing Streamlit app is untouched and remains the legacy/admin fallback; the Next.js console shares the same outputs/ folder and Python services via a sanitized, framework-free snapshot bridge (api/snapshot.py) that never returns tokens/cookies/keys. Routes: Dashboard + Song Lab / Thumbnail Studio / Video Renderer / YouTube Package / Production QA / UnitedMasters / Remote Control / Settings, with a responsive sidebar+topbar shell, design tokens (cyan/magenta/amber accents), and read-only status pages wired to a mock-first typed API. No backend regressions.**
 
 **v0.9.2: Telegram Runtime Dependency Fix — declares python-telegram-bot>=21.0 in requirements.txt and pyproject.toml (plus a `remote` optional extra) so the real Telegram long-poll bot works after `pip install -r requirements.txt`. A runtime dependency check (is_telegram_package_installed / check_telegram_dependency) surfaces install status in the Production QA remote-control panel, and run_polling degrades clearly with an install hint when the package is missing — the supervisor and all other features keep working. Tokens/chat_ids remain hidden from UI and logs.**
 
@@ -208,7 +208,7 @@ seoul-records-production-os/
 
 ## Production Tabs
 
-| Tab | Purpose | v1.0.0-alpha Status |
+| Tab | Purpose | v1.0.0-alpha.1 Status |
 |-----|---------|---------------|
 | 🎵 Song Generation | Prompt generation, mock Suno, WAV import, candidate selection | ✅ Mock + Manual Import |
 | 🖼 Thumbnail & Cover | 16:9 YouTube thumbnail + 1:1 DSP cover | ✅ Mock (Pillow) |

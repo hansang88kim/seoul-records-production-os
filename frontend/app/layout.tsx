@@ -1,10 +1,6 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AppShell } from "@/components/layout/app-shell";
-
-const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
-const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: "Seoul Records Studio OS",
@@ -14,10 +10,12 @@ export const metadata: Metadata = {
 export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
-  // Dark theme is the default (class on <html>).
+  // Dark theme is the default (class on <html>). Fonts come from the system
+  // stack defined in globals.css — no external Google Fonts dependency, so
+  // `next build` works fully offline.
   return (
     <html lang="ko" className="dark">
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+      <body className="font-sans antialiased">
         <AppShell>{children}</AppShell>
       </body>
     </html>
