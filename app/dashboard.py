@@ -107,11 +107,17 @@ def render_production_tabs():
 
 
 def render_home_tabs():
-    """Home screen: Song Lab + Project management in tabs."""
-    tab_lab, tab_project = st.tabs(["🎵 Song Lab", "📁 프로젝트 관리"])
+    """Home screen: Song Lab + Thumbnail Studio + Project management in tabs."""
+    tab_lab, tab_thumb, tab_project = st.tabs(
+        ["🎵 Song Lab", "🖼️ Thumbnail Studio", "📁 프로젝트 관리"]
+    )
 
     with tab_lab:
         render_song_lab()
+
+    with tab_thumb:
+        from app.tabs.thumbnail_studio import render_thumbnail_studio
+        render_thumbnail_studio()
 
     with tab_project:
         render_project_screen()
