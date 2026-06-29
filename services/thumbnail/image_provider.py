@@ -99,10 +99,18 @@ class MockImageGenProvider(ImageGenProvider):
         draw.ellipse([W - 360, -120, W + 120, 240], fill=(*accent, 30))
 
         def _font(sz):
-            try:
-                return ImageFont.truetype("DejaVuSans.ttf", sz)
-            except Exception:
-                return ImageFont.load_default()
+            for fp in (
+                r"C:\Windows\Fonts\malgunbd.ttf",
+                r"C:\Windows\Fonts\malgun.ttf",
+                "/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc",
+                "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+                "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+            ):
+                try:
+                    return ImageFont.truetype(fp, sz)
+                except Exception:
+                    continue
+            return ImageFont.load_default()
 
         scene = str(meta.get("scene", ""))[:48]
         country = str(meta.get("country", ""))

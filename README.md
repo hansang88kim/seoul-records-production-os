@@ -1,6 +1,6 @@
 # Seoul Records Production OS
 
-**AI Music Label Production Harness — v1.0.0-alpha.6**
+**AI Music Label Production Harness — v1.0.0-alpha.7**
 
 > Creative direction: controlled by ChatGPT and the user.
 > Engineering: this repository.
@@ -77,6 +77,8 @@ to point the console at a live backend.
 ## What This Is
 
 Seoul Records Production OS is a local MVP application for creating AI-generated city pop album projects. It provides a full 5-tab production pipeline from song generation through music distribution, with mock providers for v0.1.x and a clear upgrade path to real integrations.
+
+**v1.0.0-alpha.7: Auto-Composite YouTube Thumbnails (Stickers) — The branding step now produces a FINISHED YouTube thumbnail locally with PIL — no Canva subscription or template needed. On top of the title/subtitle/brand layout it auto-draws YouTube stickers: a citypop-tinted equalizer/visualizer, a red 구독 (subscribe) pill with a play triangle, and an outlined ♥ 좋아요 (like) pill — each toggleable in Brand Thumbnail, plus a center-title layout option. Fonts are now cross-platform and CJK-capable (Windows 맑은 고딕 / Linux Noto Sans CJK / macOS), so Korean titles and sticker text render correctly instead of falling back to a tiny box-glyph default (this also fixes the small/garbled title text seen earlier). The mock placeholder image generator uses the same CJK fonts. The old "Mock Canva" mode is renamed "🎬 자동 합성 (앱 내 렌더링)". Tests +7 (render, Korean text, sticker flags, layouts, helper drawing); 652 passing, clean under -X warn_default_encoding.**
 
 **v1.0.0-alpha.6: Real Image Generation — Sidebar Key + No-Install REST — Fixes two blockers for real thumbnail generation. (1) The image provider now reads the SAME key the app's sidebar stores (`GOOGLE_GEMINI_API_KEY`), so the Gemini key entered in the left panel is picked up automatically — previously it only checked `GEMINI_API_KEY` and ignored the sidebar key. (2) A new `requests`-only REST backend (`GeminiRestImageProvider`, mirroring the app's existing Gemini REST calls) is now the default, so real generation works with just an API key — no `pip install google-genai` needed. The SDK backend is still available via `SEOUL_IMAGE_BACKEND=sdk` (required for Imagen). Readiness now depends on the key alone; the toggle activates as soon as a key is present. Keys are redacted from all error messages. Tests +3 (16 total in this suite, 645 overall); no real network calls in tests. NOTE: if you still hit the `create_session() project_folder` TypeError, you are running stale files from a OneDrive ZIP copy — run from a clean `git clone`, where pulled files stay consistent.**
 

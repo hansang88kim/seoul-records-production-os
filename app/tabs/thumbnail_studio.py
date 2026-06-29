@@ -324,9 +324,23 @@ def _render_brand_thumbnail():
         subtitle = st.text_input("부제목", value=sess.get("subtitle", ""), key="brand_subtitle")
     with col2:
         brand_text = st.text_input("브랜드 텍스트", value="Seoul Records", key="brand_text")
-        canva_mode = st.selectbox("Canva 모드",
-                                  ["Mock Canva (로컬 테스트)", "Canva Manual (수동)", "Canva Autofill"],
-                                  key="canva_mode")
+        canva_mode = st.selectbox("출력 모드",
+                                  ["🎬 자동 합성 (앱 내 렌더링)", "Canva Manual (수동)", "Canva Autofill"],
+                                  key="canva_mode",
+                                  help="자동 합성: 앱이 제목·구독/좋아요·이퀄라이저까지 그려서 완성 썸네일을 "
+                                       "바로 만듭니다 (Canva 구독/템플릿 불필요).")
+
+    # YouTube sticker controls (apply to 자동 합성 mode)
+    st.caption("유튜브 스티커 (자동 합성 모드)")
+    sc1, sc2, sc3, sc4 = st.columns(4)
+    with sc1:
+        show_eq = st.checkbox("📊 이퀄라이저", value=True, key="brand_eq")
+    with sc2:
+        show_sub = st.checkbox("🔴 구독 버튼", value=True, key="brand_sub")
+    with sc3:
+        show_like = st.checkbox("♥ 좋아요", value=True, key="brand_like")
+    with sc4:
+        title_center = st.checkbox("제목 중앙 배치", value=False, key="brand_title_center")
 
     if st.button("✨ 선택 이미지로 브랜드 썸네일 만들기", type="primary", use_container_width=True):
         results = []
@@ -338,10 +352,12 @@ def _render_brand_thumbnail():
             )
             cb.save_canva_payload(sess["session_id"], cand["candidate_id"], payload)
 
-            if canva_mode.startswith("Mock"):
+            if "자동" in canva_mode:
                 branded = cb.mock_render_branded_thumbnail(
                     sess["session_id"], cand, title, subtitle, brand_text,
                     cand.get("canva_accent_color", "#ff4d6d"),
+                    show_equalizer=show_eq, show_subscribe=show_sub, show_like=show_like,
+                    title_layout="center" if title_center else "lower-left",
                 )
                 results.append((cand, branded, payload))
             else:

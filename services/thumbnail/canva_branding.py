@@ -111,6 +111,108 @@ def save_canva_payload(session_id: str, candidate_id: str, payload: dict) -> str
     return str(path)
 
 
+# ── Cross-platform fonts (CJK-capable) ────────────────────────────────────────
+# Windows 맑은 고딕 / Linux Noto Sans CJK / macOS — CJK fonts render BOTH Korean
+# and Latin, so Korean titles and 구독/좋아요 stickers never show tofu boxes.
+_FONTS_BOLD = [
+    r"C:\Windows\Fonts\malgunbd.ttf",
+    r"C:\Windows\Fonts\malgun.ttf",
+    "/usr/share/fonts/opentype/noto/NotoSansCJK-Bold.ttc",
+    "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+    "/System/Library/Fonts/AppleSDGothicNeo.ttc",
+    "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+]
+_FONTS_REG = [
+    r"C:\Windows\Fonts\malgun.ttf",
+    "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+    "/System/Library/Fonts/AppleSDGothicNeo.ttc",
+    "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+]
+
+
+def _load_font(size: int, bold: bool = True):
+    from PIL import ImageFont
+    for fp in (_FONTS_BOLD if bold else _FONTS_REG):
+        try:
+            return ImageFont.truetype(fp, size)
+        except Exception:
+            continue
+    return ImageFont.load_default()
+
+
+def _text_wh(draw, text: str, font) -> tuple[int, int]:
+    l, t, r, b = draw.textbbox((0, 0), text, font=font)
+    return r - l, b - t
+
+
+def _fit_font(draw, text: str, max_w: int, start: int, min_size: int = 40, bold: bool = True):
+    size = start
+    while size > min_size:
+        f = _load_font(size, bold)
+        if _text_wh(draw, text, f)[0] <= max_w:
+            return f
+        size -= 4
+    return _load_font(min_size, bold)
+
+
+def _draw_text_glow(draw, xy, text, font, fill=(255, 255, 255, 255),
+                    glow=(0, 0, 0, 190), r: int = 3):
+    x, y = xy
+    for dx in (-r, 0, r):
+        for dy in (-r, 0, r):
+            if dx or dy:
+                draw.text((x + dx, y + dy), text, font=font, fill=glow)
+    draw.text((x, y), text, font=font, fill=fill)
+
+
+def _draw_equalizer(draw, box, accent_rgb, bars: int = 14, seed: int = 0):
+    """A row of citypop-tinted visualizer bars within box=(x0,y0,x1,y1)."""
+    import random
+    x0, y0, x1, y1 = box
+    rnd = random.Random(seed)
+    w, h = x1 - x0, y1 - y0
+    slot = w / bars
+    bar_w = max(4, slot * 0.55)
+    for i in range(bars):
+        bh = h * (0.18 + 0.82 * rnd.random())
+        bx = x0 + i * slot + (slot - bar_w) / 2
+        draw.rounded_rectangle([bx, y1 - bh, bx + bar_w, y1],
+                               radius=bar_w / 2, fill=(accent_rgb[0], accent_rgb[1], accent_rgb[2], 235))
+
+
+def _draw_subscribe(draw, x, y, scale: float = 1.0, text: str = "구독"):
+    """YouTube-style red subscribe pill with a play triangle. Returns (w, h)."""
+    font = _load_font(int(34 * scale), bold=True)
+    pad_x, pad_y, gap = int(26 * scale), int(13 * scale), int(12 * scale)
+    tw, th = _text_wh(draw, text, font)
+    tri = int(th * 0.95)
+    w = pad_x * 2 + tri + gap + tw
+    h = pad_y * 2 + th
+    draw.rounded_rectangle([x, y, x + w, y + h], radius=h // 2, fill=(0xCC, 0x00, 0x00, 255))
+    tx, cy = x + pad_x, y + h / 2
+    draw.polygon([(tx, cy - tri / 2), (tx, cy + tri / 2), (tx + tri * 0.9, cy)],
+                 fill=(255, 255, 255, 255))
+    draw.text((tx + tri + gap, y + pad_y), text, font=font, fill=(255, 255, 255, 255))
+    return w, h
+
+
+def _draw_like(draw, x, y, scale: float = 1.0, accent_rgb=(255, 77, 109), text: str = "좋아요"):
+    """Outlined like pill with a heart. Returns (w, h)."""
+    font = _load_font(int(34 * scale), bold=True)
+    pad_x, pad_y, gap = int(24 * scale), int(13 * scale), int(10 * scale)
+    heart = "\u2665"
+    hw, hh = _text_wh(draw, heart, font)
+    tw, th = _text_wh(draw, text, font)
+    w = pad_x * 2 + hw + gap + tw
+    h = pad_y * 2 + max(th, hh)
+    draw.rounded_rectangle([x, y, x + w, y + h], radius=h // 2,
+                           fill=(20, 24, 38, 215), outline=(255, 255, 255, 235),
+                           width=max(2, int(2 * scale)))
+    draw.text((x + pad_x, y + pad_y), heart, font=font, fill=(*accent_rgb, 255))
+    draw.text((x + pad_x + hw + gap, y + pad_y), text, font=font, fill=(255, 255, 255, 255))
+    return w, h
+
+
 def mock_render_branded_thumbnail(
     session_id: str,
     candidate: dict,
@@ -118,14 +220,21 @@ def mock_render_branded_thumbnail(
     subtitle: str,
     brand_text: str,
     accent_color: str,
+    show_equalizer: bool = True,
+    show_subscribe: bool = True,
+    show_like: bool = True,
+    title_layout: str = "lower-left",
 ) -> str | None:
     """
-    Mock Canva mode — render a placeholder branded thumbnail locally with PIL.
-    Applies the consistent brand layout (title/subtitle/brand text + gradient).
+    Render a finished YouTube thumbnail locally with PIL — no Canva needed.
+
+    Composites the Seoul Records brand layout (title/subtitle/brand text +
+    gradient) PLUS optional YouTube stickers (equalizer visualizer, red 구독
+    button, 좋아요 button), all auto-placed. Uses CJK fonts so Korean renders.
     Returns the output path, or None if PIL/image unavailable.
     """
     try:
-        from PIL import Image, ImageDraw, ImageFont
+        from PIL import Image, ImageDraw
     except ImportError:
         return None
 
@@ -135,9 +244,11 @@ def mock_render_branded_thumbnail(
     branded_dir.mkdir(parents=True, exist_ok=True)
 
     W, H = 1280, 720
+    margin = 64
+    accent_rgb = _hex_to_rgb(accent_color)
     bg_path = candidate.get("uploaded_image_path", "")
 
-    # Load background or make a solid placeholder
+    # Load background (cover-fit) or solid placeholder.
     try:
         if bg_path and Path(bg_path).exists():
             img = Image.open(bg_path).convert("RGB").resize((W, H))
@@ -148,47 +259,84 @@ def mock_render_branded_thumbnail(
 
     draw = ImageDraw.Draw(img, "RGBA")
 
-    # Bottom-to-top dark gradient for legibility
+    # Bottom-to-top dark gradient for text legibility.
     for y in range(H):
-        alpha = int(180 * (y / H) ** 1.5)
+        alpha = int(190 * (y / H) ** 1.5)
         draw.line([(0, y), (W, y)], fill=(0, 0, 0, alpha))
 
-    margin = 64
-
-    # Helper to load a font with fallback
-    def _font(size):
-        for fp in [
-            "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
-            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-        ]:
-            try:
-                return ImageFont.truetype(fp, size)
-            except Exception:
-                continue
-        return ImageFont.load_default()
-
-    # Brand text (top-left, small)
+    # Brand text — top-left.
     draw.text((margin, margin), brand_text or "Seoul Records",
-              font=_font(32), fill="#FFFFFF")
+              font=_load_font(34, bold=True), fill=(255, 255, 255, 255))
 
-    # Accent bar above title
-    accent_rgb = _hex_to_rgb(accent_color)
-    draw.rectangle([margin, H - 220, margin + 80, H - 210], fill=accent_rgb)
+    # Subscribe + Like — top-right row.
+    try:
+        row_x, row_y = W - margin, margin
+        like_w = sub_w = 0
+        if show_like:
+            # measure by drawing off-canvas position then reposition: draw last.
+            pass
+        # Draw subscribe first (left of the pair), then like to its right, right-aligned.
+        pieces = []
+        if show_subscribe:
+            pieces.append("sub")
+        if show_like:
+            pieces.append("like")
+        # Pre-measure widths using temp draws on a scratch image.
+        from PIL import Image as _Img
+        scratch = ImageDraw.Draw(_Img.new("RGBA", (10, 10)))
+        widths = {}
+        if show_subscribe:
+            widths["sub"] = _draw_subscribe(scratch, 0, 0)[0]
+        if show_like:
+            widths["like"] = _draw_like(scratch, 0, 0, accent_rgb=accent_rgb)[0]
+        gap = 16
+        total = sum(widths.values()) + (gap if len(widths) == 2 else 0)
+        cx = W - margin - total
+        if show_subscribe:
+            w, h = _draw_subscribe(draw, cx, row_y)
+            cx += w + gap
+        if show_like:
+            _draw_like(draw, cx, row_y, accent_rgb=accent_rgb)
+    except Exception:
+        pass  # stickers are best-effort; never fail the whole render
 
-    # Main title (lower-left, large)
-    draw.text((margin, H - 200), title, font=_font(72), fill="#FFFFFF")
+    # Title + subtitle.
+    sub_font = _load_font(40, bold=False)
+    sub_h = _text_wh(draw, subtitle, sub_font)[1] if subtitle else 0
+    if title_layout == "center":
+        title_font = _fit_font(draw, title, int(W * 0.84), 104)
+        tw, th = _text_wh(draw, title, title_font)
+        tx, ty = (W - tw) // 2, (H - th) // 2 - 10
+        draw.rectangle([(W - 110) // 2, ty - 28, (W + 110) // 2, ty - 16], fill=(*accent_rgb, 255))
+        _draw_text_glow(draw, (tx, ty), title, title_font)
+        if subtitle:
+            sw = _text_wh(draw, subtitle, sub_font)[0]
+            draw.text(((W - sw) // 2, ty + th + 18), subtitle, font=sub_font, fill=(*accent_rgb, 255))
+    else:  # lower-left
+        title_font = _fit_font(draw, title, int(W * 0.60), 92)
+        tw, th = _text_wh(draw, title, title_font)
+        ty = H - margin - (sub_h + (18 if subtitle else 0)) - th
+        draw.rectangle([margin, ty - 26, margin + 92, ty - 14], fill=(*accent_rgb, 255))
+        _draw_text_glow(draw, (margin, ty), title, title_font)
+        if subtitle:
+            draw.text((margin, ty + th + 18), subtitle, font=sub_font, fill=(*accent_rgb, 255))
 
-    # Subtitle (below title)
-    if subtitle:
-        draw.text((margin, H - 110), subtitle, font=_font(36), fill=accent_rgb)
+    # Equalizer — lower-right band (kept clear of the lower-left title).
+    if show_equalizer:
+        try:
+            _draw_equalizer(draw, (int(W * 0.54), H - 150, W - margin, H - margin - 12),
+                            accent_rgb, bars=14,
+                            seed=sum(ord(c) for c in candidate.get("candidate_id", "x")))
+        except Exception:
+            pass
 
-    # Save
+    # Save.
     existing = list(branded_dir.glob("branded_thumbnail_*.png"))
     n = len(existing) + 1
     out_path = branded_dir / f"branded_thumbnail_{n:03d}.png"
     img.save(out_path)
 
-    # Save branding metadata
+    # Branding metadata.
     meta_path = branded_dir / "thumbnail_branding_metadata.json"
     meta = []
     if meta_path.exists():
@@ -203,6 +351,8 @@ def mock_render_branded_thumbnail(
         "subtitle": subtitle,
         "brand_text": brand_text,
         "accent_color": accent_color,
+        "stickers": {"equalizer": show_equalizer, "subscribe": show_subscribe, "like": show_like},
+        "title_layout": title_layout,
         "aspect_ratio": "16:9",
         "created_at": datetime.now(timezone.utc).isoformat(),
     })
