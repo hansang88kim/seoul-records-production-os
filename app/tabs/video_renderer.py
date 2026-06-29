@@ -272,49 +272,115 @@ def render_video_renderer():
 
 
 def _render_progress_panel():
-    """Show live progress for the active/most-recent background render job."""
+    """Show live progress + cancel for the active background render job, and
+    recover it from disk after a Streamlit rerun / tab switch / refresh."""
     from services.video.render_job_store import (
-        load_render_state, list_render_jobs, get_render_log,
+        load_render_state, list_render_jobs, request_cancel,
     )
+    # Recovery: prefer the session's active job; else the most recent ACTIVE one
     job_id = st.session_state.get("active_render_job")
     state = load_render_state(job_id) if job_id else None
     if not state:
-        # Fall back to the most recent running job
-        running = [j for j in list_render_jobs(10) if j.get("status") == "running"]
-        state = running[0] if running else None
+        active = [j for j in list_render_jobs(20)
+                  if j.get("status") in ("running", "cancelling", "queued")]
+        if active:
+            state = active[0]
+            st.session_state["active_render_job"] = state["render_job_id"]
 
-    if not state:
+    if state:
+        with st.container():
+            st.markdown("#### 🎬 렌더 진행 상황")
+            status = state.get("status", "")
+            pct = state.get("progress_percent", 0) or 0
+            jid = state["render_job_id"]
+
+            if status in ("running", "cancelling"):
+                st.progress(pct / 100)
+                cur = int(state.get("current_time_sec", 0) or 0)
+                total = int(state.get("total_seconds", 0) or 0)
+                elapsed = int(state.get("elapsed_sec", 0) or 0)
+                eta = state.get("eta_sec")
+                speed = state.get("speed", "")
+                cols = st.columns(4)
+                cols[0].metric("진행률", f"{pct:.0f}%")
+                cols[1].metric("렌더 위치", f"{cur//60}:{cur%60:02d} / {total//60}:{total%60:02d}")
+                cols[2].metric("속도", speed or "—")
+                cols[3].metric("남은 시간", f"{int(eta)//60}:{int(eta)%60:02d}" if eta else "계산 중")
+                st.caption(f"경과: {elapsed//60}:{elapsed%60:02d} · "
+                           f"worker_pid={state.get('worker_pid')} · ffmpeg_pid={state.get('ffmpeg_pid')}")
+
+                bcol1, bcol2 = st.columns(2)
+                with bcol1:
+                    if st.button("🔄 새로고침", key="vr_refresh_progress", use_container_width=True):
+                        st.rerun()
+                with bcol2:
+                    if status == "running":
+                        if st.button("⏹️ 렌더 취소", key="vr_cancel_render", use_container_width=True):
+                            request_cancel(jid)
+                            st.warning("취소 요청됨 — FFmpeg를 종료하는 중입니다.")
+                            st.rerun()
+                    else:
+                        st.button("⏳ 취소 중...", key="vr_cancelling", disabled=True,
+                                  use_container_width=True)
+            elif status == "completed":
+                st.success(f"✅ 렌더 완료! → {Path(state.get('output_path','')).name}")
+                out = state.get("output_path", "")
+                if out and Path(out).exists():
+                    st.video(out)
+            elif status == "cancelled":
+                st.info(f"⏹️ 렌더 취소됨 (파일은 보존됨): {Path(state.get('output_path','')).name}")
+            elif status == "failed":
+                st.error(f"❌ 렌더 실패: {state.get('last_message','')}")
+
+            st.divider()
+
+    # Render Job History
+    _render_job_history()
+
+
+def _render_job_history():
+    """List recent render jobs (running/completed/failed/cancelled) with actions."""
+    from services.video.render_job_store import list_render_jobs, get_render_log, _jobs_dir
+    jobs = list_render_jobs(20)
+    if not jobs:
         return
 
-    with st.container():
-        st.markdown("#### 🎬 렌더 진행 상황")
-        status = state.get("status", "")
-        pct = state.get("progress_percent", 0) or 0
+    with st.expander(f"📋 렌더 작업 내역 ({len(jobs)}개)", expanded=False):
+        status_icon = {"running": "🟢", "cancelling": "🟡", "completed": "✅",
+                       "failed": "❌", "cancelled": "⏹️", "queued": "⏳"}
+        for j in jobs:
+            jid = j["render_job_id"]
+            icon = status_icon.get(j.get("status", ""), "•")
+            cols = st.columns([3, 1, 1])
+            with cols[0]:
+                pct = j.get("progress_percent", 0) or 0
+                st.write(f"{icon} `{jid}` · {j.get('status','')} · {pct:.0f}%")
+            with cols[1]:
+                if st.button("📂 폴더", key=f"vr_open_{jid}", use_container_width=True):
+                    import subprocess, platform
+                    folder = str(_jobs_dir() / jid)
+                    try:
+                        if platform.system() == "Windows":
+                            subprocess.Popen(["explorer", folder])
+                        elif platform.system() == "Darwin":
+                            subprocess.Popen(["open", folder])
+                        else:
+                            subprocess.Popen(["xdg-open", folder])
+                    except Exception:
+                        st.caption(folder)
+            with cols[2]:
+                if st.button("📄 로그", key=f"vr_log_{jid}", use_container_width=True):
+                    st.session_state["vr_view_log"] = jid
+                    st.rerun()
 
-        if status == "running":
-            st.progress(pct / 100)
-            cur = int(state.get("current_time_sec", 0) or 0)
-            total = int(state.get("total_seconds", 0) or 0)
-            elapsed = int(state.get("elapsed_sec", 0) or 0)
-            eta = state.get("eta_sec")
-            speed = state.get("speed", "")
-            cols = st.columns(4)
-            cols[0].metric("진행률", f"{pct:.0f}%")
-            cols[1].metric("렌더 위치", f"{cur//60}:{cur%60:02d} / {total//60}:{total%60:02d}")
-            cols[2].metric("속도", speed or "—")
-            cols[3].metric("남은 시간", f"{int(eta)//60}:{int(eta)%60:02d}" if eta else "계산 중")
-            st.caption(f"경과: {elapsed//60}:{elapsed%60:02d} · 출력: {Path(state.get('output_path','')).name}")
-            if st.button("🔄 새로고침", key="vr_refresh_progress"):
-                st.rerun()
-        elif status == "completed":
-            st.success(f"✅ 렌더 완료! → {Path(state.get('output_path','')).name}")
-            out = state.get("output_path", "")
-            if out and Path(out).exists():
-                st.video(out)
-        elif status == "failed":
-            st.error(f"❌ 렌더 실패: {state.get('last_message','')}")
-
-        st.divider()
+            # Show log if selected
+            if st.session_state.get("vr_view_log") == jid:
+                log = get_render_log(jid, last_n=30)
+                if log:
+                    st.code("\n".join(f"[{l.get('level','info')}] {l.get('message','')}"
+                                       for l in log))
+                else:
+                    st.caption("로그가 없습니다.")
 
 
 def _run_or_show(cmd: dict, label: str):

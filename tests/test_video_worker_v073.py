@@ -68,7 +68,7 @@ def test_full_render_uses_background_worker(render_setup, monkeypatch):
         job = rjs.launch_render_job(render_setup["out_dir"], cmd["command"],
                                     render_setup["plan"]["total_seconds"], cmd["output"])
     assert job["render_job_id"]
-    assert job["pid"] == 4321
+    assert job["worker_pid"] == 4321
 
 
 def test_preview_can_run_inline(render_setup):

@@ -31,7 +31,8 @@ def _parse_progress_block(lines: list[str]) -> dict:
 def run_render_job(render_job_id: str):
     import subprocess
     from services.video.render_job_store import (
-        load_render_state, update_render_state, append_log, append_progress, _job_path,
+        load_render_state, update_render_state, append_log, append_progress,
+        _job_path, is_cancelling, terminate_ffmpeg,
     )
 
     state = load_render_state(render_job_id)
@@ -57,14 +58,22 @@ def run_render_job(render_job_id: str):
 
     start = time.time()
     try:
+        import os as _os
         proc = subprocess.Popen(
             command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
             text=True, bufsize=1,
         )
-        update_render_state(render_job_id, pid=proc.pid)
+        # Record BOTH pids separately: this process is the worker, proc is ffmpeg
+        update_render_state(render_job_id, worker_pid=_os.getpid(), ffmpeg_pid=proc.pid)
 
+        cancelled = False
         block: list[str] = []
         for line in proc.stdout:
+            # Poll for a cancel request between progress lines
+            if is_cancelling(render_job_id):
+                terminate_ffmpeg(proc.pid)
+                cancelled = True
+                break
             line = line.rstrip("\n")
             block.append(line)
             # FFmpeg -progress emits 'progress=continue' / 'progress=end' at block end
@@ -110,7 +119,16 @@ def run_render_job(render_job_id: str):
                 )
 
         proc.wait()
-        if proc.returncode == 0 and Path(output_path).exists():
+
+        if cancelled or is_cancelling(render_job_id):
+            # Cancellation requested — mark cancelled, KEEP all files.
+            update_render_state(
+                render_job_id, status="cancelled",
+                finished_at=datetime.now(timezone.utc).isoformat(),
+                last_message="사용자가 렌더를 취소했습니다 (파일은 보존됨)",
+            )
+            append_log(render_job_id, "취소 완료 — output/log/plan 파일은 보존됩니다")
+        elif proc.returncode == 0 and Path(output_path).exists():
             update_render_state(
                 render_job_id, status="completed", progress_percent=100.0,
                 finished_at=datetime.now(timezone.utc).isoformat(),

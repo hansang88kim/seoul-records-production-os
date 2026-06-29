@@ -32,7 +32,11 @@ def _job_path(render_job_id: str) -> Path:
 def create_render_job(out_dir: str, command: list[str], total_seconds: float,
                       output_path: str) -> dict:
     """Create a new render job and persist its initial state + sanitized command."""
-    render_job_id = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S") + "_render"
+    import uuid as _uuid
+    render_job_id = (
+        datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S_%f")
+        + "_" + _uuid.uuid4().hex[:6] + "_render"
+    )
     jd = _job_path(render_job_id)
 
     state = {
@@ -46,7 +50,8 @@ def create_render_job(out_dir: str, command: list[str], total_seconds: float,
         "speed": "",
         "elapsed_sec": 0.0,
         "eta_sec": None,
-        "pid": None,
+        "worker_pid": None,
+        "ffmpeg_pid": None,
         "created_at": datetime.now(timezone.utc).isoformat(),
         "started_at": None,
         "finished_at": None,
@@ -179,9 +184,55 @@ def launch_render_job(out_dir: str, command: list[str], total_seconds: float,
 
     try:
         proc = subprocess.Popen(worker_cmd, **popen_kwargs)
-        update_render_state(render_job_id, pid=proc.pid, status="running")
+        update_render_state(render_job_id, worker_pid=proc.pid, status="running")
     except Exception as e:
         update_render_state(render_job_id, status="failed",
                             last_message=f"Worker 시작 실패: {e}")
 
     return load_render_state(render_job_id) or state
+
+def request_cancel(render_job_id: str) -> dict | None:
+    """
+    Request cancellation: set status='cancelling'. The worker polls this and
+    terminates FFmpeg, then sets status='cancelled'. Output/log/plan files are
+    NEVER deleted.
+    """
+    state = load_render_state(render_job_id)
+    if not state:
+        return None
+    # Only cancel if still active
+    if state.get("status") in ("completed", "failed", "cancelled"):
+        return state
+    append_log(render_job_id, "취소 요청됨 — FFmpeg 종료 중", "info")
+    return update_render_state(render_job_id, status="cancelling",
+                               last_message="취소 중...")
+
+
+def terminate_ffmpeg(ffmpeg_pid: int | None) -> bool:
+    """Terminate the FFmpeg process by PID (cross-platform). No file deletion."""
+    if not ffmpeg_pid:
+        return False
+    try:
+        import sys
+        if sys.platform == "win32":
+            import ctypes
+            PROCESS_TERMINATE = 0x0001
+            kernel32 = ctypes.windll.kernel32
+            handle = kernel32.OpenProcess(PROCESS_TERMINATE, False, ffmpeg_pid)
+            if handle:
+                kernel32.TerminateProcess(handle, 1)
+                kernel32.CloseHandle(handle)
+                return True
+            return False
+        else:
+            import os as _os, signal as _signal
+            _os.kill(ffmpeg_pid, _signal.SIGTERM)
+            return True
+    except Exception:
+        return False
+
+
+def is_cancelling(render_job_id: str) -> bool:
+    """Check if a cancel has been requested (polled by the worker)."""
+    state = load_render_state(render_job_id)
+    return bool(state and state.get("status") == "cancelling")
