@@ -105,7 +105,9 @@ def render_production_tabs():
         from app.tabs.video_renderer import render_video_renderer
         render_video_renderer()
     with tab4:
-        render_tab_youtube()
+        # v0.8.0: YouTube Package Studio (manual package + optional private API upload)
+        from app.tabs.youtube_package import render_youtube_package
+        render_youtube_package()
     with tab5:
         render_tab_distribution()
 
