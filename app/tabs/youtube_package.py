@@ -238,11 +238,23 @@ def _render_oauth_and_upload(pkg: dict, privacy: str):
     from services.youtube import oauth_service as oauth
     from services.youtube import token_store as ts
     from services.youtube import youtube_api_client as YAC
+    from services.youtube import dependency_check as DEP
 
     st.divider()
     st.markdown("### 🔐 OAuth / 계정")
     st.warning("YouTube API 업로드는 기본적으로 private로 진행됩니다. "
                "공개 전 YouTube Studio에서 직접 확인하세요.")
+
+    # v0.8.3: real-API dependency status
+    libs_ok = DEP.google_libs_available()
+    if libs_ok:
+        st.caption("🟢 Google API 라이브러리 설치됨 — 실제 업로드 가능")
+    else:
+        missing = DEP.missing_google_libs()
+        st.error("실제 YouTube 업로드를 위해 google-api-python-client / "
+                 "google-auth-oauthlib 설치가 필요합니다.")
+        st.caption(f"누락: {', '.join(missing)}")
+        st.code(f"pip install {' '.join(missing)}")
 
     status = oauth.get_auth_status()
     status_labels = {
@@ -264,9 +276,13 @@ def _render_oauth_and_upload(pkg: dict, privacy: str):
 
     ocol1, ocol2, ocol3 = st.columns(3)
     with ocol1:
-        if st.button("🔑 YouTube 인증", key="yt_authorize", use_container_width=True):
+        oauth_hint = DEP.oauth_install_hint()
+        if st.button("🔑 YouTube 인증", key="yt_authorize",
+                     use_container_width=True, disabled=bool(oauth_hint)):
             res = oauth.authorize()
             st.caption(res.get("message", ""))
+        if oauth_hint:
+            st.caption(f"⚠️ {oauth_hint}")
     with ocol2:
         if st.button("🔌 연결 테스트", key="yt_test_conn", use_container_width=True):
             r = oauth.test_connection()
@@ -294,10 +310,20 @@ def _render_oauth_and_upload(pkg: dict, privacy: str):
         key="yt_reviewed",
     )
 
-    can_upload = video_ok and title_ok and reviewed
-    use_real = st.checkbox("실제 YouTube API 사용 (미체크 시 mock)", value=False,
-                           key="yt_use_real",
-                           help="실제 업로드는 OAuth 인증과 google-api-python-client가 필요합니다.")
+    use_real = st.checkbox(
+        "실제 YouTube API 사용 (미체크 시 mock)", value=False,
+        key="yt_use_real", disabled=not libs_ok,
+        help="실제 업로드는 OAuth 인증과 google-api-python-client가 필요합니다.",
+    )
+    if not libs_ok and use_real:
+        # Defensive: if somehow checked, force mock
+        use_real = False
+    if not libs_ok:
+        st.caption("⚠️ Google API 라이브러리가 없어 실제 업로드는 비활성화됩니다. "
+                   "mock 업로드는 계속 사용할 수 있습니다.")
+
+    # Real upload additionally requires the libraries to be installed
+    can_upload = video_ok and title_ok and reviewed and (libs_ok or not use_real)
 
     if st.button(f"▶️ YouTube 업로드 ({privacy})", key="yt_upload",
                  use_container_width=True, type="primary", disabled=not can_upload):

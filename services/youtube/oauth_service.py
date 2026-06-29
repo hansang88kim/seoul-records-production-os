@@ -54,11 +54,9 @@ def authorize(headless_token: dict | None = None) -> dict:
     try:
         from google_auth_oauthlib.flow import InstalledAppFlow  # type: ignore
     except Exception:
-        return ts.set_status(
-            ts.STATUS_FAILED,
-            "google-auth-oauthlib 미설치 — 실제 인증을 진행할 수 없습니다. "
-            "라이브러리를 설치하거나 수동 패키지 모드를 사용하세요.",
-        )
+        from services.youtube.dependency_check import oauth_install_hint
+        hint = oauth_install_hint() or "pip install google-auth-oauthlib google-auth"
+        return ts.set_status(ts.STATUS_FAILED, hint)
 
     try:
         secret = ts.load_client_secret()
