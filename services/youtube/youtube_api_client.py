@@ -109,3 +109,120 @@ def get_unverified_project_note() -> str:
         "업로드된 영상은 비공개(private)로 제한될 수 있습니다. 공개 전환은 "
         "프로젝트 인증 이후 가능합니다."
     )
+
+# ─── v0.8.2: central redaction delegation + client factory ──────────────────
+
+def redact_authorization_header_v2(headers: dict) -> dict:
+    """Delegate to the central redaction utility (covers more header types)."""
+    from services.security.redaction import redact_headers
+    return redact_headers(headers)
+
+
+def sanitize_for_log_v2(data):
+    """Delegate to the central redaction utility (recursive, pattern-based)."""
+    from services.security.redaction import redact_dict
+    return redact_dict(data)
+
+
+class RealYouTubeApiClient:
+    """
+    Real YouTube Data API client (resumable upload). Requires the optional
+    google-api-python-client + google-auth libraries AND a valid local token.
+    If the libraries are missing, methods raise a clear error; the app falls
+    back to the mock client. NEVER logs tokens or Authorization headers.
+    """
+
+    def __init__(self, credentials: dict | None = None):
+        self._credentials = credentials or {}
+        self.calls = []
+
+    def _build_service(self):
+        from googleapiclient.discovery import build  # type: ignore
+        from google.oauth2.credentials import Credentials  # type: ignore
+        tok = self._credentials
+        creds = Credentials(
+            token=tok.get("token"),
+            refresh_token=tok.get("refresh_token"),
+            token_uri=tok.get("token_uri"),
+            client_id=tok.get("client_id"),
+            client_secret=tok.get("client_secret"),
+            scopes=tok.get("scopes"),
+        )
+        return build("youtube", "v3", credentials=creds)
+
+    def authenticate(self) -> dict:
+        # Auth handled by oauth_service; here we just verify creds are present.
+        return {"ok": bool(self._credentials), "mock": False}
+
+    def get_auth_status(self) -> dict:
+        return {"status": "authorized" if self._credentials else "not_configured",
+                "mock": False}
+
+    def upload_video_private(self, payload: dict, video_path: str,
+                             progress_callback=None) -> dict:
+        """
+        Resumable private upload via the real API. privacyStatus is forced to
+        whatever the payload says (default private upstream). Never publishes
+        public on its own.
+        """
+        from googleapiclient.http import MediaFileUpload  # type: ignore
+        service = self._build_service()
+        media = MediaFileUpload(video_path, chunksize=1024 * 1024 * 8,
+                                resumable=True)
+        request = service.videos().insert(
+            part="snippet,status", body=payload, media_body=media)
+
+        response = None
+        while response is None:
+            status, response = request.next_chunk()
+            if status and progress_callback:
+                progress_callback({
+                    "percent": int(status.progress() * 100),
+                    "bytes_uploaded": int(status.resumable_progress),
+                    "total_bytes": int(status.total_size or 0),
+                    "speed": "",
+                })
+        vid = response.get("id")
+        privacy = payload.get("status", {}).get("privacyStatus", "private")
+        return {"status": "uploaded", "video_id": vid,
+                "youtube_url": f"https://youtu.be/{vid}",
+                "privacy_status": privacy, "mock": False}
+
+    def set_thumbnail(self, video_id: str, thumbnail_path: str) -> dict:
+        from googleapiclient.http import MediaFileUpload  # type: ignore
+        service = self._build_service()
+        try:
+            service.thumbnails().set(
+                videoId=video_id,
+                media_body=MediaFileUpload(thumbnail_path)).execute()
+            return {"thumbnail_set": True, "video_id": video_id, "mock": False}
+        except Exception:
+            return {"thumbnail_set": False, "video_id": video_id,
+                    "error": "thumbnail set failed", "mock": False}
+
+    def get_video_status(self, video_id: str) -> dict:
+        service = self._build_service()
+        resp = service.videos().list(part="status", id=video_id).execute()
+        items = resp.get("items", [])
+        status = items[0].get("status", {}) if items else {}
+        return {"video_id": video_id,
+                "privacy_status": status.get("privacyStatus"),
+                "upload_status": status.get("uploadStatus"), "mock": False}
+
+    def revoke_token(self) -> dict:
+        from services.youtube import token_store as ts
+        ts.clear_token()
+        return {"revoked": True, "mock": False}
+
+
+def get_youtube_client(use_mock: bool = True, credentials: dict | None = None,
+                       **mock_kwargs):
+    """
+    Factory: returns the mock client by default (no network). Pass
+    use_mock=False to get the real client (requires libs + token). Tests always
+    use the mock.
+    """
+    if use_mock:
+        from services.youtube.mock_youtube_api_client import MockYouTubeApiClient
+        return MockYouTubeApiClient(credentials=credentials, **mock_kwargs)
+    return RealYouTubeApiClient(credentials=credentials)

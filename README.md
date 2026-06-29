@@ -1,6 +1,6 @@
 # Seoul Records Production OS
 
-**AI Music Label Production Harness — v0.8.1**
+**AI Music Label Production Harness — v0.8.2**
 
 > Creative direction: controlled by ChatGPT and the user.
 > Engineering: this repository.
@@ -50,6 +50,8 @@
 ## What This Is
 
 Seoul Records Production OS is a local MVP application for creating AI-generated city pop album projects. It provides a full 5-tab production pipeline from song generation through music distribution, with mock providers for v0.1.x and a clear upgrade path to real integrations.
+
+**v0.8.2: YouTube Private Upload — upload final_video.mp4 to YouTube as PRIVATE (default) via OAuth 2.0, in a background worker so the UI never blocks, then set the custom thumbnail. Manual package flow is unchanged. Tokens/client secrets/Authorization headers are redacted everywhere via a central redaction utility; token.json stays local and is excluded from exports and git. Thumbnail failure → partial_success (video stays private) with thumbnail-only retry. Tests use a mock client; no real API calls. Public upload is not implemented.**
 
 **v0.8.1: Home Navigation UX — Video Renderer and YouTube Package are now reachable from the home screen (no open project required); both scan the global outputs/ folder, so MP3s, thumbnails, final_video.mp4, and chapters can be selected without opening a project. Tab exposure only — no changes to music generation, Thumbnail Studio, Video Renderer, or YouTube Package logic.**
 
@@ -167,7 +169,7 @@ seoul-records-production-os/
 
 ## Production Tabs
 
-| Tab | Purpose | v0.8.1 Status |
+| Tab | Purpose | v0.8.2 Status |
 |-----|---------|---------------|
 | 🎵 Song Generation | Prompt generation, mock Suno, WAV import, candidate selection | ✅ Mock + Manual Import |
 | 🖼 Thumbnail & Cover | 16:9 YouTube thumbnail + 1:1 DSP cover | ✅ Mock (Pillow) |

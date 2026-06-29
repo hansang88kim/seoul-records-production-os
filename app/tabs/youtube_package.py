@@ -217,21 +217,165 @@ def render_youtube_package():
 
             # Optional API upload (mock client; private default)
             if upload_mode in (YPS.UPLOAD_MODE_API_PRIVATE, YPS.UPLOAD_MODE_API_UNLISTED):
-                st.divider()
                 privacy = ("private" if upload_mode == YPS.UPLOAD_MODE_API_PRIVATE
                            else "unlisted")
-                st.caption(f"⚠️ API 업로드는 기본 {privacy}입니다. (현재 버전은 mock 클라이언트)")
-                if st.button(f"▶️ YouTube 업로드 ({privacy})", use_container_width=True,
-                             key="yt_upload"):
-                    _mock_upload(pkg, privacy)
+                _render_oauth_and_upload(pkg, privacy)
 
-        # Upload checklist
+        # Upload checklist (always shown for the package)
         if pkg:
             st.divider()
             st.markdown("**업로드 체크리스트**")
             checklist = Path(pkg["package_dir"]) / "upload_checklist.md"
             if checklist.exists():
                 st.markdown(checklist.read_text(encoding="utf-8"))
+
+    # Live upload progress (background jobs) — outside the columns
+    _render_upload_progress_panel()
+
+
+def _render_oauth_and_upload(pkg: dict, privacy: str):
+    """OAuth account section + checklist-gated background Private Upload."""
+    from services.youtube import oauth_service as oauth
+    from services.youtube import token_store as ts
+    from services.youtube import youtube_api_client as YAC
+
+    st.divider()
+    st.markdown("### 🔐 OAuth / 계정")
+    st.warning("YouTube API 업로드는 기본적으로 private로 진행됩니다. "
+               "공개 전 YouTube Studio에서 직접 확인하세요.")
+
+    status = oauth.get_auth_status()
+    status_labels = {
+        ts.STATUS_NOT_CONFIGURED: "⚪ 설정되지 않음",
+        ts.STATUS_CLIENT_LOADED: "🟡 client_secret 로드됨",
+        ts.STATUS_AUTHORIZED: "🟢 인증됨",
+        ts.STATUS_EXPIRED: "🟠 토큰 만료 — 재인증 필요",
+        ts.STATUS_FAILED: "🔴 인증 실패",
+    }
+    st.caption(f"상태: {status_labels.get(status.get('status'), status.get('status'))}")
+
+    client_file = st.file_uploader("client_secret.json 업로드", type=["json"],
+                                   key="yt_client_secret")
+    if client_file is not None:
+        if oauth.load_client_secret_from_bytes(client_file.getvalue()):
+            st.success("client_secret.json 로드됨 (로컬 저장, 화면에 표시되지 않음)")
+        else:
+            st.error("유효한 client_secret.json이 아닙니다")
+
+    ocol1, ocol2, ocol3 = st.columns(3)
+    with ocol1:
+        if st.button("🔑 YouTube 인증", key="yt_authorize", use_container_width=True):
+            res = oauth.authorize()
+            st.caption(res.get("message", ""))
+    with ocol2:
+        if st.button("🔌 연결 테스트", key="yt_test_conn", use_container_width=True):
+            r = oauth.test_connection()
+            (st.success if r["ok"] else st.warning)(r["message"])
+    with ocol3:
+        if st.button("🗑️ 토큰 삭제", key="yt_revoke", use_container_width=True):
+            oauth.revoke()
+            st.caption("로컬 토큰이 삭제되었습니다")
+
+    # Checklist gate
+    st.divider()
+    st.markdown("### ✅ 업로드 전 확인")
+    video_ok = bool(pkg.get("video_path") and Path(pkg["video_path"]).exists())
+    title_ok = bool(pkg.get("title"))
+    thumb_ok = bool(pkg.get("thumbnail_upload_ready_path")
+                    and Path(pkg["thumbnail_upload_ready_path"]).exists())
+    st.caption(f"{'✅' if video_ok else '❌'} final_video.mp4 존재")
+    st.caption(f"{'✅' if title_ok else '❌'} 제목 생성됨")
+    st.caption(f"{'✅' if thumb_ok else '⚠️'} 업로드용 썸네일 존재")
+    st.caption("✅ 기본 공개 상태: private")
+
+    reviewed = st.checkbox(
+        "이 패키지를 검토했고, 영상이 비공개(private)로 업로드됨을 이해하며, "
+        "저작권/권리 책임을 확인합니다.",
+        key="yt_reviewed",
+    )
+
+    can_upload = video_ok and title_ok and reviewed
+    use_real = st.checkbox("실제 YouTube API 사용 (미체크 시 mock)", value=False,
+                           key="yt_use_real",
+                           help="실제 업로드는 OAuth 인증과 google-api-python-client가 필요합니다.")
+
+    if st.button(f"▶️ YouTube 업로드 ({privacy})", key="yt_upload",
+                 use_container_width=True, type="primary", disabled=not can_upload):
+        from services.youtube.upload_payload_service import build_upload_payload
+        from services.youtube.upload_job_store import launch_upload_job
+        payload = build_upload_payload(pkg.get("title", ""),
+                                       _read_text(pkg, "description.txt"),
+                                       pkg.get("tags", []), privacy_status=privacy)
+        job = launch_upload_job(
+            package_id=pkg.get("package_id", ""),
+            video_path=pkg.get("video_path", ""),
+            thumbnail_path=pkg.get("thumbnail_upload_ready_path", ""),
+            title=pkg.get("title", ""), payload=payload,
+            privacy_status=privacy, use_real=use_real,
+        )
+        st.session_state["yt_active_upload"] = job["upload_job_id"]
+        st.success(f"📤 백그라운드 업로드 시작! (Job: {job['upload_job_id']})")
+        st.info("UI는 멈추지 않습니다. 아래 '업로드 진행 상황'에서 확인하세요.")
+        st.rerun()
+
+    if not can_upload:
+        st.caption("⚠️ 업로드 버튼은 체크리스트를 검토(reviewed)해야 활성화됩니다.")
+
+
+def _read_text(pkg: dict, filename: str) -> str:
+    try:
+        p = Path(pkg["package_dir"]) / filename
+        return p.read_text(encoding="utf-8") if p.exists() else ""
+    except Exception:
+        return ""
+
+
+def _render_upload_progress_panel():
+    """Live progress for the active/most-recent background upload job."""
+    from services.youtube.upload_job_store import (
+        load_upload_state, list_upload_jobs, get_upload_log,
+    )
+    job_id = st.session_state.get("yt_active_upload")
+    state = load_upload_state(job_id) if job_id else None
+    if not state:
+        active = [j for j in list_upload_jobs(20)
+                  if j.get("status") in ("queued", "authorizing", "uploading",
+                                          "processing", "thumbnail_setting")]
+        state = active[0] if active else None
+    if not state:
+        return
+
+    st.divider()
+    st.markdown("### 📤 업로드 진행 상황")
+    status = state.get("status", "")
+    pct = state.get("progress_percent", 0) or 0
+    jid = state["upload_job_id"]
+
+    if status in ("queued", "authorizing", "uploading", "processing", "thumbnail_setting"):
+        st.progress(pct / 100)
+        st.caption(f"상태: {status} · {pct:.0f}% · {state.get('last_message','')}")
+        if st.button("🔄 새로고침", key="yt_refresh_upload"):
+            st.rerun()
+    elif status == "completed":
+        st.success(f"✅ 업로드 완료 (private): {state.get('youtube_url','')}")
+        st.caption(f"video_id: {state.get('video_id')} · 썸네일: {state.get('thumbnail_set_status')}")
+    elif status == "partial_success":
+        st.warning(f"⚠️ 업로드됨(private) · 썸네일 실패: {state.get('youtube_url','')}")
+        if st.button("🖼️ 썸네일만 재시도", key="yt_retry_thumb"):
+            from workers.youtube_upload_worker import run_thumbnail_retry
+            run_thumbnail_retry(jid, use_mock=not st.session_state.get("yt_use_real", False))
+            st.rerun()
+    elif status == "failed":
+        st.error(f"❌ 업로드 실패: {state.get('last_message','')}")
+        if st.button("🔁 업로드 재시도", key="yt_retry_upload"):
+            st.session_state["yt_active_upload"] = None
+            st.rerun()
+
+    # Sanitized logs (last 20)
+    log = get_upload_log(jid, last_n=20)
+    if log:
+        with st.expander("📄 업로드 로그 (최근 20, 토큰 제거됨)", expanded=False):
+            st.code("\n".join(f"[{l.get('level','info')}] {l.get('message','')}" for l in log))
 
 
 def _mock_upload(pkg: dict, privacy: str):

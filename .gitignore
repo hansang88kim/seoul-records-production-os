@@ -78,3 +78,8 @@ Thumbs.db
 
 # Streamlit
 .streamlit/secrets.toml
+
+# v0.8.2: YouTube OAuth secrets — never commit
+outputs/youtube_auth/
+**/token.json
+**/client_secret.json
