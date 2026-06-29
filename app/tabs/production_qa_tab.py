@@ -116,6 +116,9 @@ def render_production_qa():
         if not (blockers or warns or opts):
             st.success("경고 없음 — 모든 산출물이 준비되었습니다.")
 
+    # ── Remote control status panel (v0.9.1) ────────────────────────
+    _render_remote_control_panel()
+
     # ── Pilot render sequence guide ──────────────────────────────────
     st.divider()
     st.markdown("### 🚀 Pilot 제작 순서")
@@ -126,3 +129,42 @@ def render_production_qa():
         cols[0].write(f"{mark} {i}. {s['step']}")
         cols[1].caption(f"산출물: {s['expected_output']}")
         cols[2].caption(f"→ {s['tab']}")
+
+def _render_remote_control_panel():
+    """v0.9.1: read-only remote control status (no secrets shown)."""
+    import streamlit as st
+    st.divider()
+    st.markdown("### 📡 원격 제어 (Remote Control)")
+    try:
+        from services.remote_control import security as SEC
+        from services.remote_control import supervisor as SUP
+        from services.remote_control import health_check as HC
+    except Exception:
+        st.caption("원격 제어 모듈을 불러올 수 없습니다.")
+        return
+
+    cfg = SEC.public_config_summary()
+    sup_status = SUP.load_status()
+    health = HC.check_streamlit()
+
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        st.caption("Supervisor")
+        st.write("🟢 동작 중" if sup_status.get("status") == "healthy"
+                 else f"⚪ {sup_status.get('status', 'unknown')}")
+        st.caption(f"마지막 체크: {sup_status.get('last_health_check_at', 'n/a')}")
+    with c2:
+        st.caption("Telegram 봇")
+        st.write("🟢 활성화" if cfg["telegram_enabled"] else "⚪ 비활성화")
+        st.caption(f"허용 chat_id: {cfg['allowed_chat_id_count']}개")
+    with c3:
+        st.caption("Streamlit")
+        st.write("🟢 running" if health["running"] else "🔴 down")
+        st.caption(f"HTTP {health['http_status']}")
+
+    st.caption("설정: TELEGRAM_BOT_TOKEN + TELEGRAM_ALLOWED_CHAT_IDS 환경변수로 활성화. "
+               "토큰/시크릿은 화면·로그·Telegram에 표시되지 않습니다.")
+    st.caption("Supervisor 실행: python -m workers.studio_supervisor_worker · "
+               "Task 등록: scripts/windows/install_supervisor_task.ps1")
+    st.caption("가이드: docs/remote_control_telegram.md · docs/tailscale_remote_access.md · "
+               "docs/windows_supervisor_setup.md")

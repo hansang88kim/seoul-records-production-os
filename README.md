@@ -1,6 +1,6 @@
 # Seoul Records Production OS
 
-**AI Music Label Production Harness — v0.9.0**
+**AI Music Label Production Harness — v0.9.1**
 
 > Creative direction: controlled by ChatGPT and the user.
 > Engineering: this repository.
@@ -50,6 +50,8 @@
 ## What This Is
 
 Seoul Records Production OS is a local MVP application for creating AI-generated city pop album projects. It provides a full 5-tab production pipeline from song generation through music distribution, with mock providers for v0.1.x and a clear upgrade path to real integrations.
+
+**v0.9.1: Remote Control Plane + Supervisor Watchdog — a separate supervisor process watches the Streamlit frontend (HTTP health check on 127.0.0.1:8501), restarts it when down with a per-hour restart-loop guard, summarizes active jobs, and writes supervisor_status.json. A Telegram control bot (disabled unless TELEGRAM_BOT_TOKEN + TELEGRAM_ALLOWED_CHAT_IDS are set) accepts a fixed allowlist of management commands only (/status, /app, /restart_app, /jobs, /render, /youtube, /qa, /tail, /help) — there is NO shell/exec command, only whitelisted chat_ids may issue commands, and every response is redacted so no token/cookie/secret is ever exposed. Restart matches the app/main.py command line carefully and never kills the render/upload workers. Windows Task Scheduler scripts register the supervisor at logon. Read-only remote-control status panel added to Production QA. Tailscale is used for frontend access via a guide (not required).**
 
 **v0.9.0: UnitedMasters Distribution Package Studio — a new UnitedMasters tab builds a manual-upload distribution package from the Video Renderer playlist order + streaming_cover_1x1. MP3 is included as source/draft audio (distribution_ready=false); WAV/FLAC masters (attached by path or found beside the MP3) flip tracks to Distribution Ready. No fake WAV is ever created, source MP3s are never deleted, and there is no credential storage or CAPTCHA bypass — manual upload workflow only. Produces tracklist CSV/JSON, release_metadata.json, cover (+ upload-ready), MP3 references, distribution masters when provided, and a manual upload checklist. Production QA now includes UnitedMasters readiness (MP3-only does not count as distribution-ready).**
 
@@ -175,7 +177,7 @@ seoul-records-production-os/
 
 ## Production Tabs
 
-| Tab | Purpose | v0.9.0 Status |
+| Tab | Purpose | v0.9.1 Status |
 |-----|---------|---------------|
 | 🎵 Song Generation | Prompt generation, mock Suno, WAV import, candidate selection | ✅ Mock + Manual Import |
 | 🖼 Thumbnail & Cover | 16:9 YouTube thumbnail + 1:1 DSP cover | ✅ Mock (Pillow) |
