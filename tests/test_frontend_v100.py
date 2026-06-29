@@ -17,6 +17,18 @@ def _read(p: str) -> str:
     return (FE / p).read_text(encoding="utf-8")
 
 
+# Installed deps / build artifacts must never be scanned as "our source".
+_FE_SKIP_DIRS = {"node_modules", ".next", "out", ".turbo"}
+
+
+def _fe_source_files(ext: str):
+    """Yield frontend source files only, skipping installed/build directories."""
+    for f in FE.rglob(ext):
+        if any(part in _FE_SKIP_DIRS for part in f.parts):
+            continue
+        yield f
+
+
 # ─── Directory + stack ───────────────────────────────────────────────────────
 
 def test_frontend_directory_exists():
@@ -149,7 +161,7 @@ def test_frontend_does_not_contain_secret_like_strings():
     bad = ["ya29.", "ghp_", "sk-", "Bearer ", "client_secret\"", "refresh_token\":",
            "BEGIN PRIVATE KEY"]
     for ext in ("*.tsx", "*.ts"):
-        for f in FE.rglob(ext):
+        for f in _fe_source_files(ext):
             text = f.read_text(encoding="utf-8")
             for marker in bad:
                 assert marker not in text, f"{marker!r} found in {f}"
@@ -202,7 +214,7 @@ def test_snapshot_bridge_builds_and_is_secret_free(monkeypatch):
 def test_frontend_does_not_use_google_fonts():
     """next/font/google requires network at build time — must be absent."""
     for ext in ("*.tsx", "*.ts"):
-        for f in FE.rglob(ext):
+        for f in _fe_source_files(ext):
             text = f.read_text(encoding="utf-8")
             assert "next/font/google" not in text, f"next/font/google in {f}"
             assert "next/font" not in text, f"next/font in {f}"

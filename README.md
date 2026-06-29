@@ -1,6 +1,6 @@
 # Seoul Records Production OS
 
-**AI Music Label Production Harness — v1.0.0-alpha.1**
+**AI Music Label Production Harness — v1.0.0-alpha.2**
 
 > Creative direction: controlled by ChatGPT and the user.
 > Engineering: this repository.

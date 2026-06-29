@@ -84,6 +84,14 @@ def test_no_deprecated_utcnow_in_source():
             continue
         if rel.startswith("tests/"):
             continue
+        # Skip virtualenvs / installed third-party packages / frontend deps —
+        # only OUR source counts. (oauthlib & google-api-core legitimately
+        # use datetime.utcnow() internally and live under .venv.)
+        segs = rel.split("/")
+        if any(s in segs for s in (".venv", "venv", "site-packages", "node_modules")):
+            continue
+        if rel.startswith("frontend/"):
+            continue
         content = py_file.read_text(encoding="utf-8")
         for lineno, line in enumerate(content.split("\n"), 1):
             stripped = line.strip()
