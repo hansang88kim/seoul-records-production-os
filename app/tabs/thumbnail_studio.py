@@ -294,49 +294,148 @@ def _render_brand_thumbnail():
 
 
 def _render_exports():
-    """Mode 4 — view final exports."""
-    st.markdown("#### 📦 Exports — 최종 썸네일")
+    """Mode 4 — export the 3 separated deliverables + crop tool."""
+    from services.thumbnail import asset_exporter as ae
+    from services.thumbnail import asset_types as AT
+    from services.thumbnail.video_renderer_rules import select_video_background
+
+    st.markdown("#### 📦 Exports — 최종 산출물 3종 분리")
+    st.caption("썸네일(광고판) · MP4 배경(무대) · 1:1 커버(앨범 자켓)를 각각 분리해 내보냅니다.")
 
     sess = _current_session()
     if not sess:
-        st.info("아직 세션이 없습니다.")
+        st.info("아직 세션이 없습니다. Prompt Lab에서 시작하세요.")
         return
 
-    exports_dir = ss.session_path(sess["session_id"]) / "exports"
-    if not exports_dir.exists():
-        st.info("아직 내보낸 썸네일이 없습니다.")
+    sid = sess["session_id"]
+
+    # Pick a source background — prefer a branded thumbnail, else a selected candidate
+    selected = ss.get_selected_candidates(sid)
+    branded_dir = ss.session_path(sid) / "branded"
+    branded_imgs = sorted(branded_dir.glob("branded_thumbnail_*.png")) if branded_dir.exists() else []
+
+    source_options = {}
+    for b in branded_imgs:
+        source_options[f"브랜드 썸네일: {b.name}"] = str(b)
+    for cand in selected:
+        p = cand.get("uploaded_image_path")
+        if p:
+            source_options[f"선택 이미지: {cand['candidate_id']}"] = p
+
+    if not source_options:
+        st.warning("⚠️ 먼저 Candidate Gallery에서 이미지를 선택하거나 Brand Thumbnail을 만드세요.")
         return
 
-    finals = sorted(exports_dir.glob("final_thumbnail_*.png"))
-    branded_dir = ss.session_path(sess["session_id"]) / "branded"
-    branded = sorted(branded_dir.glob("branded_thumbnail_*.png")) if branded_dir.exists() else []
+    src_label = st.selectbox("소스 배경 이미지", list(source_options.keys()))
+    bg_path = source_options[src_label]
 
-    if not finals and not branded:
-        st.info("아직 썸네일이 없습니다. Brand Thumbnail에서 생성하세요.")
-        return
+    # Branding text
+    from services.thumbnail.country_presets import get_country_preset
+    from services.thumbnail import canva_branding as cb
+    country_label = get_country_preset(sess["country"])["label"].split(" (")[0]
+    accent = get_country_preset(sess["country"])["accent"]
 
-    if finals:
-        st.markdown(f"**📦 최종 내보내기 ({len(finals)}개)**")
-        cols = st.columns(2)
-        for idx, f in enumerate(finals):
-            with cols[idx % 2]:
-                st.image(str(f), use_container_width=True, caption=f.name)
+    col1, col2 = st.columns(2)
+    with col1:
+        title = st.text_input("플레이리스트 제목", key="exp_title",
+                              value=cb.build_main_title(country_label, sess["volume"], sess.get("title", "")))
+        subtitle = st.text_input("부제목", value=sess.get("subtitle", ""), key="exp_subtitle")
+    with col2:
+        brand_text = st.text_input("브랜드 텍스트", value="Seoul Records", key="exp_brand")
+        crop_mode = st.selectbox("1:1 커버 크롭 모드",
+                                 ["smart_title_safe", "center_crop", "fit_blur", "manual"],
+                                 format_func=lambda m: {
+                                     "smart_title_safe": "스마트 타이틀 세이프",
+                                     "center_crop": "중앙 크롭",
+                                     "fit_blur": "블러 배경 맞춤",
+                                     "manual": "수동",
+                                 }.get(m, m), key="exp_crop")
 
-    if branded:
-        st.markdown(f"**✨ 브랜드 썸네일 ({len(branded)}개)**")
-        cols = st.columns(2)
-        for idx, f in enumerate(branded):
-            with cols[idx % 2]:
-                st.image(str(f), use_container_width=True, caption=f.name)
-
-    # Session info
     st.divider()
-    if st.button("📂 세션 폴더 열기"):
-        import subprocess, platform
-        folder = str(ss.session_path(sess["session_id"]))
-        if platform.system() == "Windows":
-            subprocess.Popen(["explorer", folder])
-        elif platform.system() == "Darwin":
-            subprocess.Popen(["open", folder])
+
+    # Export buttons
+    bcol1, bcol2, bcol3, bcol4 = st.columns(4)
+    with bcol1:
+        if st.button("🖼️ YouTube 썸네일", use_container_width=True):
+            p = ae.export_youtube_thumbnail(sid, bg_path, title, subtitle, brand_text, accent)
+            if p:
+                ae.write_asset_manifest(sid, _rebuild_manifest(sid, ae, AT))
+                st.success("✅ YouTube 썸네일 16:9")
+    with bcol2:
+        if st.button("🎬 영상 배경", use_container_width=True):
+            p = ae.export_video_playback_background(sid, bg_path, brand_text)
+            if p:
+                ae.write_asset_manifest(sid, _rebuild_manifest(sid, ae, AT))
+                st.success("✅ Video 재생 배경 16:9")
+    with bcol3:
+        if st.button("💿 1:1 커버", use_container_width=True):
+            yt = ss.session_path(sid) / "exports" / AT.EXPORT_FILENAMES[AT.YOUTUBE_THUMBNAIL_16X9]
+            p = ae.export_streaming_cover(sid, str(yt), bg_path, title, subtitle,
+                                          brand_text, accent, crop_mode)
+            if p:
+                ae.write_asset_manifest(sid, _rebuild_manifest(sid, ae, AT))
+                st.success("✅ 스트리밍 커버 1:1")
+    with bcol4:
+        if st.button("📦 전체 내보내기", type="primary", use_container_width=True):
+            results = ae.export_all_required_assets(sid, bg_path, title, subtitle,
+                                                    brand_text, accent, crop_mode)
+            st.success(f"✅ 3종 전체 내보내기 완료!")
+
+    st.divider()
+
+    # Output checklist
+    st.markdown("**📋 필수 산출물 체크리스트**")
+    exports_dir = ss.session_path(sid) / "exports"
+    checklist = {
+        AT.YOUTUBE_THUMBNAIL_16X9: ("YouTube Thumbnail 16:9", "광고판 · Playlist 타이틀 있음"),
+        AT.VIDEO_PLAYBACK_BACKGROUND_16X9: ("Video Playback Background 16:9", "무대 · 깨끗한 배경, 중앙 타이틀 없음"),
+        AT.STREAMING_COVER_1X1: ("Streaming Cover 1:1", "앨범 자켓 · Playlist 타이틀 유지"),
+    }
+    for atype, (label, desc) in checklist.items():
+        fpath = exports_dir / AT.EXPORT_FILENAMES[atype]
+        check = "✅" if fpath.exists() else "⬜"
+        st.markdown(f"{check} **{label}** — {desc}")
+
+    # Preview exported assets
+    manifest = ae.load_asset_manifest(sid)
+    if manifest:
+        st.divider()
+        st.markdown("**🖼️ 내보낸 산출물 미리보기**")
+        for a in manifest:
+            fpath = a.get("path", "")
+            if fpath and Path(fpath).exists():
+                cols = st.columns([2, 1])
+                with cols[0]:
+                    st.image(fpath, use_container_width=True)
+                with cols[1]:
+                    st.caption(f"**타입:** {a['asset_type']}")
+                    st.caption(f"**비율:** {a['aspect_ratio']}")
+                    st.caption(f"**용도:** {', '.join(a['usage'])}")
+                    flags = []
+                    if a["contains_playlist_title"]: flags.append("Playlist 타이틀")
+                    if a["contains_waveform"]: flags.append("파형")
+                    if a["contains_cta_sticker"]: flags.append("CTA")
+                    st.caption(f"**포함:** {', '.join(flags) if flags else '없음 (깨끗함)'}")
+
+    # Video renderer hint
+    st.divider()
+    sel = select_video_background(sid)
+    if sel["asset_type"]:
+        if sel["is_clean_playback"]:
+            st.success(f"🎬 Video Renderer 배경: **{sel['asset_type']}** (깨끗한 재생 배경 ✓)")
         else:
-            subprocess.Popen(["xdg-open", folder])
+            st.warning(f"⚠️ {sel['warning']}")
+
+
+def _rebuild_manifest(sid, ae, AT):
+    """Rebuild the asset manifest from whatever exports currently exist on disk."""
+    from services.thumbnail.session_store import session_path
+    exports_dir = session_path(sid) / "exports"
+    assets = []
+    for atype in AT.REQUIRED_OUTPUT_TYPES:
+        fpath = exports_dir / AT.EXPORT_FILENAMES[atype]
+        if fpath.exists():
+            assets.append(ae._make_asset_entry(sid, atype, str(fpath)))
+    return assets
+
+

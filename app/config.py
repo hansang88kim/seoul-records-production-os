@@ -49,6 +49,6 @@ PRODUCTION_MODES = ["Manual", "Auto"]
 
 # ─── App Info ─────────────────────────────────────────────────────────────────
 APP_NAME = "Seoul Records Production OS"
-APP_VERSION = "0.6.0"
+APP_VERSION = "0.7.0"
 APP_ENV = os.getenv("APP_ENV", "development")
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
