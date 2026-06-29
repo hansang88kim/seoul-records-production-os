@@ -25,7 +25,16 @@ from pathlib import Path
 # Default real model = "Nano Banana" (free tier on the Gemini API). Override with
 # SEOUL_IMAGE_MODEL, e.g. "imagen-4.0-fast-generate-001".
 DEFAULT_IMAGE_MODEL = "gemini-2.5-flash-image"
-_API_KEY_ENV_VARS = ("GEMINI_API_KEY", "GOOGLE_API_KEY", "GOOGLE_GENAI_API_KEY")
+# Checked in order. GOOGLE_GEMINI_API_KEY is what the app's sidebar credential
+# field stores, so the key entered in the left panel is picked up automatically.
+_API_KEY_ENV_VARS = (
+    "GOOGLE_GEMINI_API_KEY", "GEMINI_API_KEY", "GOOGLE_API_KEY", "GOOGLE_GENAI_API_KEY",
+)
+# Real backend: "rest" (default, requests-only — no extra install) or "sdk"
+# (google-genai; also enables Imagen). Override with SEOUL_IMAGE_BACKEND.
+_GEMINI_REST_ENDPOINT = (
+    "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={key}"
+)
 
 # Citypop palette for the mock placeholder (neon magenta / cyan / amber on night).
 _MOCK_BG = (18, 22, 38)
@@ -112,6 +121,83 @@ class MockImageGenProvider(ImageGenProvider):
                 "path": str(out), "error": None}
 
 
+class GeminiRestImageProvider(ImageGenProvider):
+    """Real generation via the Gemini REST API using `requests` only.
+
+    No extra install required (mirrors the app's existing Gemini REST calls). The
+    key comes from the sidebar / env (GOOGLE_GEMINI_API_KEY etc.) and is NEVER
+    logged. Works with Gemini image models (e.g. gemini-2.5-flash-image); for
+    Imagen models use the SDK backend instead.
+    """
+
+    name = "gemini-rest"
+    is_real = True
+
+    def __init__(self, model: str | None = None, api_key: str | None = None):
+        self.model = model or os.environ.get("SEOUL_IMAGE_MODEL", DEFAULT_IMAGE_MODEL)
+        self._api_key = api_key or get_api_key()
+
+    def generate(self, prompt, out_path, negative_prompt="", index=0, meta=None):
+        if not self._api_key:
+            return {"ok": False, "provider": self.name, "model": self.model,
+                    "path": None, "error": "no API key (enter Gemini key in the sidebar)"}
+        if self.model.startswith("imagen"):
+            return {"ok": False, "provider": self.name, "model": self.model,
+                    "path": None,
+                    "error": "Imagen needs the SDK backend (set SEOUL_IMAGE_BACKEND=sdk "
+                             "+ pip install google-genai)"}
+        try:
+            import base64
+            import requests
+        except Exception as e:  # pragma: no cover
+            return {"ok": False, "provider": self.name, "model": self.model,
+                    "path": None, "error": f"requests unavailable: {e}"}
+
+        full_prompt = prompt
+        if negative_prompt:
+            full_prompt = f"{prompt}\n\nAvoid: {negative_prompt}"
+
+        out = Path(out_path)
+        out.parent.mkdir(parents=True, exist_ok=True)
+        url = _GEMINI_REST_ENDPOINT.format(model=self.model, key=self._api_key)
+        try:
+            resp = requests.post(
+                url,
+                headers={"Content-Type": "application/json"},
+                json={
+                    "contents": [{"parts": [{"text": full_prompt}]}],
+                    "generationConfig": {"responseModalities": ["TEXT", "IMAGE"]},
+                },
+                timeout=120,
+            )
+            if resp.status_code != 200:
+                # Surface the API's message WITHOUT echoing the key (which is in the URL).
+                msg = resp.text[:300].replace(self._api_key, "***")
+                return {"ok": False, "provider": self.name, "model": self.model,
+                        "path": None, "error": f"HTTP {resp.status_code}: {msg}"}
+            data = resp.json()
+            img_b64 = None
+            for cand in data.get("candidates", []):
+                for part in cand.get("content", {}).get("parts", []):
+                    inline = part.get("inlineData") or part.get("inline_data")
+                    if inline and inline.get("data"):
+                        img_b64 = inline["data"]
+                        break
+                if img_b64:
+                    break
+            if not img_b64:
+                return {"ok": False, "provider": self.name, "model": self.model,
+                        "path": None, "error": "no image data in response (model may have "
+                                               "returned text only)"}
+            out.write_bytes(base64.b64decode(img_b64))
+            return {"ok": True, "provider": self.name, "model": self.model,
+                    "path": str(out), "error": None}
+        except Exception as e:
+            safe = str(e).replace(self._api_key, "***") if self._api_key else str(e)
+            return {"ok": False, "provider": self.name, "model": self.model,
+                    "path": None, "error": f"request failed: {type(e).__name__}: {safe}"}
+
+
 class GeminiImageProvider(ImageGenProvider):
     """Real generation via the official Google Gemini API (Nano Banana / Imagen).
 
@@ -188,15 +274,22 @@ class GeminiImageProvider(ImageGenProvider):
 def get_image_provider(use_real: bool = False, model: str | None = None) -> ImageGenProvider:
     """Return the appropriate provider.
 
-    Real provider only when use_real AND SDK present AND an API key is set;
-    otherwise the mock. This guarantees tests/default runs never call out.
+    Real provider only when use_real AND an API key is set; otherwise the mock —
+    so tests/default runs never call out. The real backend defaults to REST
+    (requests only, no extra install); set SEOUL_IMAGE_BACKEND=sdk to use the
+    google-genai SDK (required for Imagen models).
     """
     if not use_real:
         return MockImageGenProvider()
     if not get_api_key():
         return MockImageGenProvider()
-    try:
-        import google.genai  # noqa: F401
-    except Exception:
-        return MockImageGenProvider()
-    return GeminiImageProvider(model=model)
+
+    backend = os.environ.get("SEOUL_IMAGE_BACKEND", "rest").strip().lower()
+    if backend == "sdk":
+        try:
+            import google.genai  # noqa: F401
+            return GeminiImageProvider(model=model)
+        except Exception:
+            # SDK requested but unavailable — fall back to REST rather than mock.
+            return GeminiRestImageProvider(model=model)
+    return GeminiRestImageProvider(model=model)

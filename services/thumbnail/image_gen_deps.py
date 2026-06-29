@@ -25,22 +25,28 @@ def is_genai_installed() -> bool:
 def check_image_gen_dependencies() -> dict:
     """Structured readiness report for real (Gemini/Nano Banana) image generation.
 
-    Returns keys: sdk_installed, api_key_present, ready, model, install_hint,
-    key_hint, key_env_vars. The API key VALUE is never included.
+    The default REST backend needs only `requests` (always available), so
+    readiness depends on an API key alone. The google-genai SDK is optional and
+    only required for the SDK backend / Imagen models. The API key VALUE is never
+    included.
     """
     sdk = is_genai_installed()
     key = get_api_key() is not None
     import os
     model = os.environ.get("SEOUL_IMAGE_MODEL", DEFAULT_IMAGE_MODEL)
+    backend = os.environ.get("SEOUL_IMAGE_BACKEND", "rest").strip().lower()
+    # REST works with just a key; SDK backend additionally needs google-genai.
+    ready = key and (backend != "sdk" or sdk)
     return {
         "sdk_installed": sdk,
         "api_key_present": key,
-        "ready": sdk and key,
+        "ready": ready,
+        "backend": backend,
         "model": model,
-        "install_hint": "pip install google-genai",
+        "install_hint": "pip install google-genai (only for SDK backend / Imagen)",
         "key_hint": (
-            "Get a free key at https://aistudio.google.com/apikey and set "
-            "GEMINI_API_KEY (free tier: ~500 images/day on " + DEFAULT_IMAGE_MODEL + ")."
+            "Enter your Gemini API key in the left sidebar (🤖 AI Composer → Gemini), "
+            "or set GOOGLE_GEMINI_API_KEY. Free key: https://aistudio.google.com/apikey"
         ),
         "key_env_vars": list(_API_KEY_ENV_VARS),
     }

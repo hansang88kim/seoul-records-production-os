@@ -1,6 +1,6 @@
 # Seoul Records Production OS
 
-**AI Music Label Production Harness — v1.0.0-alpha.5**
+**AI Music Label Production Harness — v1.0.0-alpha.6**
 
 > Creative direction: controlled by ChatGPT and the user.
 > Engineering: this repository.
@@ -77,6 +77,8 @@ to point the console at a live backend.
 ## What This Is
 
 Seoul Records Production OS is a local MVP application for creating AI-generated city pop album projects. It provides a full 5-tab production pipeline from song generation through music distribution, with mock providers for v0.1.x and a clear upgrade path to real integrations.
+
+**v1.0.0-alpha.6: Real Image Generation — Sidebar Key + No-Install REST — Fixes two blockers for real thumbnail generation. (1) The image provider now reads the SAME key the app's sidebar stores (`GOOGLE_GEMINI_API_KEY`), so the Gemini key entered in the left panel is picked up automatically — previously it only checked `GEMINI_API_KEY` and ignored the sidebar key. (2) A new `requests`-only REST backend (`GeminiRestImageProvider`, mirroring the app's existing Gemini REST calls) is now the default, so real generation works with just an API key — no `pip install google-genai` needed. The SDK backend is still available via `SEOUL_IMAGE_BACKEND=sdk` (required for Imagen). Readiness now depends on the key alone; the toggle activates as soon as a key is present. Keys are redacted from all error messages. Tests +3 (16 total in this suite, 645 overall); no real network calls in tests. NOTE: if you still hit the `create_session() project_folder` TypeError, you are running stale files from a OneDrive ZIP copy — run from a clean `git clone`, where pulled files stay consistent.**
 
 **v1.0.0-alpha.5: Thumbnail Studio — Inline Image Preview — Prompt Lab now renders the generated thumbnails inline (a grid right under the generate button) instead of only listing prompt text, so "generate → see images" happens on one screen without switching to the Candidate Gallery tab. Failed generations surface their error inline, and mock outputs show a hint on how to enable real Gemini generation. Pure UI; backend + tests unchanged (642 passing).**
 

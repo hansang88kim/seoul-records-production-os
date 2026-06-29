@@ -79,6 +79,42 @@ def test_gemini_provider_no_key_returns_error_without_network(monkeypatch):
     assert "api key" in res["error"].lower()
 
 
+def test_gemini_rest_provider_no_key_returns_error_without_network(monkeypatch):
+    for var in ip._API_KEY_ENV_VARS:
+        monkeypatch.delenv(var, raising=False)
+    prov = ip.GeminiRestImageProvider(api_key=None)
+    res = prov.generate("prompt", str(Path(os.devnull)))
+    assert res["ok"] is False
+    assert "api key" in res["error"].lower()
+
+
+def test_factory_with_key_returns_real_provider_no_call(monkeypatch):
+    # A key present -> factory returns a REAL provider; only the type is checked,
+    # .generate is never called (that would hit the network).
+    for var in ip._API_KEY_ENV_VARS:
+        monkeypatch.delenv(var, raising=False)
+    monkeypatch.delenv("SEOUL_IMAGE_BACKEND", raising=False)
+    monkeypatch.setenv("GOOGLE_GEMINI_API_KEY", "fake-key-not-used")
+    prov = ip.get_image_provider(use_real=True)
+    assert isinstance(prov, ip.GeminiRestImageProvider)
+    assert prov.is_real is True
+
+
+def test_sidebar_key_var_recognized_and_ready(monkeypatch):
+    # The key entered in the app's sidebar (GOOGLE_GEMINI_API_KEY) is picked up
+    # and makes the real path "ready" without any SDK install (REST backend).
+    for var in ip._API_KEY_ENV_VARS:
+        monkeypatch.delenv(var, raising=False)
+    monkeypatch.delenv("SEOUL_IMAGE_BACKEND", raising=False)
+    assert ip.get_api_key() is None
+    monkeypatch.setenv("GOOGLE_GEMINI_API_KEY", "sidebar-key")
+    assert ip.get_api_key() == "sidebar-key"
+    rep = deps.check_image_gen_dependencies()
+    assert rep["api_key_present"] is True
+    assert rep["ready"] is True
+    assert "sidebar-key" not in str(rep)
+
+
 # ─── generate_images end-to-end (mock) ───────────────────────────────────────
 
 def test_generate_images_creates_files_and_candidates():

@@ -97,17 +97,17 @@ def _render_prompt_lab():
             value=dep["ready"],
             disabled=not dep["ready"],
             key="thumb_use_real",
-            help=("실제 이미지를 Gemini API로 생성합니다."
+            help=("실제 이미지를 Gemini API로 생성합니다 (REST · 추가 설치 불필요)."
                   if dep["ready"]
-                  else f"준비 안 됨 → {dep['install_hint']} 후 {dep['key_hint']}"),
+                  else f"준비 안 됨 → {dep['key_hint']}"),
         )
         if not dep["ready"]:
             st.caption(
-                f"⚠️ 실제 생성 비활성 → 목업 이미지로 진행 "
-                f"(SDK {'✓' if dep['sdk_installed'] else '✗'} · 키 {'✓' if dep['api_key_present'] else '✗'})"
+                "⚠️ 실제 생성 비활성 → 목업으로 진행. "
+                "좌측 사이드바 🤖 AI Composer → Gemini 칸에 API 키를 입력하면 켜집니다."
             )
         elif use_real:
-            st.caption(f"🟢 실제 생성 ON · 모델 {dep['model']}")
+            st.caption(f"🟢 실제 생성 ON · 모델 {dep['model']} ({dep['backend'].upper()})")
 
     batch = st.radio("배치 수", [1, 5, 10], horizontal=True, key="thumb_batch")
 
@@ -189,8 +189,8 @@ def _render_prompt_lab():
                     else:
                         st.warning(f"{c['candidate_id']}: 파일을 찾을 수 없음")
             if gen[0].get("gen_provider") == "mock":
-                st.caption("ℹ️ 목업(placeholder) 이미지입니다. 실제 생성: `pip install google-genai` + "
-                           "`GEMINI_API_KEY` 설정 후 위의 '실제 이미지 생성' 토글을 켜세요.")
+                st.caption("ℹ️ 목업(placeholder) 이미지입니다. 실제 생성: 좌측 사이드바 🤖 AI Composer → "
+                           "Gemini 칸에 API 키 입력 → 위의 '실제 이미지 생성' 토글 ON (추가 설치 불필요).")
             st.caption("→ **🖼️ Candidate Gallery** 탭에서 이미지를 선택하면 Brand Thumbnail(Canva)로 넘어갑니다.")
         if failed:
             st.error(f"❌ {len(failed)}개 생성 실패 — 사유: {failed[0].get('gen_error') or '알 수 없음'}")
