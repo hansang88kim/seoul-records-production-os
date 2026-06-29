@@ -71,6 +71,7 @@ def render_production_qa():
             "video_readiness": "🎬 영상",
             "youtube_package_readiness": "▶️ 패키지",
             "upload_readiness": "📤 업로드",
+            "unitedmasters_readiness": "🎶 UnitedMasters",
         }
         for key, label in score_labels.items():
             sc = cl["scores"][key]

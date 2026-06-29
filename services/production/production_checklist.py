@@ -144,6 +144,31 @@ def build_checklist(snapshot: dict | None = None) -> dict:
                     optional=True, path=upload["upload_result"]),
     ]
 
+    # ── UnitedMasters distribution readiness ─────────────────────────────
+    um = snap.get("unitedmasters", {})
+    um_items = [
+        M.make_item("um_package", "UnitedMasters 패키지",
+                    _st(um.get("package_manifest"), optional=True),
+                    optional=True, path=um.get("package_manifest")),
+        M.make_item("um_cover", "Streaming Cover 1:1",
+                    _st(thumbs["streaming_cover"], optional=True),
+                    optional=True, path=thumbs["streaming_cover"]),
+        M.make_item("um_master", "WAV/FLAC 배포 마스터",
+                    M.STATUS_READY if um.get("has_wav_flac_master")
+                    else M.STATUS_WARNING,
+                    detail=("준비됨" if um.get("has_wav_flac_master")
+                            else "MP3-only — 실제 배포에는 WAV/FLAC 마스터가 필요합니다")),
+        M.make_item("um_checklist", "수동 업로드 체크리스트",
+                    _st(um.get("manual_checklist"), optional=True),
+                    optional=True, path=um.get("manual_checklist")),
+        M.make_item("um_distribution_ready", "배포 준비 상태",
+                    M.STATUS_COMPLETED if um.get("distribution_ready")
+                    else (M.STATUS_WARNING if um.get("package_manifest") else M.STATUS_OPTIONAL),
+                    optional=True,
+                    detail=("Distribution Ready" if um.get("distribution_ready")
+                            else "MP3-only는 배포 준비 상태가 아닙니다")),
+    ]
+
     groups = {
         "Songs": song_items,
         "Thumbnail assets": thumb_items,
@@ -151,6 +176,7 @@ def build_checklist(snapshot: dict | None = None) -> dict:
         "Video render": video_items,
         "YouTube package": pkg_items,
         "Upload readiness": upload_items,
+        "UnitedMasters": um_items,
     }
 
     scores = {
@@ -159,6 +185,7 @@ def build_checklist(snapshot: dict | None = None) -> dict:
         "video_readiness": M.group_score(video_items),
         "youtube_package_readiness": M.group_score(pkg_items),
         "upload_readiness": M.group_score(upload_items),
+        "unitedmasters_readiness": M.group_score(um_items),
     }
     overall = int(round(sum(scores.values()) / len(scores)))
 
@@ -230,6 +257,12 @@ def build_warnings(snap: dict) -> list[dict]:
     if not upload["api_dependencies_ready"]:
         w.append({"level": "optional", "message":
                   "API dependencies가 없습니다. 실제 업로드 시 pip install -r requirements.txt가 필요합니다."})
+
+    # UnitedMasters distribution
+    um = snap.get("unitedmasters", {})
+    if um.get("package_manifest") and um.get("mp3_only") and not um.get("has_wav_flac_master"):
+        w.append({"level": "warning", "message":
+                  "UnitedMasters 패키지가 MP3-only입니다. 실제 배포에는 WAV/FLAC 마스터가 필요합니다."})
 
     return w
 
@@ -324,6 +357,7 @@ def export_report(checklist: dict | None = None) -> dict:
             "Video render": "video_readiness",
             "YouTube package": "youtube_package_readiness",
             "Upload readiness": "upload_readiness",
+            "UnitedMasters": "unitedmasters_readiness",
         }.get(group, ""), "")
         lines.append(f"## {group}" + (f" ({score}%)" if score != "" else ""))
         for it in items:

@@ -142,6 +142,33 @@ def scan_upload_readiness() -> dict:
     }
 
 
+def scan_unitedmasters() -> dict:
+    """UnitedMasters package + distribution readiness."""
+    root = _outputs_root() / "unitedmasters_package"
+    manifest = _first(_exists_glob(root, "package_manifest.json"))
+    distribution_ready = False
+    mp3_only = False
+    has_master = False
+    if manifest:
+        try:
+            import json
+            mf = json.loads(Path(manifest).read_text(encoding="utf-8"))
+            distribution_ready = bool(mf.get("distribution_ready"))
+            mp3_only = bool(mf.get("mp3_only"))
+        except Exception:
+            pass
+    # Any real WAV/FLAC master present in a package?
+    has_master = bool(_exists_glob(root, "*.wav") + _exists_glob(root, "*.flac"))
+    return {
+        "package_manifest": manifest,
+        "tracklist_csv": _first(_exists_glob(root, "tracklist.csv")),
+        "manual_checklist": _first(_exists_glob(root, "unitedmasters_manual_upload_checklist.md")),
+        "distribution_ready": distribution_ready,
+        "mp3_only": mp3_only,
+        "has_wav_flac_master": has_master,
+    }
+
+
 def scan_all() -> dict:
     """Full production snapshot."""
     return {
@@ -151,4 +178,5 @@ def scan_all() -> dict:
         "video": scan_video_render(),
         "youtube_package": scan_youtube_package(),
         "upload": scan_upload_readiness(),
+        "unitedmasters": scan_unitedmasters(),
     }
