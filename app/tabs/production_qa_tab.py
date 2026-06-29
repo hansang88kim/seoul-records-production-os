@@ -157,6 +157,12 @@ def _render_remote_control_panel():
         st.caption("Telegram 봇")
         st.write("🟢 활성화" if cfg["telegram_enabled"] else "⚪ 비활성화")
         st.caption(f"허용 chat_id: {cfg['allowed_chat_id_count']}개")
+        # v0.9.2: python-telegram-bot dependency status
+        if cfg.get("telegram_package_installed"):
+            st.caption("📦 python-telegram-bot: 설치됨")
+        else:
+            st.caption("📦 python-telegram-bot: 미설치")
+            st.caption("⚠️ pip install -r requirements.txt 실행 필요")
     with c3:
         st.caption("Streamlit")
         st.write("🟢 running" if health["running"] else "🔴 down")

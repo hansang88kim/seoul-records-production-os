@@ -48,12 +48,28 @@ Disabled-by-default, confirmation-required: `/reboot_pc`, `/stop_app`.
   tokens, client secrets, or API keys ever appear in Telegram messages**.
 - The bot token itself is read from the environment and never echoed.
 
-## Install python-telegram-bot
+## python-telegram-bot dependency
 
-The real long-poll loop needs:
+`python-telegram-bot` is included in `requirements.txt`, so the real long-poll
+bot works after a normal install:
 
 ```
-pip install python-telegram-bot
+pip install -r requirements.txt
 ```
 
-In tests, the handler is exercised directly with no network calls.
+Verify:
+
+```
+python -c "import telegram; print('ok')"
+```
+
+If you prefer to keep it optional, it is also available as an extra:
+
+```
+pip install ".[remote]"
+```
+
+If the package is missing, the bot stays disabled and the Production QA remote
+control panel shows **python-telegram-bot: 미설치** with an install hint — the
+supervisor and all other features keep working. In tests, the handler is
+exercised directly with no network calls.

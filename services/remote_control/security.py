@@ -66,4 +66,37 @@ def public_config_summary() -> dict:
         "telegram_enabled": is_control_enabled(),
         "has_bot_token": bool(get_bot_token()),
         "allowed_chat_id_count": len(get_allowed_chat_ids()),
+        "telegram_package_installed": is_telegram_package_installed(),
     }
+
+# ─── v0.9.2: telegram package dependency check ──────────────────────────────
+
+def is_telegram_package_installed() -> bool:
+    """True if python-telegram-bot is importable (the 'telegram' module)."""
+    import importlib.util
+    try:
+        return importlib.util.find_spec("telegram") is not None
+    except (ImportError, ValueError, ModuleNotFoundError):
+        return False
+
+
+def telegram_install_hint() -> str:
+    """User-facing install hint when python-telegram-bot is missing."""
+    if is_telegram_package_installed():
+        return ""
+    return ("Telegram 봇 실행에는 python-telegram-bot 설치가 필요합니다. "
+            "pip install -r requirements.txt 실행 후 다시 시도하세요. "
+            "(또는 pip install python-telegram-bot)")
+
+
+def check_telegram_dependency() -> dict:
+    """
+    Structured report for the UI:
+      {"installed": bool, "message": str}
+    """
+    installed = is_telegram_package_installed()
+    if installed:
+        message = "python-telegram-bot 설치됨 — Telegram 봇 실행 가능"
+    else:
+        message = telegram_install_hint()
+    return {"installed": installed, "message": message}

@@ -1,6 +1,6 @@
 # Seoul Records Production OS
 
-**AI Music Label Production Harness — v0.9.1**
+**AI Music Label Production Harness — v0.9.2**
 
 > Creative direction: controlled by ChatGPT and the user.
 > Engineering: this repository.
@@ -50,6 +50,8 @@
 ## What This Is
 
 Seoul Records Production OS is a local MVP application for creating AI-generated city pop album projects. It provides a full 5-tab production pipeline from song generation through music distribution, with mock providers for v0.1.x and a clear upgrade path to real integrations.
+
+**v0.9.2: Telegram Runtime Dependency Fix — declares python-telegram-bot>=21.0 in requirements.txt and pyproject.toml (plus a `remote` optional extra) so the real Telegram long-poll bot works after `pip install -r requirements.txt`. A runtime dependency check (is_telegram_package_installed / check_telegram_dependency) surfaces install status in the Production QA remote-control panel, and run_polling degrades clearly with an install hint when the package is missing — the supervisor and all other features keep working. Tokens/chat_ids remain hidden from UI and logs.**
 
 **v0.9.1: Remote Control Plane + Supervisor Watchdog — a separate supervisor process watches the Streamlit frontend (HTTP health check on 127.0.0.1:8501), restarts it when down with a per-hour restart-loop guard, summarizes active jobs, and writes supervisor_status.json. A Telegram control bot (disabled unless TELEGRAM_BOT_TOKEN + TELEGRAM_ALLOWED_CHAT_IDS are set) accepts a fixed allowlist of management commands only (/status, /app, /restart_app, /jobs, /render, /youtube, /qa, /tail, /help) — there is NO shell/exec command, only whitelisted chat_ids may issue commands, and every response is redacted so no token/cookie/secret is ever exposed. Restart matches the app/main.py command line carefully and never kills the render/upload workers. Windows Task Scheduler scripts register the supervisor at logon. Read-only remote-control status panel added to Production QA. Tailscale is used for frontend access via a guide (not required).**
 
@@ -177,7 +179,7 @@ seoul-records-production-os/
 
 ## Production Tabs
 
-| Tab | Purpose | v0.9.1 Status |
+| Tab | Purpose | v0.9.2 Status |
 |-----|---------|---------------|
 | 🎵 Song Generation | Prompt generation, mock Suno, WAV import, candidate selection | ✅ Mock + Manual Import |
 | 🖼 Thumbnail & Cover | 16:9 YouTube thumbnail + 1:1 DSP cover | ✅ Mock (Pillow) |

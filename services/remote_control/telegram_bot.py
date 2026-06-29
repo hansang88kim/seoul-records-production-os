@@ -51,7 +51,9 @@ def run_polling():
     try:
         from telegram.ext import Application, MessageHandler, filters
     except Exception:
-        print("python-telegram-bot 미설치 — pip install python-telegram-bot")
+        from services.remote_control.security import telegram_install_hint
+        print(telegram_install_hint() or
+              "python-telegram-bot 미설치 — pip install -r requirements.txt")
         return
 
     token = SEC.get_bot_token()

@@ -4,7 +4,7 @@ build-backend = "setuptools.backends.legacy:build"
 
 [project]
 name = "seoul-records-production-os"
-version = "0.9.1"
+version = "0.9.2"
 description = "Seoul Records Production OS — AI Music Label Harness"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -22,6 +22,7 @@ dependencies = [
     "google-auth>=2.0.0",
     "google-auth-oauthlib>=1.0.0",
     "google-auth-httplib2>=0.2.0",
+    "python-telegram-bot>=21.0",
 ]
 
 [project.optional-dependencies]
@@ -34,6 +35,9 @@ youtube = [
     "google-auth>=2.0.0",
     "google-auth-oauthlib>=1.0.0",
     "google-auth-httplib2>=0.2.0",
+]
+remote = [
+    "python-telegram-bot>=21.0",
 ]
 
 [tool.pytest.ini_options]
