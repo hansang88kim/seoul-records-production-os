@@ -28,8 +28,16 @@ def _session_dir(session_id: str) -> Path:
 
 
 def create_session(country: str, theme: str, title: str,
-                   volume: int = 1, subtitle: str = "") -> dict:
-    """Create a new thumbnail session."""
+                   volume: int = 1, subtitle: str = "",
+                   project_folder: str | None = None) -> dict:
+    """Create a new thumbnail session.
+
+    If ``project_folder`` is given (an existing project directory), generated
+    thumbnail images are saved INTO that project's ``02_thumbnail_cover/``
+    subtree — keeping audio (``01_suno_song_generation/songs/``) and images in
+    separate folders under the same project. If omitted, images stay inside the
+    standalone studio session (backward compatible).
+    """
     session_id = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S") + "_" + uuid.uuid4().hex[:6]
     sdir = _session_dir(session_id)
 
@@ -41,6 +49,7 @@ def create_session(country: str, theme: str, title: str,
         "title": title,
         "volume": volume,
         "subtitle": subtitle,
+        "project_folder": str(project_folder) if project_folder else None,
         "created_at": datetime.now(timezone.utc).isoformat(),
         "updated_at": datetime.now(timezone.utc).isoformat(),
     }
@@ -113,6 +122,84 @@ def save_prompts(session_id: str, prompts: list[dict]):
     (sdir / "candidates" / "thumbnail_candidate_metadata.json").write_text(
         json.dumps(candidates, ensure_ascii=False, indent=2), encoding="utf-8"
     )
+    return candidates
+
+
+def _resolve_project_image_dir(project_folder: str | None) -> Path | None:
+    """Return the project's image dir (``<project>/thumbnails/``), creating it.
+
+    Song-Lab projects live at ``outputs/song_projects/<slug>/`` with audio under
+    ``songs/``; thumbnail images go in a sibling ``thumbnails/`` folder so audio
+    (mp3) and images (png/jpg) stay in separate folders under the same project.
+    """
+    if not project_folder:
+        return None
+    pf = Path(project_folder)
+    if not pf.exists():
+        return None
+    d = pf / "thumbnails"
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+def image_target_dir(session_id: str) -> Path:
+    """Where generated image FILES go for this session.
+
+    Bound to a project -> ``<project>/thumbnails/``; otherwise the standalone
+    session's ``candidates/images/`` folder. (Candidate METADATA json always
+    lives in the session dir so load_candidates works.)
+    """
+    session = load_session(session_id) or {}
+    proj_dir = _resolve_project_image_dir(session.get("project_folder"))
+    if proj_dir is not None:
+        return proj_dir
+    d = _session_dir(session_id) / "candidates" / "images"
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+def generate_images(session_id: str, prompts: list[dict],
+                    use_real: bool = False, model: str | None = None) -> list[dict]:
+    """Generate ACTUAL images for each prompt and link them to candidates.
+
+    Saves prompt text first (reusing save_prompts), then renders one image per
+    prompt via the image provider (mock by default; real Gemini/Nano Banana when
+    use_real and an API key + SDK are present). Generated files land in the
+    project's image folder when the session is project-bound. The image path is
+    stored as ``uploaded_image_path`` so the existing select/brand pipeline works
+    unchanged. Returns the updated candidate list.
+    """
+    from services.thumbnail.image_provider import get_image_provider
+
+    # Base candidates + prompt files.
+    save_prompts(session_id, prompts)
+    target = image_target_dir(session_id)
+    provider = get_image_provider(use_real=use_real, model=model)
+
+    candidates = load_candidates(session_id)
+    for i, (c, p) in enumerate(zip(candidates, prompts)):
+        out_path = target / f"{c['candidate_id']}.png"
+        res = provider.generate(
+            p.get("main_prompt", ""),
+            str(out_path),
+            negative_prompt=p.get("negative_prompt", ""),
+            index=i,
+            meta={"scene": p.get("scene", ""), "country": p.get("country", ""),
+                  "theme": p.get("theme", "")},
+        )
+        c["gen_provider"] = res.get("provider")
+        c["gen_model"] = res.get("model")
+        if res.get("ok"):
+            c["uploaded_image_path"] = res["path"]
+            c["generated_image_path"] = res["path"]
+            c["image_source"] = "generated"
+            c["status"] = "image_generated"
+            c["gen_error"] = None
+        else:
+            c["image_source"] = "generation_failed"
+            c["status"] = "generation_failed"
+            c["gen_error"] = res.get("error")
+    save_candidates(session_id, candidates)
     return candidates
 
 

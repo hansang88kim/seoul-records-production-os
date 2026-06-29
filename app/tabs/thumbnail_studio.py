@@ -17,6 +17,8 @@ from services.thumbnail.country_presets import list_countries, get_country_prese
 from services.thumbnail.prompt_generator import generate_prompt_batch
 from services.thumbnail import session_store as ss
 from services.thumbnail import canva_branding as cb
+from services.thumbnail import image_gen_deps as igd
+from app.project_manager import list_song_projects
 
 
 def render_thumbnail_studio():
@@ -73,6 +75,40 @@ def _render_prompt_lab():
     with col5:
         subtitle = st.text_input("부제목 (선택)", value="1990s Night Drive", key="thumb_subtitle")
 
+    # ── Project link + real image generation ──────────────────────────────
+    col_p, col_r = st.columns([1, 1])
+    with col_p:
+        projects = list_song_projects()
+        proj_options = ["(프로젝트 없음 — 독립 세션)"] + [
+            f"{p['name']} ({p['song_count']}곡)" for p in projects
+        ]
+        proj_idx = st.selectbox(
+            "프로젝트 (선택 시 같은 폴더의 thumbnails/ 에 저장)",
+            range(len(proj_options)),
+            format_func=lambda i: proj_options[i],
+            key="thumb_project",
+            help="Song Lab 프로젝트를 고르면 음원(songs/)과 분리된 thumbnails/ 폴더에 이미지가 저장됩니다.",
+        )
+        project_folder = None if proj_idx == 0 else projects[proj_idx - 1]["path"]
+    with col_r:
+        dep = igd.check_image_gen_dependencies()
+        use_real = st.toggle(
+            "실제 이미지 생성 (Gemini · Nano Banana)",
+            value=dep["ready"],
+            disabled=not dep["ready"],
+            key="thumb_use_real",
+            help=("실제 이미지를 Gemini API로 생성합니다."
+                  if dep["ready"]
+                  else f"준비 안 됨 → {dep['install_hint']} 후 {dep['key_hint']}"),
+        )
+        if not dep["ready"]:
+            st.caption(
+                f"⚠️ 실제 생성 비활성 → 목업 이미지로 진행 "
+                f"(SDK {'✓' if dep['sdk_installed'] else '✗'} · 키 {'✓' if dep['api_key_present'] else '✗'})"
+            )
+        elif use_real:
+            st.caption(f"🟢 실제 생성 ON · 모델 {dep['model']}")
+
     batch = st.radio("배치 수", [1, 5, 10], horizontal=True, key="thumb_batch")
 
     # Optional: explicit new-session button
@@ -86,7 +122,8 @@ def _render_prompt_lab():
 
     if force_new:
         # Start a fresh session immediately
-        sess = ss.create_session(country_key, theme, title, volume, subtitle)
+        sess = ss.create_session(country_key, theme, title, volume, subtitle,
+                                 project_folder=project_folder)
         st.session_state["thumb_session_id"] = sess["session_id"]
         st.session_state.pop("thumb_prompts", None)
         st.session_state.pop("brand_results", None)
@@ -104,23 +141,39 @@ def _render_prompt_lab():
         if not sid or not ss.inputs_match_session(
             current_sess, country_key, theme, title, volume, subtitle
         ):
-            sess = ss.create_session(country_key, theme, title, volume, subtitle)
+            sess = ss.create_session(country_key, theme, title, volume, subtitle,
+                                     project_folder=project_folder)
             sid = sess["session_id"]
             st.session_state["thumb_session_id"] = sid
             # Clear stale prompt/brand display from the previous session
             st.session_state.pop("brand_results", None)
 
         prompts = generate_prompt_batch(country_key, theme, batch)
-        ss.save_prompts(sid, prompts)
+        mode_label = "실제 (Gemini)" if use_real else "목업"
+        with st.spinner(f"{batch}개 이미지 생성 중… ({mode_label})"):
+            cands = ss.generate_images(sid, prompts, use_real=use_real)
         st.session_state["thumb_prompts"] = prompts
-        st.success(f"✅ {batch}개 프롬프트 생성 완료! (세션: {sid}) 아래에서 복사해 Google Flow에 붙여넣으세요.")
+        ok = sum(1 for c in cands if c.get("status") == "image_generated")
+        fail = len(cands) - ok
+        where = "프로젝트 thumbnails/ 폴더" if project_folder else "세션 폴더"
+        if fail and ok == 0:
+            first_err = next((c.get("gen_error") for c in cands if c.get("gen_error")), "")
+            st.error(f"❌ 이미지 생성 실패 ({fail}개). 사유: {first_err}")
+        elif fail:
+            st.warning(f"⚠️ 이미지 {ok}개 생성 / {fail}개 실패 → Candidate Gallery에서 확인. (저장: {where})")
+        else:
+            st.success(
+                f"✅ {ok}개 이미지 생성 완료! ({mode_label} · 저장: {where}) "
+                f"→ **Candidate Gallery** 탭에서 선택하세요. (세션: {sid})"
+            )
 
     # Show generated prompts
     prompts = st.session_state.get("thumb_prompts", [])
     if prompts:
         st.divider()
         st.markdown(f"**생성된 프롬프트 ({len(prompts)}개)**")
-        st.caption("각 프롬프트를 복사해 Google Flow / Nano Banana에 붙여넣고 이미지를 생성하세요. "
+        st.caption("아래는 각 이미지에 사용된 프롬프트입니다 (참고/재현용). "
+                   "실제 생성된 이미지는 **Candidate Gallery** 탭에서 확인·선택하세요. "
                    "이미지에는 텍스트/로고가 없습니다 (제목은 Canva가 입힙니다).")
 
         for i, p in enumerate(prompts, 1):

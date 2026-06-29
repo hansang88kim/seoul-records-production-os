@@ -1,6 +1,6 @@
 # Seoul Records Production OS
 
-**AI Music Label Production Harness — v1.0.0-alpha.3**
+**AI Music Label Production Harness — v1.0.0-alpha.4**
 
 > Creative direction: controlled by ChatGPT and the user.
 > Engineering: this repository.
@@ -77,6 +77,8 @@ to point the console at a live backend.
 ## What This Is
 
 Seoul Records Production OS is a local MVP application for creating AI-generated city pop album projects. It provides a full 5-tab production pipeline from song generation through music distribution, with mock providers for v0.1.x and a clear upgrade path to real integrations.
+
+**v1.0.0-alpha.4: Thumbnail Studio — Project Linking + Real Image Generation — Thumbnail Studio can now bind to a Song Lab project, so generated images save into that project's `thumbnails/` folder, kept separate from audio in `songs/` (same project directory, separate subfolders). Prompt Lab's batch (1/5/10) no longer just emits prompt text — it renders ACTUAL images through a provider abstraction: a zero-cost PIL mock by default, or the OFFICIAL Google Gemini API ("Nano Banana" = gemini-2.5-flash-image; Imagen 4 also supported) when "use real images" is enabled and `google-genai` + a `GEMINI_API_KEY` are present (Google Flow has no official developer API; we use the same underlying image model via the official Gemini API — API-key auth only, no browser automation, no CAPTCHA solving, key never logged). Country/theme/volume drive the prompts. Generated images flow straight into the existing Candidate Gallery → select → Brand Thumbnail (Canva) pipeline. New modules `services/thumbnail/image_provider.py` + `image_gen_deps.py`; `session_store` gains project binding + `generate_images`. 13 new mock-only tests (no network). `pip install google-genai` (or the `imagegen` extra) enables the real path.**
 
 **v1.0.0-alpha.3: Korean Windows (cp949) Hardening + Deterministic Job Ordering — every file read/write/open and every text-mode subprocess capture now pins `encoding="utf-8"` (subprocess also `errors="replace"`), so the app and the full test suite run cleanly on Korean Windows, where the locale default is cp949 (previously Korean paths, em-dashes, and UTF-8 JSON tripped UnicodeDecodeError). `list_jobs` now orders newest-first by the microsecond `created_at` timestamp (with `job_id` tiebreaker) instead of filesystem mtime, which on NTFS could tie within one coarse tick and flip the order. Proven clean under `python -X warn_default_encoding -W error::EncodingWarning` across all 629 tests; production file I/O has zero locale-default calls. No behavior change beyond encoding/ordering.**
 

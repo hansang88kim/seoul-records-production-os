@@ -39,6 +39,9 @@ youtube = [
 remote = [
     "python-telegram-bot>=21.0",
 ]
+imagegen = [
+    "google-genai>=1.0.0",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
