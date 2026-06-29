@@ -43,6 +43,9 @@ zip -r "$ZIP_PATH" "$BASENAME/" \
   --exclude "*/.env" \
   --exclude "*/.DS_Store" \
   --exclude "*/*.pyc" \
+  --exclude "*/frontend/node_modules/*" \
+  --exclude "*/frontend/.next/*" \
+  --exclude "*/frontend/out/*" \
   2>/dev/null
 
 # Explicitly add outputs/.gitkeep (excluded by the outputs/* rule above if present)
