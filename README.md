@@ -1,6 +1,6 @@
 # Seoul Records Production OS
 
-**AI Music Label Production Harness — v0.5.0**
+**AI Music Label Production Harness — v0.6.0**
 
 > Creative direction: controlled by ChatGPT and the user.
 > Engineering: this repository.
@@ -50,6 +50,8 @@
 ## What This Is
 
 Seoul Records Production OS is a local MVP application for creating AI-generated city pop album projects. It provides a full 5-tab production pipeline from song generation through music distribution, with mock providers for v0.1.x and a clear upgrade path to real integrations.
+
+**v0.6.0: Thumbnail Studio — Google Flow prompt batches, candidate gallery, and selected-image Canva branding for citypop YouTube thumbnails. Independent of music generation.**
 
 **v0.5.0: Local WAV import pipeline — no real Suno, Canva, YouTube, or UnitedMasters APIs. Manual WAV import → FFmpeg render → Distribution package.**
 
@@ -149,7 +151,7 @@ seoul-records-production-os/
 
 ## Production Tabs
 
-| Tab | Purpose | v0.5.0 Status |
+| Tab | Purpose | v0.6.0 Status |
 |-----|---------|---------------|
 | 🎵 Song Generation | Prompt generation, mock Suno, WAV import, candidate selection | ✅ Mock + Manual Import |
 | 🖼 Thumbnail & Cover | 16:9 YouTube thumbnail + 1:1 DSP cover | ✅ Mock (Pillow) |

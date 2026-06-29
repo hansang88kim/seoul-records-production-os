@@ -88,7 +88,7 @@ def render_production_tabs():
     # Tabs
     tab1, tab2, tab3, tab4, tab5 = st.tabs([
         "🎵 Song Lab",
-        "🖼️ 썸네일",
+        "🖼️ Thumbnail Studio",
         "🎬 영상 제작",
         "▶️ YouTube",
         "📦 배포",
@@ -97,7 +97,9 @@ def render_production_tabs():
     with tab1:
         render_song_lab()
     with tab2:
-        render_tab_thumbnail()
+        # v0.6.0: new Thumbnail Studio (Flow prompts + candidate gallery + Canva branding)
+        from app.tabs.thumbnail_studio import render_thumbnail_studio
+        render_thumbnail_studio()
     with tab3:
         render_tab_video()
     with tab4:

@@ -253,3 +253,32 @@ def test_music_generation_codepath_unchanged():
     # Music codepath intact
     assert len(MOCK_SONGS) >= 2
     assert callable(get_batch_vocal)
+
+
+# ─── Thumbnail Studio visible in both home AND production tabs ────────────────
+
+def test_home_tabs_include_thumbnail_studio():
+    """The home screen (no project) must wire in render_thumbnail_studio."""
+    import inspect
+    import app.dashboard as dash
+    src = inspect.getsource(dash.render_home_tabs)
+    assert "render_thumbnail_studio" in src
+    assert "Thumbnail Studio" in src
+
+
+def test_production_tabs_use_new_thumbnail_studio():
+    """When a project is open, production tabs must use the NEW Thumbnail Studio."""
+    import inspect
+    import app.dashboard as dash
+    # Find the function that renders production tabs
+    src = inspect.getsource(dash)
+    # The new studio must be wired into the production tab section
+    assert "render_thumbnail_studio" in src
+    # Both home and production reference it
+    assert src.count("render_thumbnail_studio") >= 2
+
+
+def test_thumbnail_studio_renderable():
+    """render_thumbnail_studio imports cleanly (no music dependency)."""
+    from app.tabs.thumbnail_studio import render_thumbnail_studio
+    assert callable(render_thumbnail_studio)
