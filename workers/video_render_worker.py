@@ -51,6 +51,20 @@ def run_render_job(render_job_id: str):
     total = state.get("total_seconds", 0) or 0
     output_path = state.get("output_path", "")
 
+    # ── Cancel-race guard #1: cancelled BEFORE the worker starts ─────────
+    # If the user cancelled between launch_render_job and the worker actually
+    # running, honor it immediately and DO NOT start FFmpeg.
+    if is_cancelling(render_job_id):
+        update_render_state(
+            render_job_id, status="cancelled",
+            finished_at=datetime.now(timezone.utc).isoformat(),
+            last_message="렌더 시작 전 사용자가 취소했습니다",
+        )
+        append_log(render_job_id, "렌더 시작 전 취소됨 — FFmpeg는 실행하지 않음")
+        return
+
+    # The guard in update_render_state ensures this 'running' update will NOT
+    # overwrite a 'cancelling' status set concurrently after this point.
     update_render_state(render_job_id, status="running",
                         started_at=datetime.now(timezone.utc).isoformat(),
                         last_message="렌더링 시작")
@@ -59,12 +73,34 @@ def run_render_job(render_job_id: str):
     start = time.time()
     try:
         import os as _os
+
+        # ── Cancel-race guard #2: cancelled during the 'running' flip ────
+        if is_cancelling(render_job_id):
+            update_render_state(
+                render_job_id, status="cancelled",
+                finished_at=datetime.now(timezone.utc).isoformat(),
+                last_message="렌더 시작 직전 사용자가 취소했습니다",
+            )
+            append_log(render_job_id, "렌더 시작 직전 취소됨 — FFmpeg는 실행하지 않음")
+            return
+
         proc = subprocess.Popen(
             command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
             text=True, bufsize=1,
         )
         # Record BOTH pids separately: this process is the worker, proc is ffmpeg
         update_render_state(render_job_id, worker_pid=_os.getpid(), ffmpeg_pid=proc.pid)
+
+        # ── Cancel-race guard #3: cancelled right after Popen ────────────
+        if is_cancelling(render_job_id):
+            terminate_ffmpeg(proc.pid)
+            update_render_state(
+                render_job_id, status="cancelled",
+                finished_at=datetime.now(timezone.utc).isoformat(),
+                last_message="렌더 시작 직후 사용자가 취소했습니다 (FFmpeg 종료됨)",
+            )
+            append_log(render_job_id, "렌더 시작 직후 취소됨 — FFmpeg 종료")
+            return
 
         cancelled = False
         block: list[str] = []

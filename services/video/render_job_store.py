@@ -80,10 +80,28 @@ def load_render_state(render_job_id: str) -> dict | None:
     return None
 
 
+# Statuses that a 'running' update must never clobber (cancel-race guard).
+_CANCEL_LOCKED_STATUSES = ("cancelling", "cancelled")
+
+
 def update_render_state(render_job_id: str, **fields) -> dict | None:
+    """
+    Update render state on disk.
+
+    Cancel-race guard: if the on-disk status is 'cancelling' or 'cancelled',
+    a concurrent attempt to set status back to 'running' is IGNORED (the
+    status field is dropped from the update). This prevents the worker from
+    resurrecting a job the user already cancelled. Other fields still apply.
+    """
     state = load_render_state(render_job_id)
     if state is None:
         return None
+
+    # Guard: never let 'running' overwrite a cancel-locked status
+    if (fields.get("status") == "running"
+            and state.get("status") in _CANCEL_LOCKED_STATUSES):
+        fields = {k: v for k, v in fields.items() if k != "status"}
+
     state.update(fields)
     (_job_path(render_job_id) / "render_state.json").write_text(
         json.dumps(state, ensure_ascii=False, indent=2), encoding="utf-8")
