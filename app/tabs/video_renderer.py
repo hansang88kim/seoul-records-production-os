@@ -28,6 +28,9 @@ def render_video_renderer():
     st.markdown("## 🎬 Video Renderer")
     st.caption("MP3-first 롱폼 뮤직비디오 · Canva 오버레이 · 오디오 반응형 비주얼라이저")
 
+    # Live render progress (background full renders)
+    _render_progress_panel()
+
     # ── 1. MP3 playlist ──────────────────────────────────────────────
     st.markdown("#### 1️⃣ MP3 플레이리스트")
     tracks = scan_mp3_files()
@@ -148,9 +151,44 @@ def render_video_renderer():
             viz_color = st.color_picker("색상", "#ff4d6d", key="vr_viz_color")
         with vcol3:
             viz_opacity = st.slider("투명도", 0.0, 1.0, 0.85, key="vr_viz_op")
-        viz_cfg = visualizer_config(viz_style, viz_color, 160, viz_opacity, "bottom")
+
+        # Position / size controls
+        st.markdown("**위치 / 크기 조정**")
+        pcol1, pcol2, pcol3 = st.columns(3)
+        with pcol1:
+            viz_height = st.slider("높이 (px)", 60, 400, 160, key="vr_viz_h")
+            viz_bottom = st.slider("하단 여백 (px)", 0, 400, 40, key="vr_viz_bm")
+        with pcol2:
+            viz_width = st.slider("너비 (%)", 10, 100, 100, key="vr_viz_w")
+            viz_glow = st.slider("글로우 강도", 0.0, 10.0, 3.0, key="vr_viz_glow")
+        with pcol3:
+            use_custom_y = st.checkbox("Y 위치 직접 지정", value=False, key="vr_viz_use_y")
+            viz_y = st.slider("Y 위치 (px)", 0, 1080, 880, key="vr_viz_y",
+                              disabled=not use_custom_y)
+
+        viz_cfg = visualizer_config(
+            viz_style, viz_color, viz_height, viz_opacity, "bottom",
+            y_position=(viz_y if use_custom_y else None),
+            bottom_margin=viz_bottom, width_percent=viz_width,
+            glow_strength=viz_glow,
+        )
+
+        # Visualizer frame controls (locked to visualizer by default)
+        st.markdown("**Canva 프레임 정렬**")
+        fcol1, fcol2 = st.columns(2)
+        with fcol1:
+            frame_lock = st.checkbox("프레임을 비주얼라이저 위치에 고정", value=True,
+                                     key="vr_frame_lock",
+                                     help="Canva 프레임과 동적 파형 위치를 자동 정렬합니다.")
+        with fcol2:
+            frame_opacity = st.slider("프레임 투명도", 0.0, 1.0, 1.0, key="vr_frame_op")
+        st.session_state["vr_frame_cfg"] = {
+            "lock_to_visualizer_position": frame_lock,
+            "frame_opacity": frame_opacity,
+        }
     else:
         viz_cfg = visualizer_config()
+        st.session_state["vr_frame_cfg"] = {"lock_to_visualizer_position": True}
 
     # ── 5. Render ────────────────────────────────────────────────────
     st.markdown("#### 5️⃣ 렌더링")
@@ -189,6 +227,9 @@ def render_video_renderer():
             enable_now_playing=en_now, enable_cta=en_cta,
             enable_visualizer=en_viz, enable_center_title=en_center,
         )
+        # Attach the visualizer frame config (lock/opacity) to the overlay plan
+        plans["overlay_plan"]["visualizer_frame"] = st.session_state.get(
+            "vr_frame_cfg", {"lock_to_visualizer_position": True})
         paths = rp.save_plans(out_dir, plans, plan)
         concat = rp.build_mp3_concat_list(out_dir, plan)
 
@@ -201,11 +242,23 @@ def render_video_renderer():
             )
             _run_or_show(cmd, f"{seconds}초 프리뷰")
         else:
+            # Full render runs in a BACKGROUND WORKER (UI never blocks)
             cmd = rp.build_full_render_command(
                 concat, bg_info.get("path") or "", out_dir, plan["total_seconds"],
                 render_plan=plans["render_plan"], overlay_plan=plans["overlay_plan"],
             )
-            _run_or_show(cmd, "전체 영상")
+            from workflows.render_video import _ffmpeg_available
+            if not _ffmpeg_available():
+                st.warning("FFmpeg가 설치되어 있지 않습니다. 전체 렌더 명령:")
+                st.code(" ".join(cmd["command"]))
+            else:
+                from services.video.render_job_store import launch_render_job
+                job = launch_render_job(out_dir, cmd["command"],
+                                        plan["total_seconds"], cmd["output"])
+                st.session_state["active_render_job"] = job["render_job_id"]
+                st.success(f"🎬 백그라운드 렌더 시작! (Job: {job['render_job_id']})")
+                st.info("UI는 멈추지 않습니다. 아래 '렌더 진행 상황'에서 확인하세요.")
+                st.rerun()
 
         # Show generated plans
         st.divider()
@@ -216,6 +269,52 @@ def render_video_renderer():
         # Show layer order
         st.markdown("**오버레이 레이어 순서 (아래→위):**")
         st.code(" → ".join(plans["overlay_plan"]["layer_order"]))
+
+
+def _render_progress_panel():
+    """Show live progress for the active/most-recent background render job."""
+    from services.video.render_job_store import (
+        load_render_state, list_render_jobs, get_render_log,
+    )
+    job_id = st.session_state.get("active_render_job")
+    state = load_render_state(job_id) if job_id else None
+    if not state:
+        # Fall back to the most recent running job
+        running = [j for j in list_render_jobs(10) if j.get("status") == "running"]
+        state = running[0] if running else None
+
+    if not state:
+        return
+
+    with st.container():
+        st.markdown("#### 🎬 렌더 진행 상황")
+        status = state.get("status", "")
+        pct = state.get("progress_percent", 0) or 0
+
+        if status == "running":
+            st.progress(pct / 100)
+            cur = int(state.get("current_time_sec", 0) or 0)
+            total = int(state.get("total_seconds", 0) or 0)
+            elapsed = int(state.get("elapsed_sec", 0) or 0)
+            eta = state.get("eta_sec")
+            speed = state.get("speed", "")
+            cols = st.columns(4)
+            cols[0].metric("진행률", f"{pct:.0f}%")
+            cols[1].metric("렌더 위치", f"{cur//60}:{cur%60:02d} / {total//60}:{total%60:02d}")
+            cols[2].metric("속도", speed or "—")
+            cols[3].metric("남은 시간", f"{int(eta)//60}:{int(eta)%60:02d}" if eta else "계산 중")
+            st.caption(f"경과: {elapsed//60}:{elapsed%60:02d} · 출력: {Path(state.get('output_path','')).name}")
+            if st.button("🔄 새로고침", key="vr_refresh_progress"):
+                st.rerun()
+        elif status == "completed":
+            st.success(f"✅ 렌더 완료! → {Path(state.get('output_path','')).name}")
+            out = state.get("output_path", "")
+            if out and Path(out).exists():
+                st.video(out)
+        elif status == "failed":
+            st.error(f"❌ 렌더 실패: {state.get('last_message','')}")
+
+        st.divider()
 
 
 def _run_or_show(cmd: dict, label: str):

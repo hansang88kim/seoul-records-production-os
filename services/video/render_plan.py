@@ -197,6 +197,7 @@ def _build_overlay_aware_command(
     overlay_plan: dict | None = None,
     preview_seconds: int | None = None,
     preview_cta_now: bool = False,
+    with_progress: bool = False,
 ) -> dict:
     """
     Core builder. If an overlay_plan is given, composes a real -filter_complex
@@ -235,7 +236,6 @@ def _build_overlay_aware_command(
             "-t", str(int(duration)),
             "-c:v", "libx264", "-pix_fmt", "yuv420p",
             "-c:a", "aac", "-shortest",
-            out_path,
         ]
     else:
         # Fallback: simple bg + audio (no overlays)
@@ -244,9 +244,13 @@ def _build_overlay_aware_command(
             "-vf", "scale=1920:1080",
             "-c:v", "libx264", "-pix_fmt", "yuv420p",
             "-c:a", "aac", "-shortest",
-            out_path,
         ]
 
+    # Progress reporting to stdout (parsed by the worker)
+    if with_progress:
+        cmd += ["-progress", "pipe:1", "-nostats"]
+
+    cmd += [out_path]
     return {"command": cmd, "output": out_path}
 
 
@@ -290,7 +294,7 @@ def build_full_render_command(
         concat_list, background_path, out_dir, int(total_seconds),
         "final_video.mp4",
         render_plan=render_plan, overlay_plan=overlay_plan,
-        preview_seconds=None,
+        preview_seconds=None, with_progress=True,
     )
 
 

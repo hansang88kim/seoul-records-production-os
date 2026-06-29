@@ -203,21 +203,27 @@ def test_visualizer_frame_uses_canva_png(tmp_path):
 # ─── Dynamic visualizer from audio ───────────────────────────────────────────
 
 def test_dynamic_visualizer_generated_from_audio():
+    import warnings
     from services.video.visualizer import visualizer_config, build_visualizer_filter
     cfg = visualizer_config("citypop_glow", "#ff4d6d", 160, 0.85, "bottom")
     assert cfg["audio_reactive"] is True
-    flt = build_visualizer_filter(cfg, 1920)
-    # Uses the real audio input [0:a]
-    assert "[0:a]" in flt
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        flt = build_visualizer_filter(cfg, 1920)  # default audio input = 1 ([1:a])
+    # Uses the real audio input — default is now [1:a] (renderer convention)
+    assert "[1:a]" in flt
     assert "showwaves" in flt or "showfreqs" in flt
 
 
 def test_visualizer_styles_all_valid():
+    import warnings
     from services.video.visualizer import VISUALIZER_STYLES, build_visualizer_filter, visualizer_config
     for style in VISUALIZER_STYLES:
         cfg = visualizer_config(style)
-        flt = build_visualizer_filter(cfg)
-        assert "[0:a]" in flt
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            flt = build_visualizer_filter(cfg)
+        assert "[1:a]" in flt  # default audio input index
         assert "[viz]" in flt
 
 

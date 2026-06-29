@@ -134,10 +134,14 @@ def build_video_filter_complex(
     if viz.get("enabled"):
         current = add_visualizer_layer(parts, current, viz)
 
-    # 2) Visualizer frame PNG (find its input index)
+    # 2) Visualizer frame PNG (find its input index) — locked to visualizer pos
     frame_idx = _find_input_index(overlay_inputs, AT.VISUALIZER_FRAME_ASSET)
     if frame_idx is not None:
-        current = add_visualizer_frame_layer(parts, current, frame_idx)
+        current = add_visualizer_frame_layer(
+            parts, current, frame_idx,
+            viz_cfg=viz.get("config", {}),
+            frame_cfg=overlay_plan.get("visualizer_frame", {}),
+        )
 
     # 3) Now Playing PNGs (scheduled per chapter)
     np_items = [(i, ov) for i, ov in enumerate(overlay_inputs)
@@ -182,40 +186,81 @@ def _find_input_index(overlay_inputs: list[dict], role: str) -> int | None:
 
 # ─── Layer builders ──────────────────────────────────────────────────────────
 
+def _viz_geometry(cfg: dict) -> dict:
+    """Resolve visualizer geometry (width/height/x/y) from the config."""
+    h = int(cfg.get("height", 160))
+    width_pct = int(cfg.get("width_percent", 100))
+    w = int(CANVAS_W * max(10, min(100, width_pct)) / 100)
+    x = (CANVAS_W - w) // 2
+    # y_position is explicit; else derive from bottom_margin
+    if cfg.get("y_position") is not None:
+        y = int(cfg["y_position"])
+    else:
+        y = CANVAS_H - h - int(cfg.get("bottom_margin", 40))
+    return {"w": w, "h": h, "x": x, "y": y}
+
+
 def add_visualizer_layer(parts: list[str], current: str, viz: dict) -> str:
     """
     Add the dynamic audio-reactive visualizer. CRITICAL: uses [1:a] (the real
     audio input), not [0:a] (the background). Composites onto `current`.
+
+    Position/size come from the config: y_position, height, width_percent,
+    opacity, glow_strength.
     """
     cfg = viz.get("config", {})
     style = cfg.get("style", "citypop_glow")
-    h = cfg.get("height", 160)
     opacity = cfg.get("opacity", 0.85)
+    glow = cfg.get("glow_strength", 3.0)
     color = _hex_to_ffmpeg(cfg.get("color", "#ff4d6d"))
+    g = _viz_geometry(cfg)
+    w, h, x, y = g["w"], g["h"], g["x"], g["y"]
 
-    # Generate the waveform/eq from the REAL audio input
+    # Generate the waveform/eq from the REAL audio input, at the configured size
     if style == "minimal_wave":
-        gen = f"[{AUDIO_INPUT}:a]showwaves=s={CANVAS_W}x{h}:mode=line:rate=25:colors={color}[vizraw]"
+        gen = f"[{AUDIO_INPUT}:a]showwaves=s={w}x{h}:mode=line:rate=25:colors={color}[vizraw]"
     elif style == "soft_eq_bars":
-        gen = f"[{AUDIO_INPUT}:a]showfreqs=s={CANVAS_W}x{h}:mode=bar:ascale=log:colors={color}[vizraw]"
+        gen = f"[{AUDIO_INPUT}:a]showfreqs=s={w}x{h}:mode=bar:ascale=log:colors={color}[vizraw]"
     else:  # citypop_glow
-        gen = (f"[{AUDIO_INPUT}:a]showwaves=s={CANVAS_W}x{h}:mode=cline:rate=25:colors={color},"
-               f"gblur=sigma=3[vizraw]")
+        gen = (f"[{AUDIO_INPUT}:a]showwaves=s={w}x{h}:mode=cline:rate=25:colors={color},"
+               f"gblur=sigma={glow}[vizraw]")
     parts.append(gen)
 
     # Apply opacity
     parts.append(f"[vizraw]format=rgba,colorchannelmixer=aa={opacity}[viz_alpha]")
 
-    # Overlay at the bottom (position by style/cfg)
-    y = CANVAS_H - h - 40  # default bottom margin
-    parts.append(f"{current}[viz_alpha]overlay=x=0:y={y}[v_viz]")
+    # Overlay at the configured x/y
+    parts.append(f"{current}[viz_alpha]overlay=x={x}:y={y}[v_viz]")
     return "[v_viz]"
 
 
-def add_visualizer_frame_layer(parts: list[str], current: str, input_idx: int) -> str:
-    """Overlay the Canva visualizer frame PNG (bottom)."""
-    parts.append(f"[{input_idx}:v]format=rgba[vframe]")
-    parts.append(f"{current}[vframe]overlay=x=0:y={CANVAS_H - 220}[v_vframe]")
+def add_visualizer_frame_layer(parts: list[str], current: str, input_idx: int,
+                               viz_cfg: dict | None = None,
+                               frame_cfg: dict | None = None) -> str:
+    """
+    Overlay the Canva visualizer frame PNG. If lock_to_visualizer_position is
+    set (or frame_cfg is absent), the frame is aligned to the SAME y as the
+    dynamic visualizer so they don't drift apart.
+    """
+    frame_cfg = frame_cfg or {}
+    viz_cfg = viz_cfg or {}
+
+    # Frame opacity
+    f_opacity = frame_cfg.get("frame_opacity", 1.0)
+
+    # Decide the frame Y position
+    lock = frame_cfg.get("lock_to_visualizer_position", True)
+    if lock and viz_cfg:
+        g = _viz_geometry(viz_cfg)
+        frame_h = int(frame_cfg.get("frame_height", g["h"] + 60))
+        # Align frame so it surrounds the visualizer band
+        frame_y = g["y"] - (frame_h - g["h"]) // 2
+    else:
+        frame_h = int(frame_cfg.get("frame_height", 220))
+        frame_y = int(frame_cfg.get("frame_y_position", CANVAS_H - frame_h))
+
+    parts.append(f"[{input_idx}:v]format=rgba,colorchannelmixer=aa={f_opacity}[vframe]")
+    parts.append(f"{current}[vframe]overlay=x=0:y={frame_y}[v_vframe]")
     return "[v_vframe]"
 
 

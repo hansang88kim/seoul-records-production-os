@@ -1,6 +1,6 @@
 # Seoul Records Production OS
 
-**AI Music Label Production Harness — v0.7.2**
+**AI Music Label Production Harness — v0.7.3**
 
 > Creative direction: controlled by ChatGPT and the user.
 > Engineering: this repository.
@@ -50,6 +50,8 @@
 ## What This Is
 
 Seoul Records Production OS is a local MVP application for creating AI-generated city pop album projects. It provides a full 5-tab production pipeline from song generation through music distribution, with mock providers for v0.1.x and a clear upgrade path to real integrations.
+
+**v0.7.3: Video Render Worker + Visualizer Controls — full-length renders run in a detached background worker (Streamlit never blocks) with live FFmpeg progress (percent/time/speed/ETA via -progress pipe:1) persisted to outputs/video_renderer/jobs/. Visualizer y-position, height, width%, opacity, and glow are configurable and reflected in the real filter_complex; the Canva frame locks to the visualizer position. Previews still run inline.**
 
 **v0.7.2: Overlay Composition — the Video Renderer now compiles overlay_plan into a real FFmpeg -filter_complex, so preview/full MP4s actually contain the audio-reactive visualizer (driven by the real audio input), Canva visualizer frame, per-track Now Playing cards (scheduled by chapter), and CTA stickers (every 5 min). Supports uploading Canva-exported PNGs (with mock fallback) and a Preview-CTA-Now option.**
 
@@ -157,7 +159,7 @@ seoul-records-production-os/
 
 ## Production Tabs
 
-| Tab | Purpose | v0.7.2 Status |
+| Tab | Purpose | v0.7.3 Status |
 |-----|---------|---------------|
 | 🎵 Song Generation | Prompt generation, mock Suno, WAV import, candidate selection | ✅ Mock + Manual Import |
 | 🖼 Thumbnail & Cover | 16:9 YouTube thumbnail + 1:1 DSP cover | ✅ Mock (Pillow) |
