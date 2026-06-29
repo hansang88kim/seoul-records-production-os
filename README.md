@@ -1,6 +1,6 @@
 # Seoul Records Production OS
 
-**AI Music Label Production Harness — v0.8.3**
+**AI Music Label Production Harness — v0.8.4**
 
 > Creative direction: controlled by ChatGPT and the user.
 > Engineering: this repository.
@@ -50,6 +50,8 @@
 ## What This Is
 
 Seoul Records Production OS is a local MVP application for creating AI-generated city pop album projects. It provides a full 5-tab production pipeline from song generation through music distribution, with mock providers for v0.1.x and a clear upgrade path to real integrations.
+
+**v0.8.4: Pilot Production QA Mode — a new Production QA tab scans the global outputs/ folder and shows an end-to-end readiness dashboard for one YouTube CityPop playlist: grouped checklists (songs / thumbnails / Canva overlays / video render / YouTube package / upload), per-group + overall readiness scores, asset warnings (optional vs blocker), a single next-recommended-action, a pilot render-sequence guide, and an exportable report (production_status.json / production_checklist.md / missing_assets.md / next_steps.md) that never contains secrets. Read-only — no changes to existing tabs.**
 
 **v0.8.3: YouTube Real API Dependency Fix — declares the Google libraries (google-api-python-client, google-auth, google-auth-oauthlib, google-auth-httplib2) in requirements.txt and pyproject.toml, and adds a runtime dependency check so the real-upload path degrades clearly instead of silently failing: a structured check_youtube_api_dependencies() report drives the UI (Ready/Missing + "pip install -r requirements.txt"), the real-API toggle and OAuth button are disabled when libraries are missing, and the upload worker performs its own dependency guard so a real upload fails gracefully (sanitized, no secrets) instead of crashing. Mock upload, Manual Package Only default, and private-by-default are all unchanged.**
 
@@ -171,7 +173,7 @@ seoul-records-production-os/
 
 ## Production Tabs
 
-| Tab | Purpose | v0.8.3 Status |
+| Tab | Purpose | v0.8.4 Status |
 |-----|---------|---------------|
 | 🎵 Song Generation | Prompt generation, mock Suno, WAV import, candidate selection | ✅ Mock + Manual Import |
 | 🖼 Thumbnail & Cover | 16:9 YouTube thumbnail + 1:1 DSP cover | ✅ Mock (Pillow) |

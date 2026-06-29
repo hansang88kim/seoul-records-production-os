@@ -86,11 +86,12 @@ def render_production_tabs():
     st.divider()
 
     # Tabs
-    tab1, tab2, tab3, tab4, tab5 = st.tabs([
+    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
         "🎵 Song Lab",
         "🖼️ Thumbnail Studio",
         "🎬 영상 제작",
         "▶️ YouTube",
+        "✅ Production QA",
         "📦 배포",
     ])
 
@@ -109,6 +110,10 @@ def render_production_tabs():
         from app.tabs.youtube_package import render_youtube_package
         render_youtube_package()
     with tab5:
+        # v0.8.4: Pilot Production QA Mode (readiness dashboard)
+        from app.tabs.production_qa_tab import render_production_qa
+        render_production_qa()
+    with tab6:
         render_tab_distribution()
 
 
@@ -119,9 +124,9 @@ def render_home_tabs():
     an open project. Song Lab / Thumbnail Studio / Project management keep
     their existing behavior; only tab exposure changed (no logic changes).
     """
-    tab_lab, tab_thumb, tab_video, tab_youtube, tab_project = st.tabs(
+    tab_lab, tab_thumb, tab_video, tab_youtube, tab_qa, tab_project = st.tabs(
         ["🎵 Song Lab", "🖼️ Thumbnail Studio", "🎬 Video Renderer",
-         "▶️ YouTube Package", "📁 프로젝트 관리"]
+         "▶️ YouTube Package", "✅ Production QA", "📁 프로젝트 관리"]
     )
 
     with tab_lab:
@@ -144,6 +149,11 @@ def render_home_tabs():
                 "업로드 패키지를 만들 수 있습니다.")
         from app.tabs.youtube_package import render_youtube_package
         render_youtube_package()
+
+    with tab_qa:
+        # v0.8.4: Pilot Production QA Mode
+        from app.tabs.production_qa_tab import render_production_qa
+        render_production_qa()
 
     with tab_project:
         render_project_screen()
