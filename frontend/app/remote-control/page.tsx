@@ -1,13 +1,14 @@
 import { Radio, RotateCw } from "lucide-react";
-import { PageHeader, MetricCard } from "@/components/layout/page-header";
-import { LogViewer } from "@/components/layout/progress-panel";
+import { PageHeader } from "@/components/shared/page-header";
+import { MetricCard } from "@/components/shared/metric-card";
+import { LogViewer } from "@/components/shared/log-viewer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { getDashboardSnapshot } from "@/lib/api";
+import { getDashboardStatus } from "@/lib/api";
 
 export default async function RemoteControlPage() {
-  const snap = await getDashboardSnapshot();
+  const snap = await getDashboardStatus();
   const rc = snap.remote_control;
 
   return (

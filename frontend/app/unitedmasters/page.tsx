@@ -1,6 +1,6 @@
 import { Disc3, FileDown, ExternalLink } from "lucide-react";
-import { PageHeader } from "@/components/layout/page-header";
-import { WarningCallout } from "@/components/layout/progress-panel";
+import { PageHeader } from "@/components/shared/page-header";
+import { WarningCallout } from "@/components/shared/warning-callout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -12,11 +12,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { mockTracks } from "@/lib/mock-data";
+import { mockUnitedMastersPackage } from "@/lib/mock-data";
 import { formatDuration } from "@/lib/utils";
 
 export default function UnitedMastersPage() {
-  const allReady = mockTracks.every((t) => t.distribution_ready);
+  const allReady = mockUnitedMastersPackage.tracks.every((t) => t.distribution_ready);
   return (
     <>
       <PageHeader
@@ -60,7 +60,7 @@ export default function UnitedMastersPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {mockTracks.map((t) => (
+                  {mockUnitedMastersPackage.tracks.map((t) => (
                     <TableRow key={t.track_no}>
                       <TableCell className="tabular-nums text-muted-foreground">{t.track_no}</TableCell>
                       <TableCell className="font-medium">{t.title}</TableCell>

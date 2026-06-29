@@ -1,7 +1,10 @@
 import { Badge } from "@/components/ui/badge";
 import type { JobStatus } from "@/lib/types";
 
-const MAP: Record<JobStatus, { label: string; variant: "default" | "success" | "warning" | "danger" | "secondary" }> = {
+const MAP: Record<
+  JobStatus,
+  { label: string; variant: "default" | "success" | "warning" | "danger" | "secondary" }
+> = {
   idle: { label: "idle", variant: "secondary" },
   queued: { label: "queued", variant: "secondary" },
   running: { label: "running", variant: "default" },

@@ -1,11 +1,12 @@
 import { FileDown, RefreshCw } from "lucide-react";
-import { PageHeader, MetricCard } from "@/components/layout/page-header";
-import { WarningCallout } from "@/components/layout/progress-panel";
+import { PageHeader } from "@/components/shared/page-header";
+import { MetricCard } from "@/components/shared/metric-card";
+import { WarningCallout } from "@/components/shared/warning-callout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { getProductionQA } from "@/lib/api";
+import { getProductionReadiness } from "@/lib/api";
 import type { AssetStatus } from "@/lib/types";
 
 const STATUS_VARIANT: Record<AssetStatus, "default" | "success" | "warning" | "danger" | "secondary"> = {
@@ -18,14 +19,14 @@ const STATUS_VARIANT: Record<AssetStatus, "default" | "success" | "warning" | "d
 };
 
 export default async function ProductionQAPage() {
-  const qa = await getProductionQA();
+  const qa = await getProductionReadiness();
   const scoreEntries: [string, number][] = [
-    ["음악", qa.scores.song_readiness],
-    ["비주얼", qa.scores.visual_readiness],
-    ["영상", qa.scores.video_readiness],
-    ["YouTube 패키지", qa.scores.youtube_package_readiness],
-    ["업로드", qa.scores.upload_readiness],
-    ["UnitedMasters", qa.scores.unitedmasters_readiness],
+    ["음악", qa.song_readiness],
+    ["비주얼", qa.visual_readiness],
+    ["영상", qa.video_readiness],
+    ["YouTube 패키지", qa.youtube_package_readiness],
+    ["업로드", qa.upload_readiness],
+    ["UnitedMasters", qa.unitedmasters_readiness],
   ];
 
   return (

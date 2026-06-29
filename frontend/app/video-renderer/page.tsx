@@ -1,6 +1,6 @@
 import { Clapperboard, Play, Square } from "lucide-react";
-import { PageHeader } from "@/components/layout/page-header";
-import { ProgressPanel } from "@/components/layout/progress-panel";
+import { PageHeader } from "@/components/shared/page-header";
+import { ProgressPanel } from "@/components/shared/progress-panel";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -11,11 +11,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { JobStatusBadge } from "@/components/layout/job-status-badge";
-import { getDashboardSnapshot } from "@/lib/api";
+import { JobStatusBadge } from "@/components/shared/job-status-badge";
+import { getDashboardStatus } from "@/lib/api";
 
 export default async function VideoRendererPage() {
-  const snap = await getDashboardSnapshot();
+  const snap = await getDashboardStatus();
   const active = snap.active_jobs.find((j) => j.kind === "video_render");
 
   return (

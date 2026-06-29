@@ -1,4 +1,4 @@
-import { PageHeader } from "@/components/layout/page-header";
+import { PageHeader } from "@/components/shared/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { IS_MOCK } from "@/lib/api";

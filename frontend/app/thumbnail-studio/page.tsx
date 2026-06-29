@@ -1,5 +1,5 @@
 import { Image as ImageIcon, Sparkles } from "lucide-react";
-import { PageHeader } from "@/components/layout/page-header";
+import { PageHeader } from "@/components/shared/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";

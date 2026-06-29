@@ -1,5 +1,5 @@
 import { Music4, Play } from "lucide-react";
-import { PageHeader } from "@/components/layout/page-header";
+import { PageHeader } from "@/components/shared/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -11,11 +11,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { getDashboardSnapshot } from "@/lib/api";
+import { getDashboardStatus } from "@/lib/api";
 import { formatDuration } from "@/lib/utils";
 
 export default async function SongLabPage() {
-  const snap = await getDashboardSnapshot();
+  const snap = await getDashboardStatus();
   return (
     <>
       <PageHeader

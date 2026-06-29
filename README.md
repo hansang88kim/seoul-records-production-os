@@ -8,6 +8,33 @@
 
 ---
 
+
+## Running the app
+
+**Python / Streamlit backend (current stable, legacy/admin fallback):**
+```
+pip install -r requirements.txt
+streamlit run app/main.py
+```
+
+**Next.js Frontend (v1.0.0-alpha — modern dark Studio Console):**
+```
+cd frontend
+npm install
+npm run dev        # http://localhost:3000
+npm run build
+npm run typecheck
+npm run lint
+```
+
+The Next.js console runs **in parallel** with Streamlit. It shares the same
+`outputs/` folder and Python services via a sanitized snapshot bridge
+(`api/snapshot.py`) that never returns tokens/cookies/keys. v1.0.0-alpha is the
+frontend **shell + read-only dashboard + route structure + mock/API-ready UI**
+stage; Streamlit remains the legacy/admin fallback. Set `NEXT_PUBLIC_API_BASE`
+to point the console at a live backend.
+
+
 ## What's New in v0.2.0## What's New in v0.2.0
 
 ### Manual WAV Import Pipeline

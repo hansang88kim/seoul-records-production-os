@@ -7,25 +7,16 @@ import {
   ClipboardCheck,
   ArrowRight,
 } from "lucide-react";
-import { PageHeader, MetricCard } from "@/components/layout/page-header";
-import {
-  ProgressPanel,
-  WarningCallout,
-  EmptyState,
-} from "@/components/layout/progress-panel";
+import { PageHeader } from "@/components/shared/page-header";
+import { MetricCard } from "@/components/shared/metric-card";
+import { PipelineOverview } from "@/components/dashboard/pipeline-overview";
+import { ActiveJobs } from "@/components/dashboard/active-jobs";
+import { ReadinessSummary } from "@/components/dashboard/readiness-summary";
+import { RecentAssets } from "@/components/dashboard/recent-assets";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { getDashboardSnapshot } from "@/lib/api";
-import { formatDuration } from "@/lib/utils";
+import { getDashboardStatus } from "@/lib/api";
 
 const QUICK_ACTIONS = [
   { href: "/song-lab", label: "Generate Songs", icon: Music4 },
@@ -36,11 +27,8 @@ const QUICK_ACTIONS = [
 ];
 
 export default async function DashboardPage() {
-  const snap = await getDashboardSnapshot();
-  const qa = snap.production_qa;
-  const activeRenders = snap.active_jobs.filter(
-    (j) => j.status === "rendering" || j.status === "running" || j.status === "uploading"
-  );
+  const snap = await getDashboardStatus();
+  const r = snap.readiness;
 
   return (
     <>
@@ -67,11 +55,11 @@ export default async function DashboardPage() {
         ))}
       </div>
 
-      {/* Metrics */}
+      {/* Studio status metrics */}
       <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <MetricCard label="전체 준비도" value={`${qa.overall_readiness}%`} accent="cyan" />
-        <MetricCard label="음악 준비도" value={`${qa.scores.song_readiness}%`} accent="amber" />
-        <MetricCard label="영상 준비도" value={`${qa.scores.video_readiness}%`} accent="magenta" />
+        <MetricCard label="전체 준비도" value={`${r.overall_readiness}%`} accent="cyan" />
+        <MetricCard label="음악 준비도" value={`${r.song_readiness}%`} accent="amber" />
+        <MetricCard label="영상 준비도" value={`${r.video_readiness}%`} accent="magenta" />
         <MetricCard
           label="Supervisor"
           value={snap.remote_control.supervisor.streamlit_running ? "online" : "down"}
@@ -80,73 +68,22 @@ export default async function DashboardPage() {
         />
       </div>
 
+      {/* Pipeline overview */}
+      <div className="mb-6">
+        <h2 className="mb-3 text-sm font-medium text-muted-foreground">파이프라인</h2>
+        <PipelineOverview readiness={r} />
+      </div>
+
       <div className="grid gap-6 lg:grid-cols-3">
-        {/* Active jobs */}
         <div className="lg:col-span-2 space-y-4">
           <h2 className="text-sm font-medium text-muted-foreground">활성 작업</h2>
-          {activeRenders.length ? (
-            <div className="grid gap-3 sm:grid-cols-2">
-              {activeRenders.map((j) => (
-                <ProgressPanel
-                  key={j.id}
-                  title={j.label}
-                  status={j.status}
-                  percent={j.progress_percent}
-                  eta={j.eta}
-                />
-              ))}
-            </div>
-          ) : (
-            <EmptyState message="현재 실행 중인 작업이 없습니다." />
-          )}
-
-          {/* Latest songs */}
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm">최근 생성 곡</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>제목</TableHead>
-                    <TableHead className="text-right">길이</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {snap.latest_songs.map((s, i) => (
-                    <TableRow key={i}>
-                      <TableCell className="font-medium">{s.title}</TableCell>
-                      <TableCell className="text-right tabular-nums text-muted-foreground">
-                        {formatDuration(s.duration_sec)}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
+          <ActiveJobs jobs={snap.active_jobs} />
+          <RecentAssets songs={snap.latest_songs} />
         </div>
 
-        {/* Next action + warnings */}
-        <div className="space-y-4">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm">다음 추천 작업</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground">{qa.next_action}</p>
-            </CardContent>
-          </Card>
-
-          <div className="space-y-2">
-            <h2 className="text-sm font-medium text-muted-foreground">경고</h2>
-            {qa.warnings.slice(0, 4).map((w, i) => (
-              <WarningCallout key={i} level={w.level} message={w.message} />
-            ))}
-          </div>
-
-          <Card>
+        <div>
+          <ReadinessSummary readiness={r} />
+          <Card className="mt-4">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm">Remote</CardTitle>
             </CardHeader>
