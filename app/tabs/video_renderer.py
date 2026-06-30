@@ -249,7 +249,9 @@ def render_video_renderer():
             )
             from workflows.render_video import _ffmpeg_available
             if not _ffmpeg_available():
-                st.warning("FFmpeg가 설치되어 있지 않습니다. 전체 렌더 명령:")
+                st.warning("FFmpeg가 설치되어 있지 않습니다. 아래 명령으로 설치하세요:")
+                st.code("pip install imageio-ffmpeg --break-system-packages", language="bash")
+                st.caption("전체 렌더 명령 (수동 실행용):")
                 st.code(" ".join(cmd["command"]))
             else:
                 from services.video.render_job_store import launch_render_job
@@ -389,7 +391,9 @@ def _run_or_show(cmd: dict, label: str):
     import subprocess
 
     if not _ffmpeg_available():
-        st.warning(f"FFmpeg가 설치되어 있지 않습니다. {label} 렌더 명령:")
+        st.warning(f"FFmpeg가 설치되어 있지 않습니다. 아래 명령으로 설치하세요:")
+        st.code("pip install imageio-ffmpeg --break-system-packages", language="bash")
+        st.caption(f"{label} 렌더 명령 (수동 실행용):")
         st.code(" ".join(cmd["command"]))
         return
 

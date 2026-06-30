@@ -131,7 +131,7 @@ def test_preview_render_command_created(mp3_outputs, tmp_path):
     out_dir = str(tmp_path / "render")
     concat = build_mp3_concat_list(out_dir, plan)
     cmd = build_preview_command(concat, "/bg.png", out_dir, seconds=30)
-    assert "ffmpeg" in cmd["command"]
+    assert any("ffmpeg" in c for c in cmd["command"])  # full path OK
     assert "-t" in cmd["command"]
     assert "30" in cmd["command"]
     assert cmd["output"].endswith("preview_30s.mp4")

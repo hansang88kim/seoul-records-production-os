@@ -20,6 +20,16 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+def _ffmpeg() -> str:
+    """Full ffmpeg executable path (imageio-ffmpeg fallback)."""
+    try:
+        from workflows.render_video import _get_ffmpeg_exe
+        return _get_ffmpeg_exe() or "ffmpeg"
+    except Exception:
+        import shutil
+        return shutil.which("ffmpeg") or "ffmpeg"
+
+
 from services.thumbnail import asset_types as AT
 
 
@@ -68,7 +78,7 @@ def build_audio_mix_command(
 
     out_path = str(Path(out_dir) / "final_audio_mix.mp3")
     cmd = [
-        "ffmpeg", "-y", "-f", "concat", "-safe", "0", "-i", concat_list,
+        _ffmpeg(), "-y", "-f", "concat", "-safe", "0", "-i", concat_list,
         "-c:a", "libmp3lame", "-q:a", "2", out_path,
     ]
     return {"command": cmd, "output": out_path}
@@ -215,7 +225,7 @@ def _build_overlay_aware_command(
 
     # Base inputs: background (looped) + MP3 concat audio
     cmd = [
-        "ffmpeg", "-y",
+        _ffmpeg(), "-y",
         "-loop", "1", "-i", bg,
         "-f", "concat", "-safe", "0", "-i", concat_list,
     ]

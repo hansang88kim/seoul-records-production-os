@@ -79,7 +79,7 @@ def test_preview_can_run_inline(render_setup):
         render_plan=render_setup["plans"]["render_plan"],
         overlay_plan=render_setup["plans"]["overlay_plan"],
     )
-    assert "ffmpeg" in cmd["command"]
+    assert any("ffmpeg" in c for c in cmd["command"])  # full path OK
     assert cmd["output"].endswith("preview_30s.mp4")
     # Preview does NOT include -progress (that's for the worker/full render)
     assert "-progress" not in cmd["command"]

@@ -1,6 +1,6 @@
 # Seoul Records Production OS
 
-**AI Music Label Production Harness — v1.0.0-alpha.23**
+**AI Music Label Production Harness — v1.0.0-alpha.24**
 
 > Creative direction: controlled by ChatGPT and the user.
 > Engineering: this repository.
@@ -77,6 +77,8 @@ to point the console at a live backend.
 ## What This Is
 
 Seoul Records Production OS is a local MVP application for creating AI-generated city pop album projects. It provides a full 5-tab production pipeline from song generation through music distribution, with mock providers for v0.1.x and a clear upgrade path to real integrations.
+
+**v1.0.0-alpha.24: FFmpeg Full-Path Fix (video renderer) — The video renderer (render_plan.py) had hardcoded "ffmpeg" in command lists, causing [WinError 2] on Windows. Now uses the full executable path from imageio-ffmpeg (same as alpha.20 did for render_video.py). Also improved FFmpeg-not-found warnings to show a pip install command. 674 tests passing.**
 
 **v1.0.0-alpha.23: Brand Thumbnail UX — Image Preview + Language Selector — (1) Selected candidate images are now previewed at the top of the Brand Thumbnail tab so you can see which background you are working with before rendering. (2) A "현지 언어 선택" dropdown (12 countries) is added next to the local-language text input: pick a country → the local line auto-converts to that language (e.g. 밤의 음악 → ดนตรียามค่ำคืน for Thailand). The city name stays as typed (English). Direct editing is still possible. 674 tests passing.**
 
