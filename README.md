@@ -1,6 +1,6 @@
 # Seoul Records Production OS
 
-**AI Music Label Production Harness — v1.0.0-alpha.10**
+**AI Music Label Production Harness — v1.0.0-alpha.11**
 
 > Creative direction: controlled by ChatGPT and the user.
 > Engineering: this repository.
@@ -77,6 +77,8 @@ to point the console at a live backend.
 ## What This Is
 
 Seoul Records Production OS is a local MVP application for creating AI-generated city pop album projects. It provides a full 5-tab production pipeline from song generation through music distribution, with mock providers for v0.1.x and a clear upgrade path to real integrations.
+
+**v1.0.0-alpha.11: Title Color Picker + Size Control + Bigger Default — render_premium_thumbnail gains title_color (hex) and title_scale (multiplier), threaded through the branded thumbnail and all exports (YouTube thumbnail, 1:1 streaming cover, export-all). The Brand Thumbnail and Exports tabs now show a 제목 색상 color picker (default white) and a 제목 크기 slider (0.8–1.6). Base title size bumped (~18% larger) and the default scale is 1.10, so titles are bigger out of the box. Tests +3; 664 passing, clean under -X warn_default_encoding.**
 
 **v1.0.0-alpha.10: Bold English Title — Title font is now Montserrat Black (900) for a strong, punchy look, and the default playlist title is "CityPop Playlist" (no "Vol.1"; still freely editable). Titles are English-only: the Pretendard Korean face is removed; any incidental Hangul (e.g. the optional 구독/좋아요 stickers) falls back to an OS CJK font. Tests updated; 661 passing, clean under -X warn_default_encoding.**
 

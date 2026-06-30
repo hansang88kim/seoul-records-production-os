@@ -76,6 +76,8 @@ def export_youtube_thumbnail(
     subtitle: str,
     brand_text: str,
     accent_color: str,
+    title_color: str = "#FFFFFF",
+    title_scale: float = 1.0,
 ) -> str | None:
     """
     Export a branded YouTube thumbnail (16:9). Contains the Playlist/CityPop/Vol.
@@ -88,7 +90,8 @@ def export_youtube_thumbnail(
 
     W, H = AT.CANVAS_SIZES[AT.YOUTUBE_THUMBNAIL_16X9]
     img = render_premium_thumbnail(bg_path, title, subtitle, brand_text, accent_color,
-                                   W, H, with_title=True)
+                                   W, H, with_title=True,
+                                   title_color=title_color, title_scale=title_scale)
 
     out = _exports_dir(session_id) / AT.EXPORT_FILENAMES[AT.YOUTUBE_THUMBNAIL_16X9]
     img.save(out)
@@ -139,6 +142,8 @@ def export_streaming_cover(
     brand_text: str = "Seoul Records",
     accent_color: str = "#ff4d6d",
     crop_mode: str = "smart_title_safe",
+    title_color: str = "#FFFFFF",
+    title_scale: float = 1.0,
 ) -> str | None:
     """
     Export a 1:1 streaming/playlist cover derived from the YouTube thumbnail.
@@ -160,7 +165,9 @@ def export_streaming_cover(
         try:
             from services.thumbnail.canva_branding import render_premium_thumbnail
             cover = render_premium_thumbnail(bg_path, title, subtitle, brand_text,
-                                             accent_color, S, S, with_title=True)
+                                             accent_color, S, S, with_title=True,
+                                             title_color=title_color,
+                                             title_scale=title_scale)
         except Exception:
             cover = None
     if cover is None:
@@ -294,6 +301,8 @@ def export_all_required_assets(
     brand_text: str,
     accent_color: str,
     crop_mode: str = "smart_title_safe",
+    title_color: str = "#FFFFFF",
+    title_scale: float = 1.0,
 ) -> dict:
     """
     Export all three required deliverables + write the asset manifest.
@@ -303,7 +312,8 @@ def export_all_required_assets(
     assets: list[dict] = []
 
     # A. YouTube thumbnail (the source for the streaming cover)
-    yt = export_youtube_thumbnail(session_id, bg_path, title, subtitle, brand_text, accent_color)
+    yt = export_youtube_thumbnail(session_id, bg_path, title, subtitle, brand_text,
+                                  accent_color, title_color, title_scale)
     if yt:
         results[AT.YOUTUBE_THUMBNAIL_16X9] = yt
         assets.append(_make_asset_entry(session_id, AT.YOUTUBE_THUMBNAIL_16X9, yt))
@@ -316,7 +326,8 @@ def export_all_required_assets(
 
     # C. Streaming cover (derived from the YouTube thumbnail)
     sc = export_streaming_cover(session_id, yt or "", bg_path, title, subtitle,
-                                brand_text, accent_color, crop_mode)
+                                brand_text, accent_color, crop_mode,
+                                title_color, title_scale)
     if sc:
         results[AT.STREAMING_COVER_1X1] = sc
         assets.append(_make_asset_entry(session_id, AT.STREAMING_COVER_1X1, sc))

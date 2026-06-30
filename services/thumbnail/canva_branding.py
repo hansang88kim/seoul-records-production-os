@@ -311,16 +311,20 @@ def _fit_font_spaced(draw, text, max_w, start, tracking_ratio=0.03, min_size=42,
 
 
 def render_premium_thumbnail(bg_path, title, subtitle="", brand_text="Seoul Records",
-                             accent_color="#00d4ff", W=1920, H=1080, with_title=True):
+                             accent_color="#00d4ff", W=1920, H=1080, with_title=True,
+                             title_color="#FFFFFF", title_scale=1.0):
     """
     Premium minimal music-channel thumbnail (10만+ 채널 레퍼런스): a cinematic
     background with a vignette and a clean CENTER-aligned title block
     (eyebrow + thin divider + letter-spaced title + subtitle). No CTA stickers.
-    Returns a PIL RGB Image at WxH. Used for both the branded thumbnail and the
-    exported deliverables so they stay consistent.
+
+    ``title_color`` sets the main title fill (hex). ``title_scale`` multiplies the
+    title/subtitle size (1.0 = default, >1 = larger). Returns a PIL RGB Image.
     """
     from PIL import Image, ImageDraw
     accent = _hex_to_rgb(accent_color)
+    title_rgb = _hex_to_rgb(title_color)
+    s = max(0.6, min(2.0, float(title_scale)))  # clamp
 
     img = _cover_fit(bg_path, W, H)
     # Cinematic grade: light overall darken for legibility + a soft edge vignette.
@@ -330,29 +334,30 @@ def render_premium_thumbnail(bg_path, title, subtitle="", brand_text="Seoul Reco
 
     cx, cy = W // 2, H // 2
     if with_title:
-        # Eyebrow — uppercase brand, wide tracking, small (Montserrat).
+        # Eyebrow — uppercase brand, wide tracking (Montserrat).
         eyebrow = (brand_text or "Seoul Records").upper()
-        ef = _load_font(int(H * 0.024), bold=True)
-        _draw_spaced_centered(draw, eyebrow, cx, cy - int(H * 0.20), ef,
+        ef = _load_font(int(H * 0.026), bold=True)
+        _draw_spaced_centered(draw, eyebrow, cx, cy - int(H * 0.205), ef,
                               fill=(255, 255, 255, 205), tracking=H * 0.014)
         # Thin divider line above the title.
         lw = int(W * 0.055)
         ly = cy - int(H * 0.135)
         draw.rectangle([cx - lw // 2, ly, cx + lw // 2, ly + 3], fill=(*accent, 240))
         # Main playlist title — centered, letter-spaced, single soft drop shadow
-        # (no outline/border). Montserrat, or Pretendard if the title has Hangul.
-        tf = _fit_font_spaced(draw, title, int(W * 0.80), int(H * 0.10), black=True)
+        # (no outline/border). Montserrat Black; size scales with title_scale.
+        title_px = int(H * 0.118 * s)
+        tf = _fit_font_spaced(draw, title, int(W * 0.88), title_px, black=True)
         _draw_spaced_centered(draw, title, cx, cy - int(H * 0.045), tf,
-                              fill=(255, 255, 255, 255), tracking=int(H * 0.10) * 0.03,
+                              fill=(*title_rgb, 255), tracking=title_px * 0.03,
                               shadow=(0, 0, 0, 130), shadow_off=(0, 4))
-        # Subtitle — centered, accent, smaller, with a wider gap below the title.
+        # Subtitle — centered, accent, with a wider gap below the title.
         if subtitle:
-            sf = _load_font(int(H * 0.032), bold=False, text=subtitle)
-            _draw_spaced_centered(draw, subtitle, cx, cy + int(H * 0.11), sf,
+            sf = _load_font(int(H * 0.038 * s), bold=False, text=subtitle)
+            _draw_spaced_centered(draw, subtitle, cx, cy + int(H * 0.115), sf,
                                   fill=(*accent, 235), tracking=H * 0.006)
     else:
         # Clean stage (video background) — only a faint brand mark, no title.
-        bf = _load_font(int(H * 0.024), bold=True)
+        bf = _load_font(int(H * 0.026), bold=True)
         _draw_spaced_centered(draw, (brand_text or "Seoul Records").upper(),
                               cx, H - int(H * 0.06), bf,
                               fill=(255, 255, 255, 110), tracking=H * 0.009)
@@ -370,6 +375,8 @@ def mock_render_branded_thumbnail(
     show_subscribe: bool = False,
     show_like: bool = False,
     title_layout: str = "center",
+    title_color: str = "#FFFFFF",
+    title_scale: float = 1.0,
 ) -> str | None:
     """
     Render a finished, premium music-channel thumbnail locally (PIL) — no Canva.
@@ -398,6 +405,7 @@ def mock_render_branded_thumbnail(
     img = render_premium_thumbnail(
         bg_path, title, subtitle, brand_text, accent_color, W, H,
         with_title=(title_layout != "none"),
+        title_color=title_color, title_scale=title_scale,
     )
 
     # Optional CTA stickers overlaid on top (off by default).
