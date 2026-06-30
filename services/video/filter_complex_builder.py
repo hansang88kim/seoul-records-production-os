@@ -143,10 +143,15 @@ def build_video_filter_complex(
             frame_cfg=overlay_plan.get("visualizer_frame", {}),
         )
 
-    # 3) Now Playing PNGs (scheduled per chapter)
+    # 3) Now Playing — prefer drawtext auto-generation; fall back to PNGs
     np_items = [(i, ov) for i, ov in enumerate(overlay_inputs)
                 if ov["role"] == AT.NOW_PLAYING_CARD_ASSET]
-    if np_items:
+    np_drawtext_tracks = overlay_plan.get("now_playing_tracks", [])
+    if np_drawtext_tracks and not np_items:
+        # Auto-generated drawtext from the track list (no PNG upload needed).
+        current = add_now_playing_drawtext(parts, current, np_drawtext_tracks,
+                                           preview_seconds)
+    elif np_items:
         current = add_now_playing_layers(parts, current, np_items, preview_seconds)
 
     # 4) CTA sticker (scheduled every N minutes)
@@ -202,22 +207,21 @@ def _viz_geometry(cfg: dict) -> dict:
 
 def add_visualizer_layer(parts: list[str], current: str, viz: dict) -> str:
     """
-    Add the dynamic audio-reactive visualizer. CRITICAL: uses [1:a] (the real
-    audio input), not [0:a] (the background). Composites onto `current`.
-
-    Position/size come from the config: y_position, height, width_percent,
-    opacity, glow_strength.
+    Add the dynamic audio-reactive visualizer. Uses [1:a] (real audio).
+    Styles: minimal_dots (recommended) | minimal_wave | soft_eq_bars | citypop_glow.
     """
     cfg = viz.get("config", {})
-    style = cfg.get("style", "citypop_glow")
-    opacity = cfg.get("opacity", 0.85)
-    glow = cfg.get("glow_strength", 3.0)
-    color = _hex_to_ffmpeg(cfg.get("color", "#ff4d6d"))
+    style = cfg.get("style", "minimal_dots")
+    opacity = cfg.get("opacity", 0.55)
+    glow = cfg.get("glow_strength", 1.5)
+    color = _hex_to_ffmpeg(cfg.get("color", "#ffffff"))
     g = _viz_geometry(cfg)
     w, h, x, y = g["w"], g["h"], g["x"], g["y"]
 
-    # Generate the waveform/eq from the REAL audio input, at the configured size
-    if style == "minimal_wave":
+    if style == "minimal_dots":
+        # Clean dot-to-dot line — subtle, premium (like reference channels).
+        gen = f"[{AUDIO_INPUT}:a]showwaves=s={w}x{h}:mode=p2p:rate=25:colors={color}[vizraw]"
+    elif style == "minimal_wave":
         gen = f"[{AUDIO_INPUT}:a]showwaves=s={w}x{h}:mode=line:rate=25:colors={color}[vizraw]"
     elif style == "soft_eq_bars":
         gen = f"[{AUDIO_INPUT}:a]showfreqs=s={w}x{h}:mode=bar:ascale=log:colors={color}[vizraw]"
@@ -226,10 +230,7 @@ def add_visualizer_layer(parts: list[str], current: str, viz: dict) -> str:
                f"gblur=sigma={glow}[vizraw]")
     parts.append(gen)
 
-    # Apply opacity
     parts.append(f"[vizraw]format=rgba,colorchannelmixer=aa={opacity}[viz_alpha]")
-
-    # Overlay at the configured x/y
     parts.append(f"{current}[viz_alpha]overlay=x={x}:y={y}[v_viz]")
     return "[v_viz]"
 
@@ -291,6 +292,66 @@ def add_now_playing_layers(parts: list[str], current: str,
     return current
 
 
+def add_now_playing_drawtext(parts: list[str], current: str,
+                             tracks: list[dict],
+                             preview_seconds: int | None = None,
+                             font_path: str = "") -> str:
+    """
+    Auto-generate Now Playing text from the track list using FFmpeg drawtext.
+    Shows "▶ 01. Track Title" at the bottom-left, changing at chapter boundaries.
+    No PNG upload needed — the track list drives it directly.
+
+    ``tracks``: [{title, start_sec, end_sec, track_number}, ...]
+    ``font_path``: path to a .ttf font (Noto Sans KR for Korean support).
+    """
+    if not tracks:
+        return current
+
+    # Resolve font: prefer bundled Noto Sans KR (Korean support), else system.
+    if not font_path:
+        from pathlib import Path as _P
+        candidates = [
+            _P(__file__).resolve().parent.parent.parent / "assets" / "fonts" / "NotoSansKR.ttf",
+            _P(__file__).resolve().parent.parent.parent / "assets" / "fonts" / "Montserrat-Medium.ttf",
+        ]
+        for fp in candidates:
+            if fp.exists():
+                font_path = str(fp).replace("\\", "/")
+                break
+
+    dt_parts = []
+    for t in tracks:
+        start = int(t.get("start_sec", 0))
+        end = int(t.get("end_sec", start + 180))
+        num = t.get("track_number", 1)
+        title = t.get("title", f"Track {num}")
+        # Sanitize for FFmpeg drawtext (escape special chars)
+        safe_title = title.replace("'", "'\\''").replace(":", "\\:")
+        text = f"▶  {num:02d}. {safe_title}"
+
+        if preview_seconds is not None:
+            if start >= preview_seconds:
+                continue
+            end = min(end, preview_seconds)
+
+        enable = f"between(t,{start},{end})"
+        font_arg = f":fontfile='{font_path}'" if font_path else ""
+        dt = (f"drawtext=text='{text}'{font_arg}"
+              f":fontsize=28:fontcolor=white@0.85"
+              f":x=60:y=H-80"
+              f":enable='{enable}'")
+        dt_parts.append(dt)
+
+    if not dt_parts:
+        return current
+
+    # Chain all drawtext filters
+    chain = ",".join(dt_parts)
+    label = "[v_np_dt]"
+    parts.append(f"{current}{chain}{label}")
+    return label
+
+
 def add_cta_sticker_layers(parts: list[str], current: str, input_idx: int,
                            cta: dict, preview_seconds: int | None,
                            preview_cta_now: bool) -> str:
@@ -326,8 +387,8 @@ def add_center_title_layer(parts: list[str], current: str, input_idx: int) -> st
 
 def add_film_grain_layer(parts: list[str], current: str,
                          preview_seconds: int | None) -> str:
-    """Add a generated film grain overlay (noise)."""
+    """Add very subtle temporal film grain (citypop aesthetic — not VHS-heavy)."""
     parts.append(
-        f"{current}noise=alls=12:allf=t+u[v_grain]"
+        f"{current}noise=alls=3:allf=t+u[v_grain]"
     )
     return "[v_grain]"

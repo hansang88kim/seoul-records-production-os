@@ -161,6 +161,12 @@ def build_render_plan(
             "uses_png": True,           # Canva PNG, not drawtext
             "schedule": now_playing_schedule,
         },
+        # Track list for auto-generated drawtext Now Playing (used when no PNGs):
+        "now_playing_tracks": [
+            {"track_number": i + 1, "title": ch["title"].split(" (반복")[0],
+             "start_sec": ch["start_sec"], "end_sec": ch["end_sec"]}
+            for i, ch in enumerate(playlist_plan.get("chapters", []))
+        ] if enable_now_playing else [],
         "cta_sticker": {
             "enabled": enable_cta,
             "position": "top-right",

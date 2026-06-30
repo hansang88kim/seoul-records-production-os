@@ -20,7 +20,7 @@ from __future__ import annotations
 import warnings
 
 
-VISUALIZER_STYLES = ["minimal_wave", "soft_eq_bars", "citypop_glow"]
+VISUALIZER_STYLES = ["minimal_dots", "minimal_wave", "soft_eq_bars", "citypop_glow"]
 
 # Canvas geometry
 CANVAS_W = 1920

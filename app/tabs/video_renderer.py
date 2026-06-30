@@ -94,19 +94,22 @@ def render_video_renderer():
             st.error("사용 가능한 배경이 없습니다.")
 
     # ── 3. Overlay assets ────────────────────────────────────────────
-    st.markdown("#### 3️⃣ Canva 오버레이 자산")
-    st.caption("모든 텍스트/스티커는 Canva PNG 오버레이입니다 (FFmpeg drawtext 미사용).")
-    ocol1, ocol2, ocol3, ocol4 = st.columns(4)
+    st.markdown("#### 3️⃣ 오버레이 설정")
+    st.caption("Now Playing은 트랙 순서대로 자동 생성됩니다 (PNG 업로드 불필요).")
+    ocol1, ocol2, ocol3, ocol4, ocol5 = st.columns(5)
     with ocol1:
-        en_now = st.checkbox("Now Playing 카드", value=False, key="vr_now",
-                                 help="좌상단 현재 재생 곡 정보 — Canva PNG 업로드 후 켜세요.")
+        en_now = st.checkbox("Now Playing", value=True, key="vr_now",
+                             help="하단 좌측 현재 재생 곡 정보 (▶ 01. 곡 제목) — 자동 생성.")
     with ocol2:
-        en_cta = st.checkbox("CTA 스티커", value=False, key="vr_cta",
-                                 help="우상단 구독/좋아요 버튼 — Canva PNG 업로드 후 켜세요.")
+        en_viz = st.checkbox("비주얼라이저", value=True, key="vr_viz",
+                             help="하단 중앙 미니멀 오디오 반응형 웨이브.")
     with ocol3:
-        en_viz = st.checkbox("비주얼라이저", value=False, key="vr_viz",
-                                 help="하단 오디오 반응형 이퀄라이저 바.")
+        en_grain = st.checkbox("필름 그레인", value=True, key="vr_grain",
+                               help="미세한 시티팝 필름 노이즈 (배경이 정지 화면처럼 안 보이게).")
     with ocol4:
+        en_cta = st.checkbox("CTA 스티커", value=False, key="vr_cta",
+                             help="우상단 구독/좋아요 버튼 — Canva PNG 업로드 후 켜세요.")
+    with ocol5:
         en_center = st.checkbox("중앙 타이틀", value=False, key="vr_center",
                                help="기본 OFF — 재생 영상에는 보통 사용하지 않습니다.")
 
@@ -151,14 +154,15 @@ def render_video_renderer():
         with vcol1:
             viz_style = st.selectbox("스타일", VISUALIZER_STYLES,
                                      format_func=lambda s: {
+                                         "minimal_dots": "Minimal Dots (추천)",
                                          "minimal_wave": "Minimal Wave Line",
                                          "soft_eq_bars": "Soft Equalizer Bars",
                                          "citypop_glow": "CityPop Glow Wave",
                                      }.get(s, s), key="vr_viz_style")
         with vcol2:
-            viz_color = st.color_picker("색상", "#ff4d6d", key="vr_viz_color")
+            viz_color = st.color_picker("색상", "#ffffff", key="vr_viz_color")
         with vcol3:
-            viz_opacity = st.slider("투명도", 0.0, 1.0, 0.85, key="vr_viz_op")
+            viz_opacity = st.slider("투명도", 0.0, 1.0, 0.55, key="vr_viz_op")
 
         # Position / size controls
         st.markdown("**위치 / 크기 조정**")
@@ -234,6 +238,7 @@ def render_video_renderer():
             session_path, plan, bg_info, lib, viz_cfg,
             enable_now_playing=en_now, enable_cta=en_cta,
             enable_visualizer=en_viz, enable_center_title=en_center,
+            enable_film_grain=en_grain,
         )
         # Attach the visualizer frame config (lock/opacity) to the overlay plan
         plans["overlay_plan"]["visualizer_frame"] = st.session_state.get(
