@@ -20,7 +20,9 @@ NEGATIVE_PROMPT = (
     "no text, no letters, no words, no typography, no captions, no titles, "
     "no logos, no watermarks, no signatures, no UI elements, no fake interface, "
     "no unreadable signs as main focus, no overcrowded composition, no clutter, "
-    "no distorted faces, no extra limbs, no tourism-poster look, no landmark focus"
+    "no distorted faces, no extra limbs, no tourism-poster look, no landmark focus, "
+    "no VHS effect, no film grain, no noise, no low resolution, no blurry, "
+    "no pixelated, no retro filter, no vintage filter, no scan lines, no analog artifacts"
 )
 
 
@@ -65,22 +67,22 @@ def generate_flow_prompt(
     theme_phrase = f", {theme}" if theme else ""
 
     main_prompt = (
-        f"A nostalgic 1980s-1990s {culture} city-pop aesthetic background for a "
-        f"premium music playlist thumbnail. Setting: {preset['city']} — {preset['scene']}. "
+        f"A cinematic {culture} city night background for a premium music playlist "
+        f"thumbnail, evoking a wistful 1980s-1990s city-pop atmosphere. "
+        f"Setting: {preset['city']} — {preset['scene']}. "
         f"Featured scene: {scene_var}{theme_phrase}, {time_of_day}. "
         f"Lighting: {preset['lighting']}. {preset['signage']}. "
         f"Color tone: {preset['color_tone']}. "
         f"Composition: {camera}, cinematic 16:9 widescreen framing, rich atmospheric "
         f"depth, layered foreground and background, leading lines, balanced negative "
         f"space near the center for a title overlay. "
-        f"Mood: bittersweet nostalgic city night, premium citypop playlist visual. "
-        f"Style: cinematic photo-realism with a refined, understated color grade, "
-        f"shot on 35mm film, shallow depth of field, soft volumetric light, gentle "
-        f"neon reflections on wet asphalt, fine vintage film grain, subtle bloom, "
-        f"moody low-key lighting, elegant and tasteful — not gaudy, not oversaturated, "
-        f"muted sophisticated palette. "
-        f"Quality: ultra-detailed, photorealistic, professional cinematography, "
-        f"sharp focus, high dynamic range, crisp 4K resolution, award-winning, masterpiece. "
+        f"Mood: bittersweet, dreamy, slightly melancholic city night, premium playlist visual. "
+        f"Style: modern cinematic photography, clean high-resolution rendering, "
+        f"shallow depth of field, soft volumetric light, gentle neon reflections on "
+        f"wet surfaces, subtle lens bloom, moody low-key lighting with high contrast, "
+        f"elegant muted sophisticated palette — NOT gaudy, NOT oversaturated. "
+        f"Quality: ultra-detailed, photorealistic, 4K resolution, sharp focus, "
+        f"high dynamic range, professional cinematography, award-winning. "
         f"IMPORTANT: background image only — absolutely no text, no letters, no logos, "
         f"no watermarks, no people-facing camera anywhere in the image."
     )

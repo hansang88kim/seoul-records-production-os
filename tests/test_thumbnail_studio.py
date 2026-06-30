@@ -23,8 +23,8 @@ def test_citypop_country_theme_prompt_generated():
     from services.thumbnail.prompt_generator import generate_flow_prompt
     p = generate_flow_prompt("korea", "rainy night", 0)
     mp = p["main_prompt"].lower()
-    assert "city-pop" in mp or "city pop" in mp
-    assert "korean city-pop" in mp  # image prompt reflects the selected country
+    assert "city-pop" in mp or "city night" in mp
+    assert "korean city night" in mp  # image prompt reflects the selected country
     assert "Seoul" in p["main_prompt"]
     assert "rainy night" in p["main_prompt"]
 

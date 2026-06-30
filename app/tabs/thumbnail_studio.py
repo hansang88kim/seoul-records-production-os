@@ -363,7 +363,8 @@ def _render_brand_thumbnail():
         eyebrow_color = st.color_picker("상단 색상", value="#FFFFFF", key="brand_eyebrow_color",
                                         help="Seoul Records 텍스트 색상")
     with tc3:
-        subtitle_color = st.color_picker("하단 색상", value=cand.get("canva_accent_color", "#ff4d6d") if selected else "#ff4d6d",
+        _default_accent = selected[0].get("canva_accent_color", "#ff4d6d") if selected else "#ff4d6d"
+        subtitle_color = st.color_picker("하단 색상", value=_default_accent,
                                          key="brand_subtitle_color",
                                          help="CityPop Playlist 텍스트 색상 (기본 = 엑센트)")
     with tc4:

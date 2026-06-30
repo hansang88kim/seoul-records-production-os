@@ -1,6 +1,6 @@
 # Seoul Records Production OS
 
-**AI Music Label Production Harness — v1.0.0-alpha.21**
+**AI Music Label Production Harness — v1.0.0-alpha.22**
 
 > Creative direction: controlled by ChatGPT and the user.
 > Engineering: this repository.
@@ -77,6 +77,8 @@ to point the console at a live backend.
 ## What This Is
 
 Seoul Records Production OS is a local MVP application for creating AI-generated city pop album projects. It provides a full 5-tab production pipeline from song generation through music distribution, with mock providers for v0.1.x and a clear upgrade path to real integrations.
+
+**v1.0.0-alpha.22: Fix cand Error + Cinematic HD Prompts — (1) Fixed UnboundLocalError on Brand Thumbnail tab (subtitle_color picker referenced `cand` before the render loop). (2) Rewrote image prompts for high-quality cinematic output: removed "shot on 35mm film" / "vintage film grain" / heavy retro styling that made Gemini produce low-res VHS-looking images. New style: modern cinematic photography, clean high-res, subtle dreamy/wistful atmosphere (not grainy). Added VHS/grain/low-res to the negative prompt. 674 tests passing.**
 
 **v1.0.0-alpha.21: Native 1:1 Cover (no blur hack) — Removed the zoom-out/ blur approach for 1:1 covers; instead the cover uses the natively generated 1:1 background image directly (same concept, composed for square from the start by the image model). The 1:1 font-size reduction (sq=0.80) is kept so the title block stays proportional. 674 tests passing.**
 
