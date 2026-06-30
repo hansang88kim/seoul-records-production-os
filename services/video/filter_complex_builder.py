@@ -297,26 +297,21 @@ def add_now_playing_drawtext(parts: list[str], current: str,
                              preview_seconds: int | None = None,
                              font_path: str = "") -> str:
     """
-    Auto-generate Now Playing text from the track list using FFmpeg drawtext.
-    Shows "▶ 01. Track Title" at the bottom-left, changing at chapter boundaries.
-    No PNG upload needed — the track list drives it directly.
-
-    ``tracks``: [{title, start_sec, end_sec, track_number}, ...]
-    ``font_path``: path to a .ttf font (Noto Sans KR for Korean support).
+    Auto-generate Now Playing text at bottom-center via FFmpeg drawtext.
+    Shows current track title, changing at chapter boundaries. Bold font.
     """
     if not tracks:
         return current
 
-    # Resolve font: prefer bundled Noto Sans KR (Korean support), else system.
     if not font_path:
         from pathlib import Path as _P
-        candidates = [
-            _P(__file__).resolve().parent.parent.parent / "assets" / "fonts" / "NotoSansKR.ttf",
-            _P(__file__).resolve().parent.parent.parent / "assets" / "fonts" / "Montserrat-Medium.ttf",
-        ]
-        for fp in candidates:
+        for name in ["Montserrat-Bold.ttf", "NotoSansKR.ttf", "Montserrat-Medium.ttf"]:
+            fp = _P(__file__).resolve().parent.parent.parent / "assets" / "fonts" / name
             if fp.exists():
+                # FFmpeg needs forward slashes + escaped colons on Windows
                 font_path = str(fp).replace("\\", "/")
+                if ":" in font_path:
+                    font_path = font_path.replace(":", "\\\\:")
                 break
 
     dt_parts = []
@@ -325,27 +320,21 @@ def add_now_playing_drawtext(parts: list[str], current: str,
         end = int(t.get("end_sec", start + 180))
         num = t.get("track_number", 1)
         title = t.get("title", f"Track {num}")
-        # Sanitize for FFmpeg drawtext (escape special chars)
-        safe_title = title.replace("'", "'\\''").replace(":", "\\:")
-        text = f"▶  {num:02d}. {safe_title}"
-
+        safe = title.replace("'", "\'").replace(":", "\\:").replace("%", "%%")
+        text = f"{num:02d}. {safe}"
         if preview_seconds is not None:
             if start >= preview_seconds:
                 continue
             end = min(end, preview_seconds)
-
         enable = f"between(t,{start},{end})"
-        font_arg = f":fontfile='{font_path}'" if font_path else ""
-        dt = (f"drawtext=text='{text}'{font_arg}"
-              f":fontsize=28:fontcolor=white@0.85"
-              f":x=60:y=H-80"
+        fa = f":fontfile='{font_path}'" if font_path else ""
+        dt = (f"drawtext=text='{text}'{fa}"
+              f":fontsize=30:fontcolor=white@0.90"
+              f":x=(w-text_w)/2:y=h-55"
               f":enable='{enable}'")
         dt_parts.append(dt)
-
     if not dt_parts:
         return current
-
-    # Chain all drawtext filters
     chain = ",".join(dt_parts)
     label = "[v_np_dt]"
     parts.append(f"{current}{chain}{label}")

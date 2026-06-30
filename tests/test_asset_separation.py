@@ -86,19 +86,19 @@ def test_video_background_does_not_contain_center_playlist_title_by_default():
 
 # ─── Video renderer background selection ─────────────────────────────────────
 
-def test_video_renderer_prefers_video_playback_background(session_with_bg):
+def test_video_renderer_prefers_branded_thumbnail_over_clean(session_with_bg):
     from services.thumbnail import asset_exporter as ae
     from services.thumbnail.video_renderer_rules import select_video_background
     from services.thumbnail import asset_types as AT
     sid, bg = session_with_bg
     ae.export_all_required_assets(sid, bg, "T", "S", "Seoul Records", "#ff0000")
     sel = select_video_background(sid)
-    assert sel["asset_type"] == AT.VIDEO_PLAYBACK_BACKGROUND_16X9
-    assert sel["is_clean_playback"] is True
+    assert sel["asset_type"] == AT.YOUTUBE_THUMBNAIL_16X9
+    assert sel["is_clean_playback"] is False  # branded thumb preferred
     assert sel["warning"] is None
 
 
-def test_video_renderer_warns_when_using_youtube_thumbnail_as_background(session_with_bg):
+def test_video_renderer_no_warning_for_branded_thumbnail(session_with_bg):
     from services.thumbnail import asset_exporter as ae
     from services.thumbnail.video_renderer_rules import select_video_background
     from services.thumbnail import asset_types as AT
@@ -110,8 +110,8 @@ def test_video_renderer_warns_when_using_youtube_thumbnail_as_background(session
     sel = select_video_background(sid)
     assert sel["asset_type"] == AT.YOUTUBE_THUMBNAIL_16X9
     assert sel["is_clean_playback"] is False
-    assert sel["warning"] is not None
-    assert "playback" in sel["warning"].lower()
+    assert sel["warning"] is None
+    # branded thumbnail is now preferred — no warning
 
 
 # ─── Streaming cover ─────────────────────────────────────────────────────────

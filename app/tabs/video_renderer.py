@@ -185,22 +185,11 @@ def render_video_renderer():
             glow_strength=viz_glow,
         )
 
-        # Visualizer frame controls (locked to visualizer by default)
-        st.markdown("**Canva 프레임 정렬**")
-        fcol1, fcol2 = st.columns(2)
-        with fcol1:
-            frame_lock = st.checkbox("프레임을 비주얼라이저 위치에 고정", value=True,
-                                     key="vr_frame_lock",
-                                     help="Canva 프레임과 동적 파형 위치를 자동 정렬합니다.")
-        with fcol2:
-            frame_opacity = st.slider("프레임 투명도", 0.0, 1.0, 1.0, key="vr_frame_op")
-        st.session_state["vr_frame_cfg"] = {
-            "lock_to_visualizer_position": frame_lock,
-            "frame_opacity": frame_opacity,
-        }
     else:
         viz_cfg = visualizer_config()
-        st.session_state["vr_frame_cfg"] = {"lock_to_visualizer_position": True}
+
+    # Frame config (auto-locked, no user controls needed)
+    st.session_state["vr_frame_cfg"] = {"lock_to_visualizer_position": True, "frame_opacity": 0.0}
 
     # ── 5. Render ────────────────────────────────────────────────────
     st.markdown("#### 5️⃣ 렌더링")

@@ -1,6 +1,6 @@
 # Seoul Records Production OS
 
-**AI Music Label Production Harness — v1.0.0-alpha.27**
+**AI Music Label Production Harness — v1.0.0-alpha.28**
 
 > Creative direction: controlled by ChatGPT and the user.
 > Engineering: this repository.
@@ -77,6 +77,8 @@ to point the console at a live backend.
 ## What This Is
 
 Seoul Records Production OS is a local MVP application for creating AI-generated city pop album projects. It provides a full 5-tab production pipeline from song generation through music distribution, with mock providers for v0.1.x and a clear upgrade path to real integrations.
+
+**v1.0.0-alpha.28: Video = Branded Thumbnail + Track Title — (1) Video background now uses the branded youtube thumbnail (same image viewers click on) instead of a separate clean background. (2) Current track title (01. 곡 제목) displayed at bottom-center via drawtext with Montserrat-Bold, changing per chapter. (3) Removed Canva frame lock/opacity controls (simplified UI). (4) Film grain default ON. 674 tests passing.**
 
 **v1.0.0-alpha.27: Premium Video Render — Now Playing Drawtext + Minimal Visualizer + Film Grain — (1) Now Playing auto-generated from the track list via FFmpeg drawtext (▶ 01. 곡 제목 → ▶ 02. ... at chapter boundaries, no PNG upload). (2) New "Minimal Dots" visualizer style (showwaves p2p, white, 55% opacity) — clean dot-to-dot line like premium lofi channels. Default style + visualizer ON. (3) Film grain: subtle temporal noise (alls=3, citypop aesthetic, default ON) so the background doesn't look frozen. (4) CTA sticker stays OFF by default. 674 tests passing.**
 

@@ -60,7 +60,7 @@ def test_video_renderer_scans_mp3_files(mp3_outputs):
 
 # ─── Background selection (prefers clean playback) ───────────────────────────
 
-def test_video_renderer_prefers_clean_playback_background(tmp_path):
+def test_video_renderer_prefers_branded_thumbnail(tmp_path):
     from services.thumbnail import session_store as ss, asset_exporter as ae
     from services.thumbnail.video_renderer_rules import select_video_background
     from services.thumbnail import asset_types as AT
@@ -73,11 +73,11 @@ def test_video_renderer_prefers_clean_playback_background(tmp_path):
     Image.new("RGB", (1600, 900), (40, 50, 80)).save(bg)
     ae.export_all_required_assets(sess["session_id"], str(bg), "T", "S", "Seoul Records", "#f00")
     sel = select_video_background(sess["session_id"])
-    assert sel["asset_type"] == AT.VIDEO_PLAYBACK_BACKGROUND_16X9
-    assert sel["is_clean_playback"] is True
+    assert sel["asset_type"] == AT.YOUTUBE_THUMBNAIL_16X9
+    assert sel["is_clean_playback"] is False  # branded thumb preferred
 
 
-def test_video_renderer_warns_when_using_youtube_thumbnail(tmp_path):
+def test_video_renderer_no_warning_for_branded(tmp_path):
     from services.thumbnail import session_store as ss, asset_exporter as ae
     from services.thumbnail.video_renderer_rules import select_video_background
     from services.thumbnail import asset_types as AT
@@ -94,8 +94,8 @@ def test_video_renderer_warns_when_using_youtube_thumbnail(tmp_path):
                             [ae._make_asset_entry(sess["session_id"], AT.YOUTUBE_THUMBNAIL_16X9, yt)])
     sel = select_video_background(sess["session_id"])
     assert sel["asset_type"] == AT.YOUTUBE_THUMBNAIL_16X9
-    assert sel["warning"] is not None
-    assert "썸네일" in sel["warning"] or "thumbnail" in sel["warning"].lower()
+    assert sel["warning"] is None
+    # branded thumbnail is now preferred — no warning
 
 
 # ─── Playlist target duration ────────────────────────────────────────────────
