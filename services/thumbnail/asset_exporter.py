@@ -82,44 +82,19 @@ def export_youtube_thumbnail(
     title. No song title, no waveform, no CTA sticker.
     """
     try:
-        from PIL import Image, ImageDraw
-    except ImportError:
+        from services.thumbnail.canva_branding import render_premium_thumbnail
+    except Exception:
         return None
 
     W, H = AT.CANVAS_SIZES[AT.YOUTUBE_THUMBNAIL_16X9]
-    img = _load_bg(bg_path, (W, H))
-    draw = ImageDraw.Draw(img, "RGBA")
-
-    # Bottom gradient for legibility
-    for y in range(H):
-        alpha = int(190 * (y / H) ** 1.5)
-        draw.line([(0, y), (W, y)], fill=(0, 0, 0, alpha))
-
-    margin = int(W * 0.05)
-    accent_rgb = _hex_to_rgb(accent_color)
-
-    # Brand text (top-left)
-    draw.text((margin, margin), brand_text or "Seoul Records",
-              font=_font(int(H * 0.045)), fill="#FFFFFF")
-
-    # Accent bar above title
-    bar_y = int(H * 0.66)
-    draw.rectangle([margin, bar_y, margin + int(W * 0.06), bar_y + int(H * 0.012)],
-                   fill=accent_rgb)
-
-    # Main playlist title (large, lower-left)
-    draw.text((margin, int(H * 0.70)), title, font=_font(int(H * 0.10)), fill="#FFFFFF")
-
-    # Subtitle
-    if subtitle:
-        draw.text((margin, int(H * 0.86)), subtitle,
-                  font=_font(int(H * 0.05)), fill=accent_rgb)
+    img = render_premium_thumbnail(bg_path, title, subtitle, brand_text, accent_color,
+                                   W, H, with_title=True)
 
     out = _exports_dir(session_id) / AT.EXPORT_FILENAMES[AT.YOUTUBE_THUMBNAIL_16X9]
     img.save(out)
     # Optional JPG
     try:
-        img.save(out.with_suffix(".jpg"), quality=92)
+        img.save(out.with_suffix(".jpg"), quality=95)
     except Exception:
         pass
     return str(out)
@@ -139,25 +114,14 @@ def export_video_playback_background(
     the top-left Now Playing card, top-right CTA sticker, bottom waveform.
     """
     try:
-        from PIL import Image, ImageDraw
-    except ImportError:
+        from services.thumbnail.canva_branding import render_premium_thumbnail
+    except Exception:
         return None
 
     W, H = AT.CANVAS_SIZES[AT.VIDEO_PLAYBACK_BACKGROUND_16X9]
-    img = _load_bg(bg_path, (W, H))
-    draw = ImageDraw.Draw(img, "RGBA")
-
-    # Gentle vignette/darken for playback legibility of overlays — but NO title
-    for y in range(H):
-        # darken top and bottom slightly (where overlays go), keep center clean-ish
-        edge = min(y, H - y) / (H / 2)
-        alpha = int(70 * (1 - edge))
-        draw.line([(0, y), (W, y)], fill=(0, 0, 0, alpha))
-
-    # Optional subtle brand logo (small, low-opacity, bottom-right — NOT a title)
-    if subtle_logo and brand_text:
-        draw.text((W - int(W * 0.20), H - int(H * 0.08)), brand_text,
-                  font=_font(int(H * 0.030)), fill=(255, 255, 255, 120))
+    img = render_premium_thumbnail(bg_path, "", "",
+                                   brand_text if subtle_logo else "",
+                                   "#ffffff", W, H, with_title=False)
 
     out = _exports_dir(session_id) / AT.EXPORT_FILENAMES[AT.VIDEO_PLAYBACK_BACKGROUND_16X9]
     img.save(out)
@@ -183,18 +147,28 @@ def export_streaming_cover(
     crop_mode: center_crop | smart_title_safe | fit_blur | manual
     """
     try:
-        from PIL import Image
+        from PIL import Image  # noqa: F401
     except ImportError:
         return None
 
     S = AT.CANVAS_SIZES[AT.STREAMING_COVER_1X1][0]  # 3000
 
-    src = Path(source_thumbnail_path)
-    if src.exists():
-        cover = crop_to_square(source_thumbnail_path, S, crop_mode)
-    else:
-        # Fall back: re-render a 1:1 branded cover from the background
-        cover = _render_square_cover(bg_path, title, subtitle, brand_text, accent_color, S)
+    cover = None
+    if bg_path and Path(bg_path).exists():
+        # Fresh, properly-composed square cover (premium centered title) — avoids
+        # the cropped/cut-off title you get from squaring a 16:9 thumbnail.
+        try:
+            from services.thumbnail.canva_branding import render_premium_thumbnail
+            cover = render_premium_thumbnail(bg_path, title, subtitle, brand_text,
+                                             accent_color, S, S, with_title=True)
+        except Exception:
+            cover = None
+    if cover is None:
+        src = Path(source_thumbnail_path)
+        if src.exists():
+            cover = crop_to_square(source_thumbnail_path, S, crop_mode)
+        else:
+            cover = _render_square_cover(bg_path, title, subtitle, brand_text, accent_color, S)
 
     if cover is None:
         return None
@@ -202,7 +176,7 @@ def export_streaming_cover(
     out = _exports_dir(session_id) / AT.EXPORT_FILENAMES[AT.STREAMING_COVER_1X1]
     cover.save(out)
     try:
-        cover.save(out.with_suffix(".jpg"), quality=92)
+        cover.save(out.with_suffix(".jpg"), quality=95)
     except Exception:
         pass
     return str(out)

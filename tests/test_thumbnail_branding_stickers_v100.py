@@ -1,7 +1,7 @@
 """
 tests/test_thumbnail_branding_stickers_v100.py — auto-composite YouTube stickers.
 
-Verifies the local PIL renderer produces a real 1280x720 thumbnail with the
+Verifies the local PIL renderer produces a real 1920x1080 thumbnail with the
 equalizer / 구독 / 좋아요 stickers, renders Korean text without crashing, and
 records the sticker flags. No network, no Canva.
 """
@@ -51,7 +51,7 @@ def test_branded_thumbnail_renders_png_with_stickers():
     )
     assert out and Path(out).exists() and _png_ok(out)
     from PIL import Image
-    assert Image.open(out).size == (1280, 720)
+    assert Image.open(out).size == (1920, 1080)
 
 
 def test_branded_korean_title_no_crash():

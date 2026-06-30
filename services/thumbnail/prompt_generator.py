@@ -64,17 +64,21 @@ def generate_flow_prompt(
 
     main_prompt = (
         f"A nostalgic 1980s-1990s Japanese city pop aesthetic background for a "
-        f"music playlist thumbnail. Setting: {preset['city']} — {preset['scene']}. "
+        f"premium music playlist thumbnail. Setting: {preset['city']} — {preset['scene']}. "
         f"Featured scene: {scene_var}{theme_phrase}, {time_of_day}. "
         f"Lighting: {preset['lighting']}. {preset['signage']}. "
         f"Color tone: {preset['color_tone']}. "
-        f"Composition: {camera}, cinematic 16:9 framing for a YouTube thumbnail, "
-        f"rich atmospheric depth, {safe_area}, high contrast suitable for text overlay. "
+        f"Composition: {camera}, cinematic 16:9 widescreen framing, rich atmospheric "
+        f"depth, layered foreground and background, leading lines, balanced negative "
+        f"space near the center for a title overlay. "
         f"Mood: bittersweet nostalgic city night, premium citypop playlist visual. "
-        f"Style: clean anime-inspired cel shading mixed with cinematic photo realism, "
-        f"vintage film grain, soft bloom. "
+        f"Style: cinematic photo-realism with subtle anime-inspired color grading, "
+        f"shot on 35mm film, shallow depth of field, volumetric neon lighting, "
+        f"reflections on wet asphalt, fine vintage film grain, gentle bloom. "
+        f"Quality: ultra-detailed, photorealistic, professional cinematography, "
+        f"sharp focus, high dynamic range, crisp 4K resolution, award-winning, masterpiece. "
         f"IMPORTANT: background image only — absolutely no text, no letters, no logos, "
-        f"no watermarks anywhere in the image."
+        f"no watermarks, no people-facing camera anywhere in the image."
     )
 
     return {

@@ -213,6 +213,121 @@ def _draw_like(draw, x, y, scale: float = 1.0, accent_rgb=(255, 77, 109), text: 
     return w, h
 
 
+def _cover_fit(bg_path: str, W: int, H: int):
+    """Load background, scale to COVER WxH, center-crop. LANCZOS. Returns RGBA."""
+    from PIL import Image
+    try:
+        if bg_path and Path(bg_path).exists():
+            im = Image.open(bg_path).convert("RGB")
+        else:
+            im = Image.new("RGB", (W, H), (18, 22, 36))
+    except Exception:
+        im = Image.new("RGB", (W, H), (18, 22, 36))
+    sw, sh = im.size
+    scale = max(W / sw, H / sh)
+    nw, nh = max(1, int(sw * scale)), max(1, int(sh * scale))
+    im = im.resize((nw, nh), Image.LANCZOS)
+    left, top = (nw - W) // 2, (nh - H) // 2
+    im = im.crop((left, top, left + W, top + H))
+    return im.convert("RGBA")
+
+
+def _radial_vignette(W: int, H: int, strength: int = 130):
+    """Transparent overlay that darkens the edges (cinematic vignette)."""
+    from PIL import Image, ImageDraw, ImageFilter, ImageOps
+    mask = Image.new("L", (W, H), 0)
+    ImageDraw.Draw(mask).ellipse(
+        [int(-W * 0.18), int(-H * 0.18), int(W * 1.18), int(H * 1.18)], fill=255)
+    mask = mask.filter(ImageFilter.GaussianBlur(int(W * 0.12)))
+    inv = ImageOps.invert(mask).point(lambda p: int(p / 255 * strength))
+    vig = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    vig.putalpha(inv)
+    return vig
+
+
+def _spaced_width(draw, text: str, font, tracking: float) -> float:
+    if not text:
+        return 0.0
+    return sum(draw.textlength(ch, font=font) + tracking for ch in text) - tracking
+
+
+def _draw_spaced_centered(draw, text, cx, cy, font, fill=(255, 255, 255, 255),
+                          tracking: float = 0.0, shadow=None, shadow_r: int = 2):
+    """Draw letter-spaced text horizontally centered at cx, vertically centered at cy."""
+    if not text:
+        return
+    total = _spaced_width(draw, text, font, tracking)
+    _, th = _text_wh(draw, text, font)
+    x = cx - total / 2
+    y = cy - th / 2
+    for ch in text:
+        if shadow:
+            for dx in (-shadow_r, 0, shadow_r):
+                for dy in (-shadow_r, 0, shadow_r):
+                    if dx or dy:
+                        draw.text((x + dx, y + dy), ch, font=font, fill=shadow)
+        draw.text((x, y), ch, font=font, fill=fill)
+        x += draw.textlength(ch, font=font) + tracking
+
+
+def _fit_font_spaced(draw, text, max_w, start, tracking_ratio=0.04, min_size=42, bold=True):
+    size = start
+    while size > min_size:
+        f = _load_font(size, bold)
+        if _spaced_width(draw, text, f, size * tracking_ratio) <= max_w:
+            return f
+        size -= 4
+    return _load_font(min_size, bold)
+
+
+def render_premium_thumbnail(bg_path, title, subtitle="", brand_text="Seoul Records",
+                             accent_color="#00d4ff", W=1920, H=1080, with_title=True):
+    """
+    Premium minimal music-channel thumbnail (10만+ 채널 레퍼런스): a cinematic
+    background with a vignette and a clean CENTER-aligned title block
+    (eyebrow + thin divider + letter-spaced title + subtitle). No CTA stickers.
+    Returns a PIL RGB Image at WxH. Used for both the branded thumbnail and the
+    exported deliverables so they stay consistent.
+    """
+    from PIL import Image, ImageDraw
+    accent = _hex_to_rgb(accent_color)
+
+    img = _cover_fit(bg_path, W, H)
+    # Cinematic grade: gentle overall darken for legibility + edge vignette.
+    img = Image.alpha_composite(img, Image.new("RGBA", (W, H), (8, 10, 18, 70)))
+    img = Image.alpha_composite(img, _radial_vignette(W, H, strength=125))
+    draw = ImageDraw.Draw(img, "RGBA")
+
+    cx, cy = W // 2, H // 2
+    if with_title:
+        # Eyebrow — uppercase brand, wide tracking, small.
+        eyebrow = (brand_text or "Seoul Records").upper()
+        ef = _load_font(int(H * 0.024), bold=True)
+        _draw_spaced_centered(draw, eyebrow, cx, cy - int(H * 0.165), ef,
+                              fill=(255, 255, 255, 205), tracking=H * 0.014)
+        # Thin divider line above the title.
+        lw = int(W * 0.055)
+        ly = cy - int(H * 0.105)
+        draw.rectangle([cx - lw // 2, ly, cx + lw // 2, ly + 3], fill=(*accent, 240))
+        # Main playlist title — centered, letter-spaced, soft shadow.
+        tf = _fit_font_spaced(draw, title, int(W * 0.78), int(H * 0.105))
+        _draw_spaced_centered(draw, title, cx, cy - int(H * 0.03), tf,
+                              fill=(255, 255, 255, 255), tracking=int(H * 0.105) * 0.04,
+                              shadow=(0, 0, 0, 170), shadow_r=3)
+        # Subtitle — centered, accent, smaller.
+        if subtitle:
+            sf = _load_font(int(H * 0.032), bold=False)
+            _draw_spaced_centered(draw, subtitle, cx, cy + int(H * 0.072), sf,
+                                  fill=(*accent, 235), tracking=H * 0.006)
+    else:
+        # Clean stage (video background) — only a faint brand mark, no title.
+        bf = _load_font(int(H * 0.024), bold=True)
+        _draw_spaced_centered(draw, (brand_text or "Seoul Records").upper(),
+                              cx, H - int(H * 0.06), bf,
+                              fill=(255, 255, 255, 110), tracking=H * 0.009)
+    return img.convert("RGB")
+
+
 def mock_render_branded_thumbnail(
     session_id: str,
     candidate: dict,
@@ -220,18 +335,19 @@ def mock_render_branded_thumbnail(
     subtitle: str,
     brand_text: str,
     accent_color: str,
-    show_equalizer: bool = True,
-    show_subscribe: bool = True,
-    show_like: bool = True,
-    title_layout: str = "lower-left",
+    show_equalizer: bool = False,
+    show_subscribe: bool = False,
+    show_like: bool = False,
+    title_layout: str = "center",
 ) -> str | None:
     """
-    Render a finished YouTube thumbnail locally with PIL — no Canva needed.
+    Render a finished, premium music-channel thumbnail locally (PIL) — no Canva.
 
-    Composites the Seoul Records brand layout (title/subtitle/brand text +
-    gradient) PLUS optional YouTube stickers (equalizer visualizer, red 구독
-    button, 좋아요 button), all auto-placed. Uses CJK fonts so Korean renders.
-    Returns the output path, or None if PIL/image unavailable.
+    Default look (10만+ 채널 레퍼런스): a minimal CENTER-aligned title block over
+    a cinematic, vignetted background, output at 1920x1080. YouTube CTA stickers
+    (equalizer / 구독 / 좋아요) are OPTIONAL and OFF by default; when enabled they
+    overlay the premium base. Uses CJK fonts so Korean renders. Returns the
+    output path, or None if PIL is unavailable.
     """
     try:
         from PIL import Image, ImageDraw
@@ -243,92 +359,47 @@ def mock_render_branded_thumbnail(
     branded_dir = sdir / "branded"
     branded_dir.mkdir(parents=True, exist_ok=True)
 
-    W, H = 1280, 720
-    margin = 64
+    W, H = 1920, 1080
     accent_rgb = _hex_to_rgb(accent_color)
     bg_path = candidate.get("uploaded_image_path", "")
 
-    # Load background (cover-fit) or solid placeholder.
-    try:
-        if bg_path and Path(bg_path).exists():
-            img = Image.open(bg_path).convert("RGB").resize((W, H))
-        else:
-            img = Image.new("RGB", (W, H), (26, 34, 56))
-    except Exception:
-        img = Image.new("RGB", (W, H), (26, 34, 56))
+    # Premium minimal base (centered title + cinematic vignette), full HD.
+    img = render_premium_thumbnail(
+        bg_path, title, subtitle, brand_text, accent_color, W, H,
+        with_title=(title_layout != "none"),
+    )
 
-    draw = ImageDraw.Draw(img, "RGBA")
-
-    # Bottom-to-top dark gradient for text legibility.
-    for y in range(H):
-        alpha = int(190 * (y / H) ** 1.5)
-        draw.line([(0, y), (W, y)], fill=(0, 0, 0, alpha))
-
-    # Brand text — top-left.
-    draw.text((margin, margin), brand_text or "Seoul Records",
-              font=_load_font(34, bold=True), fill=(255, 255, 255, 255))
-
-    # Subscribe + Like — top-right row.
-    try:
-        row_x, row_y = W - margin, margin
-        like_w = sub_w = 0
-        if show_like:
-            # measure by drawing off-canvas position then reposition: draw last.
-            pass
-        # Draw subscribe first (left of the pair), then like to its right, right-aligned.
-        pieces = []
-        if show_subscribe:
-            pieces.append("sub")
-        if show_like:
-            pieces.append("like")
-        # Pre-measure widths using temp draws on a scratch image.
-        from PIL import Image as _Img
-        scratch = ImageDraw.Draw(_Img.new("RGBA", (10, 10)))
-        widths = {}
-        if show_subscribe:
-            widths["sub"] = _draw_subscribe(scratch, 0, 0)[0]
-        if show_like:
-            widths["like"] = _draw_like(scratch, 0, 0, accent_rgb=accent_rgb)[0]
-        gap = 16
-        total = sum(widths.values()) + (gap if len(widths) == 2 else 0)
-        cx = W - margin - total
-        if show_subscribe:
-            w, h = _draw_subscribe(draw, cx, row_y)
-            cx += w + gap
-        if show_like:
-            _draw_like(draw, cx, row_y, accent_rgb=accent_rgb)
-    except Exception:
-        pass  # stickers are best-effort; never fail the whole render
-
-    # Title + subtitle.
-    sub_font = _load_font(40, bold=False)
-    sub_h = _text_wh(draw, subtitle, sub_font)[1] if subtitle else 0
-    if title_layout == "center":
-        title_font = _fit_font(draw, title, int(W * 0.84), 104)
-        tw, th = _text_wh(draw, title, title_font)
-        tx, ty = (W - tw) // 2, (H - th) // 2 - 10
-        draw.rectangle([(W - 110) // 2, ty - 28, (W + 110) // 2, ty - 16], fill=(*accent_rgb, 255))
-        _draw_text_glow(draw, (tx, ty), title, title_font)
-        if subtitle:
-            sw = _text_wh(draw, subtitle, sub_font)[0]
-            draw.text(((W - sw) // 2, ty + th + 18), subtitle, font=sub_font, fill=(*accent_rgb, 255))
-    else:  # lower-left
-        title_font = _fit_font(draw, title, int(W * 0.60), 92)
-        tw, th = _text_wh(draw, title, title_font)
-        ty = H - margin - (sub_h + (18 if subtitle else 0)) - th
-        draw.rectangle([margin, ty - 26, margin + 92, ty - 14], fill=(*accent_rgb, 255))
-        _draw_text_glow(draw, (margin, ty), title, title_font)
-        if subtitle:
-            draw.text((margin, ty + th + 18), subtitle, font=sub_font, fill=(*accent_rgb, 255))
-
-    # Equalizer — lower-right band (kept clear of the lower-left title).
-    if show_equalizer:
+    # Optional CTA stickers overlaid on top (off by default).
+    if show_subscribe or show_like or show_equalizer:
+        draw = ImageDraw.Draw(img, "RGBA")
+        margin = int(W * 0.045)
+        scale = W / 1280.0
         try:
-            _draw_equalizer(draw, (int(W * 0.54), H - 150, W - margin, H - margin - 12),
-                            accent_rgb, bars=14,
-                            seed=sum(ord(c) for c in candidate.get("candidate_id", "x")))
+            from PIL import Image as _Img
+            scratch = ImageDraw.Draw(_Img.new("RGBA", (10, 10)))
+            widths = {}
+            if show_subscribe:
+                widths["sub"] = _draw_subscribe(scratch, 0, 0, scale=scale)[0]
+            if show_like:
+                widths["like"] = _draw_like(scratch, 0, 0, scale=scale, accent_rgb=accent_rgb)[0]
+            gap = int(20 * scale)
+            total = sum(widths.values()) + (gap if len(widths) == 2 else 0)
+            x, y = W - margin - total, margin
+            if show_subscribe:
+                w, _h = _draw_subscribe(draw, x, y, scale=scale)
+                x += w + gap
+            if show_like:
+                _draw_like(draw, x, y, scale=scale, accent_rgb=accent_rgb)
         except Exception:
             pass
+        if show_equalizer:
+            try:
+                _draw_equalizer(draw, (int(W * 0.54), H - int(H * 0.16),
+                                       W - margin, H - int(H * 0.03)),
+                                accent_rgb, bars=16,
+                                seed=sum(ord(c) for c in candidate.get("candidate_id", "x")))
+            except Exception:
+                pass
 
     # Save.
     existing = list(branded_dir.glob("branded_thumbnail_*.png"))

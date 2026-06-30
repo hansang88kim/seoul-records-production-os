@@ -66,7 +66,10 @@ def _render_prompt_lab():
     with col2:
         theme = st.text_input("테마/무드", value="rainy night drive", key="thumb_theme")
     with col3:
-        volume = st.number_input("Volume 번호", min_value=1, value=1, step=1, key="thumb_vol")
+        volume = 1  # decoupled; put the Vol. number directly in the title text
+        count = st.number_input("생성 개수", min_value=1, max_value=10, value=1, step=1,
+                                key="thumb_count",
+                                help="이미지를 몇 장 만들지. 5를 넣으면 5장 생성됩니다.")
 
     col4, col5 = st.columns(2)
     with col4:
@@ -109,15 +112,13 @@ def _render_prompt_lab():
         elif use_real:
             st.caption(f"🟢 실제 생성 ON · 모델 {dep['model']} ({dep['backend'].upper()})")
 
-    batch = st.radio("배치 수", [1, 5, 10], horizontal=True, key="thumb_batch")
-
     # Optional: explicit new-session button
     col_gen, col_new = st.columns([3, 1])
     with col_new:
         force_new = st.button("🆕 새 세션", use_container_width=True,
                               help="새 썸네일 세션을 시작합니다 (기존 세션 자산은 보존됨)")
     with col_gen:
-        do_generate = st.button(f"🎨 {batch}개 프롬프트 생성", type="primary",
+        do_generate = st.button(f"🎨 {count}개 이미지 생성", type="primary",
                                 use_container_width=True)
 
     if force_new:
@@ -148,9 +149,9 @@ def _render_prompt_lab():
             # Clear stale prompt/brand display from the previous session
             st.session_state.pop("brand_results", None)
 
-        prompts = generate_prompt_batch(country_key, theme, batch)
+        prompts = generate_prompt_batch(country_key, theme, count)
         mode_label = "실제 (Gemini)" if use_real else "목업"
-        with st.spinner(f"{batch}개 이미지 생성 중… ({mode_label})"):
+        with st.spinner(f"{count}장 이미지 생성 중… ({mode_label})"):
             cands = ss.generate_images(sid, prompts, use_real=use_real)
         st.session_state["thumb_prompts"] = prompts
         ok = sum(1 for c in cands if c.get("status") == "image_generated")
@@ -330,17 +331,17 @@ def _render_brand_thumbnail():
                                   help="자동 합성: 앱이 제목·구독/좋아요·이퀄라이저까지 그려서 완성 썸네일을 "
                                        "바로 만듭니다 (Canva 구독/템플릿 불필요).")
 
-    # YouTube sticker controls (apply to 자동 합성 mode)
-    st.caption("유튜브 스티커 (자동 합성 모드)")
+    # YouTube sticker controls (optional — off by default for the premium minimal look)
+    st.caption("유튜브 스티커 (선택 · 기본 꺼짐 — 끄면 미니멀 고급 썸네일)")
     sc1, sc2, sc3, sc4 = st.columns(4)
     with sc1:
-        show_eq = st.checkbox("📊 이퀄라이저", value=True, key="brand_eq")
+        show_eq = st.checkbox("📊 이퀄라이저", value=False, key="brand_eq")
     with sc2:
-        show_sub = st.checkbox("🔴 구독 버튼", value=True, key="brand_sub")
+        show_sub = st.checkbox("🔴 구독 버튼", value=False, key="brand_sub")
     with sc3:
-        show_like = st.checkbox("♥ 좋아요", value=True, key="brand_like")
+        show_like = st.checkbox("♥ 좋아요", value=False, key="brand_like")
     with sc4:
-        title_center = st.checkbox("제목 중앙 배치", value=False, key="brand_title_center")
+        title_center = st.checkbox("제목 중앙 배치", value=True, key="brand_title_center")
 
     if st.button("✨ 선택 이미지로 브랜드 썸네일 만들기", type="primary", use_container_width=True):
         results = []
