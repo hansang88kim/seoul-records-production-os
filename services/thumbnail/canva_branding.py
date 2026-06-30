@@ -378,24 +378,36 @@ def _spaced_width(draw, text: str, font, tracking: float) -> float:
     return sum(draw.textlength(ch, font=font) + tracking for ch in text) - tracking
 
 
+def _line_h(font) -> int:
+    """Full line box height (ascent + descent) — used to reserve vertical space
+    so tall marks (Thai tone marks, Devanagari) don't collide with neighbours."""
+    try:
+        a, d = font.getmetrics()
+        return a + d
+    except Exception:
+        return getattr(font, "size", 40)
+
+
 def _draw_spaced_centered(draw, text, cx, cy, font, fill=(255, 255, 255, 255),
                           tracking: float = 0.0, shadow=None, shadow_off=(0, 4)):
-    """Draw letter-spaced text horizontally centered at cx, vertically centered at cy.
+    """Draw letter-spaced text centered horizontally at cx and vertically at cy.
 
-    ``shadow`` (if given) draws ONE soft offset drop shadow — not an outline/border.
+    Each glyph is drawn with anchor='mm' so vertical centering is consistent with
+    the line-box height used by the layout stack. ``shadow`` (if given) is a single
+    soft offset drop shadow — not an outline/border.
     """
     if not text:
         return
-    total = _spaced_width(draw, text, font, tracking)
-    _, th = _text_wh(draw, text, font)
+    advances = [draw.textlength(ch, font=font) for ch in text]
+    total = sum(advances) + tracking * (len(text) - 1)
     x = cx - total / 2
-    y = cy - th / 2
     sx, sy = shadow_off
-    for ch in text:
+    for ch, adv in zip(text, advances):
+        cxx = x + adv / 2
         if shadow:
-            draw.text((x + sx, y + sy), ch, font=font, fill=shadow)
-        draw.text((x, y), ch, font=font, fill=fill)
-        x += draw.textlength(ch, font=font) + tracking
+            draw.text((cxx + sx, cy + sy), ch, font=font, fill=shadow, anchor="mm")
+        draw.text((cxx, cy), ch, font=font, fill=fill, anchor="mm")
+        x += adv + tracking
 
 
 def _fit_font_spaced(draw, text, max_w, start, tracking_ratio=0.03, min_size=42,
@@ -435,51 +447,48 @@ def render_premium_thumbnail(bg_path, title, subtitle="", brand_text="Seoul Reco
 
     cx, cy = W // 2, H // 2
     if with_title:
-        # Build the centered block as a vertical stack of elements; each element
-        # reports its height + the gap above it, and a draw callback that takes
-        # the element's vertical center. This keeps spacing clean at any scale.
+        # Vertical stack: each element reserves its full line-box height + a gap
+        # above it, then draws centered on the element's vertical center. Using
+        # the line box (not the glyph bbox) reserves room for tall marks so
+        # Thai/Devanagari can't collide with the title. Everything scales with s.
         elements = []  # (height, gap_above, draw_fn)
 
         eyebrow = (brand_text or "Seoul Records").upper()
-        ef = _load_font(int(H * 0.026), bold=True)
-        eh = _text_wh(draw, eyebrow, ef)[1]
-        elements.append((eh, 0, lambda yc, f=ef, t=eyebrow:
+        ef = _load_font(int(H * 0.0312 * s), bold=True)
+        elements.append((_line_h(ef), 0, lambda yc, f=ef, t=eyebrow:
                          _draw_spaced_centered(draw, t, cx, yc, f,
-                                               fill=(255, 255, 255, 205), tracking=H * 0.014)))
+                                               fill=(255, 255, 255, 205), tracking=H * 0.016 * s)))
 
-        lw = int(W * 0.055)
-        elements.append((3, int(H * 0.035), lambda yc, w=lw:
+        lw = int(W * 0.06 * s)
+        elements.append((max(3, int(H * 0.004)), int(H * 0.05 * s), lambda yc, w=lw:
                          draw.rectangle([cx - w // 2, yc - 1, cx + w // 2, yc + 2],
                                         fill=(*accent, 240))))
 
-        title_px = int(H * 0.118 * s)
+        title_px = int(H * 0.142 * s)
         tf = _fit_font_spaced(draw, title, int(W * 0.88), title_px, black=True)
-        th = _text_wh(draw, title or "X", tf)[1]
-        elements.append((th, int(H * 0.04), lambda yc, f=tf, t=title:
+        elements.append((_line_h(tf), int(H * 0.05 * s), lambda yc, f=tf, t=title:
                          _draw_spaced_centered(draw, t, cx, yc, f, fill=(*title_rgb, 255),
                                                tracking=title_px * 0.03,
                                                shadow=(0, 0, 0, 130), shadow_off=(0, 4))))
 
         if cjk_subtext:
             cf = _load_subtext_font(int(title_px * 0.5), text=cjk_subtext, weight=700)
-            ch = _text_wh(draw, cjk_subtext, cf)[1]
             if _has_thai(cjk_subtext) or _has_devanagari(cjk_subtext):
-                # Complex scripts: draw the whole shaped string (no per-char spacing).
-                elements.append((ch, int(H * 0.02), lambda yc, f=cf, t=cjk_subtext:
+                # Complex scripts: whole shaped string, extra gap for tall marks.
+                elements.append((_line_h(cf), int(H * 0.055 * s), lambda yc, f=cf, t=cjk_subtext:
                                  _draw_centered_plain(draw, t, cx, yc, f, fill=(*title_rgb, 255),
                                                       shadow=(0, 0, 0, 120), shadow_off=(0, 3))))
             else:
-                elements.append((ch, int(H * 0.02), lambda yc, f=cf, t=cjk_subtext:
+                elements.append((_line_h(cf), int(H * 0.05 * s), lambda yc, f=cf, t=cjk_subtext:
                                  _draw_spaced_centered(draw, t, cx, yc, f, fill=(*title_rgb, 255),
                                                        tracking=title_px * 0.04,
                                                        shadow=(0, 0, 0, 120), shadow_off=(0, 3))))
 
         if subtitle:
-            sf = _load_font(int(H * 0.038 * s), bold=False, text=subtitle)
-            sh = _text_wh(draw, subtitle, sf)[1]
-            elements.append((sh, int(H * 0.035), lambda yc, f=sf, t=subtitle:
+            sf = _load_font(int(H * 0.0456 * s), bold=False, text=subtitle)
+            elements.append((_line_h(sf), int(H * 0.05 * s), lambda yc, f=sf, t=subtitle:
                              _draw_spaced_centered(draw, t, cx, yc, f,
-                                                   fill=(*accent, 235), tracking=H * 0.006)))
+                                                   fill=(*accent, 235), tracking=H * 0.006 * s)))
 
         total = sum(h + g for h, g, _ in elements)
         y = cy - total / 2

@@ -316,31 +316,31 @@ def _render_brand_thumbnail():
     st.success(f"✅ {len(selected)}개 이미지가 브랜딩 대상으로 선택됨")
 
     # Brand settings
+    # Fixed top/bottom lines (not editable); only the city name + local line below
+    # are auto-suggested per country and editable (themes may change — 이별 노래 etc.).
+    BRAND_TEXT = "Seoul Records"      # top eyebrow (fixed)
+    BOTTOM_LINE = "CityPop Playlist"  # bottom line (fixed)
     col1, col2 = st.columns(2)
     with col1:
         country_label = get_country_preset(sess["country"])["label"].split(" (")[0]
-        # Auto-fill the 4-line block from the country (TOKYO / 夜の音楽 / CityPop
-        # Playlist), re-seeding when the country changes. All fields stay editable.
         _defs = get_title_defaults(sess["country"])
         if st.session_state.get("_brand_country") != sess["country"]:
-            first = "_brand_country" not in st.session_state
             st.session_state["brand_title"] = _defs["city"]
             st.session_state["brand_cjk"] = _defs["night_local"]
-            if first or not st.session_state.get("brand_subtitle"):
-                st.session_state["brand_subtitle"] = "CityPop Playlist"
             st.session_state["_brand_country"] = sess["country"]
-        title = st.text_input("메인 제목 (국가/지역명 · 가장 크게)", key="brand_title",
-                              help="자동: 국가별 도시명 (수정 가능).")
-        cjk_subtext = st.text_input("현지어 줄 (밤의 음악)", key="brand_cjk",
-                                    help="자동: 해당 국가 언어의 '밤의 음악' (수정 가능).")
-        subtitle = st.text_input("맨 밑 (영어)", key="brand_subtitle",
-                                 help="기본값 CityPop Playlist (수정 가능).")
+        title = st.text_input("도시/국가명 (가장 크게)", key="brand_title",
+                              help="국가별 자동 제안 · 자유롭게 수정 가능 (테마에 맞게).")
+        cjk_subtext = st.text_input("현지어 줄 (밤의 음악 등)", key="brand_cjk",
+                                    help="해당 국가 언어로 자동 제안 · 수정 가능 (예: 이별, 드라이브 등).")
+        brand_text = BRAND_TEXT
+        subtitle = BOTTOM_LINE
     with col2:
-        brand_text = st.text_input("브랜드 텍스트", value="Seoul Records", key="brand_text")
+        st.caption(f"📌 상단 고정: **{BRAND_TEXT}**")
+        st.caption(f"📌 하단 고정: **{BOTTOM_LINE}**")
         canva_mode = st.selectbox("출력 모드",
                                   ["🎬 자동 합성 (앱 내 렌더링)", "Canva Manual (수동)", "Canva Autofill"],
                                   key="canva_mode",
-                                  help="자동 합성: 앱이 제목·구독/좋아요·이퀄라이저까지 그려서 완성 썸네일을 "
+                                  help="자동 합성: 앱이 제목까지 그려서 완성 썸네일을 "
                                        "바로 만듭니다 (Canva 구독/템플릿 불필요).")
 
     # YouTube sticker controls (optional — off by default for the premium minimal look)
@@ -458,20 +458,17 @@ def _render_exports():
     with col1:
         _defs = get_title_defaults(sess["country"])
         if st.session_state.get("_exp_country") != sess["country"]:
-            first = "_exp_country" not in st.session_state
             st.session_state["exp_title"] = _defs["city"]
             st.session_state["exp_cjk"] = _defs["night_local"]
-            if first or not st.session_state.get("exp_subtitle"):
-                st.session_state["exp_subtitle"] = "CityPop Playlist"
             st.session_state["_exp_country"] = sess["country"]
-        title = st.text_input("메인 제목 (국가/지역명 · 가장 크게)", key="exp_title",
-                              help="자동: 국가별 도시명 (수정 가능).")
-        exp_cjk = st.text_input("현지어 줄 (밤의 음악)", key="exp_cjk",
-                                help="자동: 해당 국가 언어의 '밤의 음악' (수정 가능).")
-        subtitle = st.text_input("맨 밑 (영어)", key="exp_subtitle",
-                                 help="기본값 CityPop Playlist (수정 가능).")
+        title = st.text_input("도시/국가명 (가장 크게)", key="exp_title",
+                              help="국가별 자동 제안 · 수정 가능.")
+        exp_cjk = st.text_input("현지어 줄 (밤의 음악 등)", key="exp_cjk",
+                                help="해당 국가 언어로 자동 제안 · 수정 가능.")
+        brand_text = "Seoul Records"      # top (fixed)
+        subtitle = "CityPop Playlist"     # bottom (fixed)
+        st.caption("📌 상단 **Seoul Records** · 하단 **CityPop Playlist** 고정")
     with col2:
-        brand_text = st.text_input("브랜드 텍스트", value="Seoul Records", key="exp_brand")
         crop_mode = st.selectbox("1:1 커버 크롭 모드",
                                  ["smart_title_safe", "center_crop", "fit_blur", "manual"],
                                  format_func=lambda m: {

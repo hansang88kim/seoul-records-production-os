@@ -1,6 +1,6 @@
 # Seoul Records Production OS
 
-**AI Music Label Production Harness — v1.0.0-alpha.13**
+**AI Music Label Production Harness — v1.0.0-alpha.14**
 
 > Creative direction: controlled by ChatGPT and the user.
 > Engineering: this repository.
@@ -77,6 +77,8 @@ to point the console at a live backend.
 ## What This Is
 
 Seoul Records Production OS is a local MVP application for creating AI-generated city pop album projects. It provides a full 5-tab production pipeline from song generation through music distribution, with mock providers for v0.1.x and a clear upgrade path to real integrations.
+
+**v1.0.0-alpha.14: Bigger Type + Fixed Spacing — Fonts enlarged ~20% across the whole title block and gaps widened so the title and the local-language line never collide (the BANGKOK/Thai overlap is fixed: tall Thai tone marks and Devanagari conjuncts are now accounted for via line-box reservation, and all lines are drawn with anchor-centred metrics for consistent spacing). The top (Seoul Records) and bottom (CityPop Playlist) lines are now FIXED constants — no longer editable — while the big city/region name and the local line below it remain auto-suggested per country and freely editable (themes can change — 이별 노래 등). 671 tests passing, clean under -X warn_default_encoding.**
 
 **v1.0.0-alpha.13: Country-Based Title Block (12 languages) — The thumbnail title block is now a fixed, auto-filled 4-line layout: SEOUL RECORDS (eyebrow) → main title (country/city, e.g. TOKYO, biggest) → local-language "night music" line (夜の音楽 / 밤의 음악 / ดนตรียามค่ำคืน / रात का संगीत …) → CityPop Playlist (bottom). All three text lines auto-fill from the selected country via a new TITLE_DEFAULTS map (get_title_defaults) and stay editable in the Brand Thumbnail + Exports tabs. The local line is rendered with a script-aware font (CJK→Noto Sans KR, Thai→Noto Sans Thai, Devanagari→Noto Sans Devanagari, otherwise Latin→Montserrat); Thai/Devanagari use the RAQM layout engine and whole-string drawing so marks/conjuncts shape correctly. Bundled Noto Sans Thai + Devanagari. Tests +4; 671 passing, clean under -X warn_default_encoding.**
 
