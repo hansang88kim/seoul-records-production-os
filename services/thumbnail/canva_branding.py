@@ -168,6 +168,31 @@ def _load_font(size: int, bold: bool = True, text=None, black: bool = False):
     return ImageFont.load_default()
 
 
+# Bundled CJK face for the optional Hanja/Hangul sub-line under the title
+# (TOKYO / 東京 style). Noto Sans KR is a variable font covering Hangul + the
+# common Hanja/Kanji used in titles; we set the weight axis for a bold look.
+_NOTO_KR = _FONT_DIR / "NotoSansKR.ttf"
+
+
+def _load_cjk_font(size: int, weight: int = 700):
+    from PIL import ImageFont
+    try:
+        f = ImageFont.truetype(str(_NOTO_KR), size)
+        try:
+            f.set_variation_by_axes([weight])
+        except Exception:
+            pass
+        return f
+    except Exception:
+        pass
+    for fp in _FONTS_BOLD:  # OS CJK fallback (Malgun / Noto CJK)
+        try:
+            return ImageFont.truetype(fp, size)
+        except Exception:
+            continue
+    return ImageFont.load_default()
+
+
 def _text_wh(draw, text: str, font) -> tuple[int, int]:
     l, t, r, b = draw.textbbox((0, 0), text, font=font)
     return r - l, b - t
@@ -312,14 +337,16 @@ def _fit_font_spaced(draw, text, max_w, start, tracking_ratio=0.03, min_size=42,
 
 def render_premium_thumbnail(bg_path, title, subtitle="", brand_text="Seoul Records",
                              accent_color="#00d4ff", W=1920, H=1080, with_title=True,
-                             title_color="#FFFFFF", title_scale=1.0):
+                             title_color="#FFFFFF", title_scale=1.0, cjk_subtext=""):
     """
-    Premium minimal music-channel thumbnail (10만+ 채널 레퍼런스): a cinematic
-    background with a vignette and a clean CENTER-aligned title block
-    (eyebrow + thin divider + letter-spaced title + subtitle). No CTA stickers.
+    Premium music-channel thumbnail (10만+ 채널 레퍼런스): a cinematic background
+    with a vignette and a clean CENTER-aligned title block. TOKYO/東京 style — an
+    optional Hanja/Hangul ``cjk_subtext`` line sits just under the main title.
 
-    ``title_color`` sets the main title fill (hex). ``title_scale`` multiplies the
-    title/subtitle size (1.0 = default, >1 = larger). Returns a PIL RGB Image.
+    Layout (vertically centered, auto-spaced so nothing overlaps at any size):
+    eyebrow → thin divider → title (Montserrat Black) → cjk_subtext → subtitle.
+    ``title_color`` sets the title + CJK line fill (hex); ``title_scale`` multiplies
+    sizes. Returns a PIL RGB Image.
     """
     from PIL import Image, ImageDraw
     accent = _hex_to_rgb(accent_color)
@@ -334,27 +361,52 @@ def render_premium_thumbnail(bg_path, title, subtitle="", brand_text="Seoul Reco
 
     cx, cy = W // 2, H // 2
     if with_title:
-        # Eyebrow — uppercase brand, wide tracking (Montserrat).
+        # Build the centered block as a vertical stack of elements; each element
+        # reports its height + the gap above it, and a draw callback that takes
+        # the element's vertical center. This keeps spacing clean at any scale.
+        elements = []  # (height, gap_above, draw_fn)
+
         eyebrow = (brand_text or "Seoul Records").upper()
         ef = _load_font(int(H * 0.026), bold=True)
-        _draw_spaced_centered(draw, eyebrow, cx, cy - int(H * 0.205), ef,
-                              fill=(255, 255, 255, 205), tracking=H * 0.014)
-        # Thin divider line above the title.
+        eh = _text_wh(draw, eyebrow, ef)[1]
+        elements.append((eh, 0, lambda yc, f=ef, t=eyebrow:
+                         _draw_spaced_centered(draw, t, cx, yc, f,
+                                               fill=(255, 255, 255, 205), tracking=H * 0.014)))
+
         lw = int(W * 0.055)
-        ly = cy - int(H * 0.135)
-        draw.rectangle([cx - lw // 2, ly, cx + lw // 2, ly + 3], fill=(*accent, 240))
-        # Main playlist title — centered, letter-spaced, single soft drop shadow
-        # (no outline/border). Montserrat Black; size scales with title_scale.
+        elements.append((3, int(H * 0.035), lambda yc, w=lw:
+                         draw.rectangle([cx - w // 2, yc - 1, cx + w // 2, yc + 2],
+                                        fill=(*accent, 240))))
+
         title_px = int(H * 0.118 * s)
         tf = _fit_font_spaced(draw, title, int(W * 0.88), title_px, black=True)
-        _draw_spaced_centered(draw, title, cx, cy - int(H * 0.045), tf,
-                              fill=(*title_rgb, 255), tracking=title_px * 0.03,
-                              shadow=(0, 0, 0, 130), shadow_off=(0, 4))
-        # Subtitle — centered, accent, with a wider gap below the title.
+        th = _text_wh(draw, title or "X", tf)[1]
+        elements.append((th, int(H * 0.04), lambda yc, f=tf, t=title:
+                         _draw_spaced_centered(draw, t, cx, yc, f, fill=(*title_rgb, 255),
+                                               tracking=title_px * 0.03,
+                                               shadow=(0, 0, 0, 130), shadow_off=(0, 4))))
+
+        if cjk_subtext:
+            cf = _load_cjk_font(int(title_px * 0.5), weight=700)
+            ch = _text_wh(draw, cjk_subtext, cf)[1]
+            elements.append((ch, int(H * 0.02), lambda yc, f=cf, t=cjk_subtext:
+                             _draw_spaced_centered(draw, t, cx, yc, f, fill=(*title_rgb, 255),
+                                                   tracking=title_px * 0.04,
+                                                   shadow=(0, 0, 0, 120), shadow_off=(0, 3))))
+
         if subtitle:
             sf = _load_font(int(H * 0.038 * s), bold=False, text=subtitle)
-            _draw_spaced_centered(draw, subtitle, cx, cy + int(H * 0.115), sf,
-                                  fill=(*accent, 235), tracking=H * 0.006)
+            sh = _text_wh(draw, subtitle, sf)[1]
+            elements.append((sh, int(H * 0.035), lambda yc, f=sf, t=subtitle:
+                             _draw_spaced_centered(draw, t, cx, yc, f,
+                                                   fill=(*accent, 235), tracking=H * 0.006)))
+
+        total = sum(h + g for h, g, _ in elements)
+        y = cy - total / 2
+        for h, gap, fn in elements:
+            y += gap
+            fn(y + h / 2)
+            y += h
     else:
         # Clean stage (video background) — only a faint brand mark, no title.
         bf = _load_font(int(H * 0.026), bold=True)
@@ -377,6 +429,7 @@ def mock_render_branded_thumbnail(
     title_layout: str = "center",
     title_color: str = "#FFFFFF",
     title_scale: float = 1.0,
+    cjk_subtext: str = "",
 ) -> str | None:
     """
     Render a finished, premium music-channel thumbnail locally (PIL) — no Canva.
@@ -405,7 +458,7 @@ def mock_render_branded_thumbnail(
     img = render_premium_thumbnail(
         bg_path, title, subtitle, brand_text, accent_color, W, H,
         with_title=(title_layout != "none"),
-        title_color=title_color, title_scale=title_scale,
+        title_color=title_color, title_scale=title_scale, cjk_subtext=cjk_subtext,
     )
 
     # Optional CTA stickers overlaid on top (off by default).

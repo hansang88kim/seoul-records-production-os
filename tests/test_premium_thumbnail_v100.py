@@ -156,3 +156,31 @@ def test_branded_thumbnail_accepts_color_and_scale():
                                            "Seoul Records", "#00d4ff",
                                            title_color="#FFE7A8", title_scale=1.3)
     assert out and Image.open(out).size == (1920, 1080)
+
+
+def test_cjk_font_is_noto_and_renders():
+    from PIL import Image, ImageDraw
+    f = cb._load_cjk_font(80, weight=700)
+    assert "Noto" in f.getname()[0]
+    d = ImageDraw.Draw(Image.new("RGB", (10, 10)))
+    # Kanji + Hangul both have non-zero advance widths (glyphs present, not tofu)
+    assert d.textlength("音楽", font=f) > 0
+    assert d.textlength("시티팝", font=f) > 0
+
+
+def test_cjk_subtext_renders_hangul_and_kanji():
+    sid = ss.create_session("korea", "x", "v")["session_id"]
+    for sub in ["시티팝", "夜の音楽", "音楽", "夜"]:
+        img = cb.render_premium_thumbnail(_bg(sid), "TOKYO", "Sub", "Brand", "#00d4ff",
+                                          1920, 1080, cjk_subtext=sub)
+        assert img.size == (1920, 1080)
+
+
+def test_branded_thumbnail_with_cjk_subtext():
+    sid = ss.create_session("korea", "x", "v")["session_id"]
+    cand = {"candidate_id": "c1", "uploaded_image_path": _bg(sid),
+            "canva_accent_color": "#00d4ff"}
+    out = cb.mock_render_branded_thumbnail(sid, cand, "TOKYO", "Vinyl Jazz",
+                                           "Seoul Records", "#00d4ff",
+                                           cjk_subtext="夜の音楽")
+    assert out and Image.open(out).size == (1920, 1080)

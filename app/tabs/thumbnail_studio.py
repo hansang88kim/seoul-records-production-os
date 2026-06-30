@@ -323,6 +323,9 @@ def _render_brand_thumbnail():
                               value=cb.build_main_title(country_label, sess["volume"], sess.get("title", "")),
                               key="brand_title")
         subtitle = st.text_input("부제목", value=sess.get("subtitle", ""), key="brand_subtitle")
+        cjk_subtext = st.text_input("한자/한글 서브텍스트 (선택)", value="", key="brand_cjk",
+                                    placeholder="예: 시티팝 · 音楽 · 夜",
+                                    help="제목 바로 아래 한 줄 (TOKYO / 東京 스타일).")
     with col2:
         brand_text = st.text_input("브랜드 텍스트", value="Seoul Records", key="brand_text")
         canva_mode = st.selectbox("출력 모드",
@@ -369,6 +372,7 @@ def _render_brand_thumbnail():
                     show_equalizer=show_eq, show_subscribe=show_sub, show_like=show_like,
                     title_layout="center" if title_center else "lower-left",
                     title_color=title_color, title_scale=title_scale,
+                    cjk_subtext=cjk_subtext,
                 )
                 results.append((cand, branded, payload))
             else:
@@ -446,6 +450,9 @@ def _render_exports():
         title = st.text_input("플레이리스트 제목", key="exp_title",
                               value=cb.build_main_title(country_label, sess["volume"], sess.get("title", "")))
         subtitle = st.text_input("부제목", value=sess.get("subtitle", ""), key="exp_subtitle")
+        exp_cjk = st.text_input("한자/한글 서브텍스트 (선택)", value="", key="exp_cjk",
+                                placeholder="예: 시티팝 · 音楽 · 夜",
+                                help="제목 바로 아래 한 줄 (TOKYO / 東京 스타일).")
     with col2:
         brand_text = st.text_input("브랜드 텍스트", value="Seoul Records", key="exp_brand")
         crop_mode = st.selectbox("1:1 커버 크롭 모드",
@@ -472,7 +479,7 @@ def _render_exports():
     with bcol1:
         if st.button("🖼️ YouTube 썸네일", use_container_width=True):
             p = ae.export_youtube_thumbnail(sid, bg_path, title, subtitle, brand_text,
-                                            accent, exp_title_color, exp_title_scale)
+                                            accent, exp_title_color, exp_title_scale, exp_cjk)
             if p:
                 ae.write_asset_manifest(sid, _rebuild_manifest(sid, ae, AT))
                 st.success("✅ YouTube 썸네일 16:9")
@@ -487,7 +494,7 @@ def _render_exports():
             yt = ss.session_path(sid) / "exports" / AT.EXPORT_FILENAMES[AT.YOUTUBE_THUMBNAIL_16X9]
             p = ae.export_streaming_cover(sid, str(yt), bg_path, title, subtitle,
                                           brand_text, accent, crop_mode,
-                                          exp_title_color, exp_title_scale)
+                                          exp_title_color, exp_title_scale, exp_cjk)
             if p:
                 ae.write_asset_manifest(sid, _rebuild_manifest(sid, ae, AT))
                 st.success("✅ 스트리밍 커버 1:1")
@@ -495,7 +502,7 @@ def _render_exports():
         if st.button("📦 전체 내보내기", type="primary", use_container_width=True):
             results = ae.export_all_required_assets(sid, bg_path, title, subtitle,
                                                     brand_text, accent, crop_mode,
-                                                    exp_title_color, exp_title_scale)
+                                                    exp_title_color, exp_title_scale, exp_cjk)
             st.success(f"✅ 3종 전체 내보내기 완료!")
 
     st.divider()
