@@ -315,23 +315,54 @@ def _render_brand_thumbnail():
 
     st.success(f"✅ {len(selected)}개 이미지가 브랜딩 대상으로 선택됨")
 
-    # Brand settings
-    # Fixed top/bottom lines (not editable); only the city name + local line below
-    # are auto-suggested per country and editable (themes may change — 이별 노래 etc.).
+    # ── Preview of selected candidates ──
+    preview_cols = st.columns(min(len(selected), 4))
+    for idx, cand in enumerate(selected):
+        with preview_cols[idx % len(preview_cols)]:
+            img_p = cand.get("uploaded_image_path", "")
+            if img_p and Path(img_p).exists():
+                st.image(img_p, use_container_width=True,
+                         caption=cand["candidate_id"])
+
+    st.divider()
+
+    # ── Brand settings ──
+    # Fixed top/bottom lines; city name (English) + local-language line editable.
     BRAND_TEXT = "Seoul Records"      # top eyebrow (fixed)
     BOTTOM_LINE = "CityPop Playlist"  # bottom line (fixed)
+
+    # Language selector: pick a country → auto-fills the local line in that language.
+    # City name stays as typed (English).
+    from services.thumbnail.country_presets import list_countries
+    _countries = list_countries()
+    _country_map = {label: key for key, label in _countries}
+    _lang_labels = [label for _, label in _countries]
+
     col1, col2 = st.columns(2)
     with col1:
-        country_label = get_country_preset(sess["country"])["label"].split(" (")[0]
         _defs = get_title_defaults(sess["country"])
-        if st.session_state.get("_brand_country") != sess["country"]:
+        # Initialize once; re-seed when the language dropdown changes, not the session country.
+        if "_brand_init" not in st.session_state:
             st.session_state["brand_title"] = _defs["city"]
             st.session_state["brand_cjk"] = _defs["night_local"]
-            st.session_state["_brand_country"] = sess["country"]
-        title = st.text_input("도시/국가명 (가장 크게)", key="brand_title",
-                              help="국가별 자동 제안 · 자유롭게 수정 가능 (테마에 맞게).")
+            st.session_state["_brand_init"] = True
+
+        title = st.text_input("도시/국가명 (가장 크게, 영어)", key="brand_title",
+                              help="자유롭게 입력 (예: BANGKOK, TOKYO, SEOUL).")
+
+        # Local-language dropdown + text input
+        lang_default_idx = next((i for i, (k, _) in enumerate(_countries) if k == sess["country"]), 0)
+        lang_choice = st.selectbox("현지 언어 선택", _lang_labels,
+                                   index=lang_default_idx, key="brand_lang",
+                                   help="국가를 선택하면 현지어로 자동 변환됩니다.")
+        _lang_key = _country_map.get(lang_choice, "korea")
+        _lang_defs = get_title_defaults(_lang_key)
+        if st.session_state.get("_brand_lang_prev") != _lang_key:
+            st.session_state["brand_cjk"] = _lang_defs["night_local"]
+            st.session_state["_brand_lang_prev"] = _lang_key
+
         cjk_subtext = st.text_input("현지어 줄 (밤의 음악 등)", key="brand_cjk",
-                                    help="해당 국가 언어로 자동 제안 · 수정 가능 (예: 이별, 드라이브 등).")
+                                    help="위 언어 선택 시 자동 변환 · 직접 수정도 가능.")
         brand_text = BRAND_TEXT
         subtitle = BOTTOM_LINE
     with col2:
