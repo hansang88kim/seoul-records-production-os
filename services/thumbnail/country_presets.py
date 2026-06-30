@@ -163,3 +163,28 @@ def list_countries() -> list[tuple[str, str]]:
 def get_country_preset(country_key: str) -> dict:
     """Get a country preset, defaulting to Korea."""
     return COUNTRY_PRESETS.get(country_key, COUNTRY_PRESETS["korea"])
+
+
+# ── Thumbnail title defaults (TOKYO / 夜の音楽 style) ──────────────────────────
+# For each country: a punchy display name for the MAIN title (city, uppercased
+# by the renderer) + the local-language "night music" line that sits just under
+# it. Both are only DEFAULTS — the user can overwrite either in the UI.
+TITLE_DEFAULTS = {
+    "korea":       {"city": "SEOUL",        "night_local": "밤의 음악"},
+    "japan":       {"city": "TOKYO",        "night_local": "夜の音楽"},
+    "vietnam":     {"city": "SAIGON",       "night_local": "Nhạc Đêm"},
+    "thailand":    {"city": "BANGKOK",      "night_local": "ดนตรียามค่ำคืน"},
+    "taiwan":      {"city": "TAIPEI",       "night_local": "夜的音樂"},
+    "hongkong":    {"city": "HONG KONG",    "night_local": "夜的音樂"},
+    "china":       {"city": "SHANGHAI",     "night_local": "夜的音乐"},
+    "indonesia":   {"city": "JAKARTA",      "night_local": "Musik Malam"},
+    "malaysia":    {"city": "KUALA LUMPUR", "night_local": "Muzik Malam"},
+    "singapore":   {"city": "SINGAPORE",    "night_local": "夜的音乐"},
+    "philippines": {"city": "MANILA",       "night_local": "Musika ng Gabi"},
+    "india":       {"city": "MUMBAI",       "night_local": "रात का संगीत"},
+}
+
+
+def get_title_defaults(country_key: str) -> dict:
+    """Default main-title city + local 'night music' line for a country."""
+    return TITLE_DEFAULTS.get(country_key, TITLE_DEFAULTS["korea"])

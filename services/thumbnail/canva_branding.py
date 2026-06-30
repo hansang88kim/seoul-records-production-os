@@ -193,6 +193,80 @@ def _load_cjk_font(size: int, weight: int = 700):
     return ImageFont.load_default()
 
 
+# Bundled scripts for the local-language sub-line (밤의 음악 in each language).
+_NOTO_THAI = _FONT_DIR / "NotoSansThai.ttf"
+_NOTO_DEVA = _FONT_DIR / "NotoSansDevanagari.ttf"
+
+
+def _has_cjk(text) -> bool:
+    for ch in text or "":
+        o = ord(ch)
+        if (0xAC00 <= o <= 0xD7A3 or 0x1100 <= o <= 0x11FF       # Hangul
+                or 0x3040 <= o <= 0x30FF                          # Kana
+                or 0x3400 <= o <= 0x9FFF or 0xF900 <= o <= 0xFAFF):  # Han
+            return True
+    return False
+
+
+def _has_thai(text) -> bool:
+    return any(0x0E00 <= ord(ch) <= 0x0E7F for ch in text or "")
+
+
+def _has_devanagari(text) -> bool:
+    return any(0x0900 <= ord(ch) <= 0x097F for ch in text or "")
+
+
+def _set_var(font, axes):
+    try:
+        font.set_variation_by_axes(axes)
+    except Exception:
+        pass
+    return font
+
+
+def _load_subtext_font(size: int, text: str = "", weight: int = 700):
+    """Best bundled font for the local-language sub-line, chosen by script:
+    CJK → Noto Sans KR, Thai → Noto Sans Thai, Devanagari → Noto Sans Devanagari,
+    otherwise Latin (incl. Vietnamese/Indonesian/Malay/Filipino) → Montserrat.
+
+    Thai/Devanagari are loaded with the RAQM layout engine so combining marks and
+    conjuncts shape correctly (they must also be drawn as a whole string).
+    """
+    from PIL import ImageFont
+    raqm = getattr(getattr(ImageFont, "Layout", None), "RAQM", None)
+
+    def _tt(path, layout=False):
+        if layout and raqm is not None:
+            try:
+                return ImageFont.truetype(str(path), size, layout_engine=raqm)
+            except Exception:
+                pass
+        return ImageFont.truetype(str(path), size)
+
+    try:
+        if _has_cjk(text):
+            return _load_cjk_font(size, weight)
+        if _has_thai(text):
+            return _set_var(_tt(_NOTO_THAI, layout=True), [100, weight])
+        if _has_devanagari(text):
+            return _set_var(_tt(_NOTO_DEVA, layout=True), [100, weight])
+        return _tt(_MONTSERRAT_BOLD)
+    except Exception:
+        return _load_cjk_font(size, weight)
+
+
+def _draw_centered_plain(draw, text, cx, cy, font, fill=(255, 255, 255, 255),
+                         shadow=None, shadow_off=(0, 3)):
+    """Draw a whole string centered (anchor mm) — required for complex scripts
+    (Thai/Devanagari) where per-character drawing would break shaping."""
+    if not text:
+        return
+    if shadow:
+        draw.text((cx + shadow_off[0], cy + shadow_off[1]), text, font=font,
+                  fill=shadow, anchor="mm")
+    draw.text((cx, cy), text, font=font, fill=fill, anchor="mm")
+
+
 def _text_wh(draw, text: str, font) -> tuple[int, int]:
     l, t, r, b = draw.textbbox((0, 0), text, font=font)
     return r - l, b - t
@@ -387,12 +461,18 @@ def render_premium_thumbnail(bg_path, title, subtitle="", brand_text="Seoul Reco
                                                shadow=(0, 0, 0, 130), shadow_off=(0, 4))))
 
         if cjk_subtext:
-            cf = _load_cjk_font(int(title_px * 0.5), weight=700)
+            cf = _load_subtext_font(int(title_px * 0.5), text=cjk_subtext, weight=700)
             ch = _text_wh(draw, cjk_subtext, cf)[1]
-            elements.append((ch, int(H * 0.02), lambda yc, f=cf, t=cjk_subtext:
-                             _draw_spaced_centered(draw, t, cx, yc, f, fill=(*title_rgb, 255),
-                                                   tracking=title_px * 0.04,
-                                                   shadow=(0, 0, 0, 120), shadow_off=(0, 3))))
+            if _has_thai(cjk_subtext) or _has_devanagari(cjk_subtext):
+                # Complex scripts: draw the whole shaped string (no per-char spacing).
+                elements.append((ch, int(H * 0.02), lambda yc, f=cf, t=cjk_subtext:
+                                 _draw_centered_plain(draw, t, cx, yc, f, fill=(*title_rgb, 255),
+                                                      shadow=(0, 0, 0, 120), shadow_off=(0, 3))))
+            else:
+                elements.append((ch, int(H * 0.02), lambda yc, f=cf, t=cjk_subtext:
+                                 _draw_spaced_centered(draw, t, cx, yc, f, fill=(*title_rgb, 255),
+                                                       tracking=title_px * 0.04,
+                                                       shadow=(0, 0, 0, 120), shadow_off=(0, 3))))
 
         if subtitle:
             sf = _load_font(int(H * 0.038 * s), bold=False, text=subtitle)

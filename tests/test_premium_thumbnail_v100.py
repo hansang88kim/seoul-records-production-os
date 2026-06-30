@@ -184,3 +184,39 @@ def test_branded_thumbnail_with_cjk_subtext():
                                            "Seoul Records", "#00d4ff",
                                            cjk_subtext="夜の音楽")
     assert out and Image.open(out).size == (1920, 1080)
+
+
+def test_title_defaults_mapping():
+    from services.thumbnail.country_presets import get_title_defaults
+    assert get_title_defaults("japan")["city"] == "TOKYO"
+    assert get_title_defaults("japan")["night_local"] == "夜の音楽"
+    assert get_title_defaults("korea")["city"] == "SEOUL"
+    assert get_title_defaults("thailand")["night_local"]  # non-empty
+    # unknown country falls back to korea
+    assert get_title_defaults("atlantis")["city"] == "SEOUL"
+
+
+def test_script_detection():
+    assert cb._has_cjk("夜の音楽") and cb._has_cjk("밤의 음악")
+    assert cb._has_thai("ดนตรียามค่ำคืน")
+    assert cb._has_devanagari("रात का संगीत")
+    assert not cb._has_cjk("Nhac Dem") and not cb._has_thai("Musik Malam")
+
+
+def test_subtext_font_per_script():
+    assert "Noto Sans KR" in cb._load_subtext_font(60, "夜の音楽").getname()[0]
+    assert "Thai" in cb._load_subtext_font(60, "ดนตรี").getname()[0]
+    assert "Devanagari" in cb._load_subtext_font(60, "रात").getname()[0]
+    assert "Montserrat" in cb._load_subtext_font(60, "Nhạc Đêm").getname()[0]
+
+
+def test_render_all_country_scripts():
+    from services.thumbnail.country_presets import get_title_defaults, list_countries
+    sid = ss.create_session("korea", "x", "v")["session_id"]
+    bgp = _bg(sid)
+    for ckey, _ in list_countries():
+        d = get_title_defaults(ckey)
+        img = cb.render_premium_thumbnail(bgp, d["city"], "CityPop Playlist",
+                                          "Seoul Records", "#00d4ff", 1920, 1080,
+                                          cjk_subtext=d["night_local"])
+        assert img.size == (1920, 1080)

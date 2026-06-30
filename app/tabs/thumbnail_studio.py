@@ -13,7 +13,7 @@ from __future__ import annotations
 from pathlib import Path
 import streamlit as st
 
-from services.thumbnail.country_presets import list_countries, get_country_preset
+from services.thumbnail.country_presets import list_countries, get_country_preset, get_title_defaults
 from services.thumbnail.prompt_generator import generate_prompt_batch
 from services.thumbnail import session_store as ss
 from services.thumbnail import canva_branding as cb
@@ -319,13 +319,22 @@ def _render_brand_thumbnail():
     col1, col2 = st.columns(2)
     with col1:
         country_label = get_country_preset(sess["country"])["label"].split(" (")[0]
-        title = st.text_input("메인 제목",
-                              value=cb.build_main_title(country_label, sess["volume"], sess.get("title", "")),
-                              key="brand_title")
-        subtitle = st.text_input("부제목", value=sess.get("subtitle", ""), key="brand_subtitle")
-        cjk_subtext = st.text_input("한자/한글 서브텍스트 (선택)", value="", key="brand_cjk",
-                                    placeholder="예: 시티팝 · 音楽 · 夜",
-                                    help="제목 바로 아래 한 줄 (TOKYO / 東京 스타일).")
+        # Auto-fill the 4-line block from the country (TOKYO / 夜の音楽 / CityPop
+        # Playlist), re-seeding when the country changes. All fields stay editable.
+        _defs = get_title_defaults(sess["country"])
+        if st.session_state.get("_brand_country") != sess["country"]:
+            first = "_brand_country" not in st.session_state
+            st.session_state["brand_title"] = _defs["city"]
+            st.session_state["brand_cjk"] = _defs["night_local"]
+            if first or not st.session_state.get("brand_subtitle"):
+                st.session_state["brand_subtitle"] = "CityPop Playlist"
+            st.session_state["_brand_country"] = sess["country"]
+        title = st.text_input("메인 제목 (국가/지역명 · 가장 크게)", key="brand_title",
+                              help="자동: 국가별 도시명 (수정 가능).")
+        cjk_subtext = st.text_input("현지어 줄 (밤의 음악)", key="brand_cjk",
+                                    help="자동: 해당 국가 언어의 '밤의 음악' (수정 가능).")
+        subtitle = st.text_input("맨 밑 (영어)", key="brand_subtitle",
+                                 help="기본값 CityPop Playlist (수정 가능).")
     with col2:
         brand_text = st.text_input("브랜드 텍스트", value="Seoul Records", key="brand_text")
         canva_mode = st.selectbox("출력 모드",
@@ -440,19 +449,27 @@ def _render_exports():
     bg_path = source_options[src_label]
 
     # Branding text
-    from services.thumbnail.country_presets import get_country_preset
+    from services.thumbnail.country_presets import get_country_preset, get_title_defaults
     from services.thumbnail import canva_branding as cb
     country_label = get_country_preset(sess["country"])["label"].split(" (")[0]
     accent = get_country_preset(sess["country"])["accent"]
 
     col1, col2 = st.columns(2)
     with col1:
-        title = st.text_input("플레이리스트 제목", key="exp_title",
-                              value=cb.build_main_title(country_label, sess["volume"], sess.get("title", "")))
-        subtitle = st.text_input("부제목", value=sess.get("subtitle", ""), key="exp_subtitle")
-        exp_cjk = st.text_input("한자/한글 서브텍스트 (선택)", value="", key="exp_cjk",
-                                placeholder="예: 시티팝 · 音楽 · 夜",
-                                help="제목 바로 아래 한 줄 (TOKYO / 東京 스타일).")
+        _defs = get_title_defaults(sess["country"])
+        if st.session_state.get("_exp_country") != sess["country"]:
+            first = "_exp_country" not in st.session_state
+            st.session_state["exp_title"] = _defs["city"]
+            st.session_state["exp_cjk"] = _defs["night_local"]
+            if first or not st.session_state.get("exp_subtitle"):
+                st.session_state["exp_subtitle"] = "CityPop Playlist"
+            st.session_state["_exp_country"] = sess["country"]
+        title = st.text_input("메인 제목 (국가/지역명 · 가장 크게)", key="exp_title",
+                              help="자동: 국가별 도시명 (수정 가능).")
+        exp_cjk = st.text_input("현지어 줄 (밤의 음악)", key="exp_cjk",
+                                help="자동: 해당 국가 언어의 '밤의 음악' (수정 가능).")
+        subtitle = st.text_input("맨 밑 (영어)", key="exp_subtitle",
+                                 help="기본값 CityPop Playlist (수정 가능).")
     with col2:
         brand_text = st.text_input("브랜드 텍스트", value="Seoul Records", key="exp_brand")
         crop_mode = st.selectbox("1:1 커버 크롭 모드",
