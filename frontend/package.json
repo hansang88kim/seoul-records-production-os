@@ -2,7 +2,7 @@
   "name": "seoul-records-studio-console",
   "version": "1.0.0",
   "private": true,
-  "description": "Seoul Records Studio OS \u2014 modern dark-theme frontend console (v1.0.0-alpha.16)",
+  "description": "Seoul Records Studio OS \u2014 modern dark-theme frontend console (v1.0.0-alpha.17)",
   "scripts": {
     "dev": "next dev",
     "build": "next build",

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from services.thumbnail.country_presets import (
     get_country_preset,
+    get_culture,
     SCENE_VARIATIONS,
     TITLE_SAFE_AREAS,
 )
@@ -55,6 +56,7 @@ def generate_flow_prompt(
     title-safe area, color palette, and suggested Canva accent color.
     """
     preset = get_country_preset(country)
+    culture = get_culture(country)
     scene_var = SCENE_VARIATIONS[track_no % len(SCENE_VARIATIONS)]
     safe_area = TITLE_SAFE_AREAS[track_no % len(TITLE_SAFE_AREAS)]
     camera = _camera_for(track_no)
@@ -63,7 +65,7 @@ def generate_flow_prompt(
     theme_phrase = f", {theme}" if theme else ""
 
     main_prompt = (
-        f"A nostalgic 1980s-1990s Japanese city pop aesthetic background for a "
+        f"A nostalgic 1980s-1990s {culture} city-pop aesthetic background for a "
         f"premium music playlist thumbnail. Setting: {preset['city']} — {preset['scene']}. "
         f"Featured scene: {scene_var}{theme_phrase}, {time_of_day}. "
         f"Lighting: {preset['lighting']}. {preset['signage']}. "

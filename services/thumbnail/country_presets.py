@@ -188,3 +188,19 @@ TITLE_DEFAULTS = {
 def get_title_defaults(country_key: str) -> dict:
     """Default main-title city + local 'night music' line for a country."""
     return TITLE_DEFAULTS.get(country_key, TITLE_DEFAULTS["korea"])
+
+
+# ── Culture/nationality adjective for the IMAGE prompt ────────────────────────
+# The thumbnail background should depict the SELECTED country, not always Japan.
+# (The music keeps its Japanese city-pop core elsewhere; this only drives images.)
+CULTURE = {
+    "korea": "Korean", "japan": "Japanese", "vietnam": "Vietnamese",
+    "thailand": "Thai", "taiwan": "Taiwanese", "hongkong": "Hong Kong",
+    "china": "Chinese", "indonesia": "Indonesian", "malaysia": "Malaysian",
+    "singapore": "Singaporean", "philippines": "Filipino", "india": "Indian",
+}
+
+
+def get_culture(country_key: str) -> str:
+    """Nationality/culture adjective for the selected country's image prompt."""
+    return CULTURE.get(country_key, "Korean")

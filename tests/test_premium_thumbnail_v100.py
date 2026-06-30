@@ -220,3 +220,18 @@ def test_render_all_country_scripts():
                                           "Seoul Records", "#00d4ff", 1920, 1080,
                                           cjk_subtext=d["night_local"])
         assert img.size == (1920, 1080)
+
+
+def test_image_prompt_uses_selected_country():
+    from services.thumbnail.prompt_generator import generate_flow_prompt
+    from services.thumbnail.country_presets import get_culture
+    # The image prompt must reflect the selected country, not always Japan.
+    th = generate_flow_prompt("thailand", "night", 0)["main_prompt"]
+    assert "Thai city-pop" in th and "Bangkok" in th
+    assert "Japanese" not in th
+    kr = generate_flow_prompt("korea", "night", 0)["main_prompt"]
+    assert "Korean city-pop" in kr and "Seoul" in kr
+    # Japan still maps to Japanese
+    jp = generate_flow_prompt("japan", "night", 0)["main_prompt"]
+    assert "Japanese city-pop" in jp
+    assert get_culture("vietnam") == "Vietnamese"
