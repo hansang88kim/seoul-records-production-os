@@ -473,17 +473,20 @@ def _render_exports():
     branded_dir = ss.session_path(sid) / "branded"
     branded_imgs = sorted(branded_dir.glob("branded_thumbnail_*.png")) if branded_dir.exists() else []
 
-    source_options = {}
-    square_for = {}  # label -> native 1:1 background (for the cover), when available
-    for b in branded_imgs:
-        source_options[f"브랜드 썸네일: {b.name}"] = str(b)
+    # Build source options. For exports, we always need the CLEAN (no-text) background
+    # to render titles fresh — using a branded thumbnail as bg would double the text.
+    source_options = {}   # label → clean bg (16:9)
+    square_for = {}       # label → clean bg (1:1)
+
+    # Map branded thumbnails back to their raw candidate background.
     for cand in selected:
-        p = cand.get("uploaded_image_path")
-        if p:
-            label = f"선택 이미지: {cand['candidate_id']}"
-            source_options[label] = p
-            if cand.get("image_1x1"):
-                square_for[label] = cand["image_1x1"]
+        raw = cand.get("uploaded_image_path", "")
+        sq = cand.get("image_1x1", "")
+        cid = cand["candidate_id"]
+        if raw:
+            source_options[f"선택 이미지: {cid}"] = raw
+            if sq:
+                square_for[f"선택 이미지: {cid}"] = sq
 
     if not source_options:
         st.warning("⚠️ 먼저 Candidate Gallery에서 이미지를 선택하거나 Brand Thumbnail을 만드세요.")
