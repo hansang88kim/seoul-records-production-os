@@ -1,6 +1,6 @@
 # Seoul Records Production OS
 
-**AI Music Label Production Harness — v1.0.0-alpha.8**
+**AI Music Label Production Harness — v1.0.0-alpha.9**
 
 > Creative direction: controlled by ChatGPT and the user.
 > Engineering: this repository.
@@ -77,6 +77,8 @@ to point the console at a live backend.
 ## What This Is
 
 Seoul Records Production OS is a local MVP application for creating AI-generated city pop album projects. It provides a full 5-tab production pipeline from song generation through music distribution, with mock providers for v0.1.x and a clear upgrade path to real integrations.
+
+**v1.0.0-alpha.9: Thumbnail Typography & Polish — Refines the premium thumbnail look. Title font is now bundled Montserrat (the clean geometric sans most YouTube music channels use), with Pretendard auto-selected for Korean titles — both bundled under assets/fonts/ so rendering is identical on every OS (no reliance on system fonts). The title outline/glow is removed in favour of a single soft drop shadow (no border). The gap between the title and subtitle is widened for a more editorial layout, and the vignette/darken is softened so backgrounds read more naturally. Generation prompts re-tuned toward a tasteful, understated, muted-cinematic palette (less garish neon). Sticker labels (구독/좋아요) are now Hangul-aware. Tests +1; 661 passing, clean under -X warn_default_encoding.**
 
 **v1.0.0-alpha.8: Premium Minimal Thumbnails + Count Input + Higher Quality — A visual overhaul of the thumbnail/deliverable rendering toward a 10만+ music-channel look. New shared `render_premium_thumbnail`: a cinematic, vignetted background with a clean CENTER-aligned title block (letter-spaced eyebrow + thin divider + title + subtitle), no clutter, output at full HD (1920x1080; 3000x3000 for the 1:1 cover). The branded thumbnail AND all three deliverables (YouTube thumbnail, video background, streaming cover) now share it, so they are consistent and the cover no longer crops the title. CTA stickers (equalizer / 구독 / 좋아요) are now OFF by default and optional. The Prompt Lab "Volume 번호" field is replaced by a "생성 개수" count (type 5 -> 5 images); the 1/5/10 radio is removed. Generation prompts strengthened with cinematic / 35mm film / shallow DoF / volumetric lighting / HDR / 4K / detail boosters for higher-quality Gemini output. Cross-platform CJK fonts throughout so Korean titles render. Tests +8; 660 passing, clean under -X warn_default_encoding.**
 

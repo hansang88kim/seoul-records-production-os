@@ -114,6 +114,15 @@ def save_canva_payload(session_id: str, candidate_id: str, payload: dict) -> str
 # ── Cross-platform fonts (CJK-capable) ────────────────────────────────────────
 # Windows 맑은 고딕 / Linux Noto Sans CJK / macOS — CJK fonts render BOTH Korean
 # and Latin, so Korean titles and 구독/좋아요 stickers never show tofu boxes.
+# Bundled fonts (OS-independent) — Montserrat for Latin (YouTube music-channel
+# standard), Pretendard for Korean. OS CJK fonts are a fallback if assets missing.
+_FONT_DIR = Path(__file__).resolve().parents[2] / "assets" / "fonts"
+_MONTSERRAT_BOLD = _FONT_DIR / "Montserrat-Bold.ttf"
+_MONTSERRAT_SEMIBOLD = _FONT_DIR / "Montserrat-SemiBold.ttf"
+_MONTSERRAT_MEDIUM = _FONT_DIR / "Montserrat-Medium.ttf"
+_PRETENDARD_BOLD = _FONT_DIR / "Pretendard-Bold.otf"
+_PRETENDARD_MEDIUM = _FONT_DIR / "Pretendard-Medium.otf"
+
 _FONTS_BOLD = [
     r"C:\Windows\Fonts\malgunbd.ttf",
     r"C:\Windows\Fonts\malgun.ttf",
@@ -130,11 +139,30 @@ _FONTS_REG = [
 ]
 
 
-def _load_font(size: int, bold: bool = True):
+def _has_hangul(text) -> bool:
+    return any("\uac00" <= ch <= "\ud7a3" or "\u1100" <= ch <= "\u11ff"
+               for ch in (text or ""))
+
+
+def _load_font(size: int, bold: bool = True, text=None):
+    """Bundled Montserrat for Latin; Pretendard when the text contains Hangul.
+
+    Falls back to OS CJK fonts, then PIL default. Pass the actual string as
+    ``text`` so Korean titles pick the Korean face.
+    """
     from PIL import ImageFont
-    for fp in (_FONTS_BOLD if bold else _FONTS_REG):
+    candidates = []
+    if text is not None and _has_hangul(text):
+        candidates += [_PRETENDARD_BOLD if bold else _PRETENDARD_MEDIUM, _PRETENDARD_BOLD]
+    else:
+        candidates += [
+            _MONTSERRAT_BOLD if bold else _MONTSERRAT_SEMIBOLD,
+            _MONTSERRAT_SEMIBOLD, _MONTSERRAT_MEDIUM,
+        ]
+    candidates += [Path(p) for p in (_FONTS_BOLD if bold else _FONTS_REG)]
+    for fp in candidates:
         try:
-            return ImageFont.truetype(fp, size)
+            return ImageFont.truetype(str(fp), size)
         except Exception:
             continue
     return ImageFont.load_default()
@@ -182,7 +210,7 @@ def _draw_equalizer(draw, box, accent_rgb, bars: int = 14, seed: int = 0):
 
 def _draw_subscribe(draw, x, y, scale: float = 1.0, text: str = "구독"):
     """YouTube-style red subscribe pill with a play triangle. Returns (w, h)."""
-    font = _load_font(int(34 * scale), bold=True)
+    font = _load_font(int(34 * scale), bold=True, text=text)
     pad_x, pad_y, gap = int(26 * scale), int(13 * scale), int(12 * scale)
     tw, th = _text_wh(draw, text, font)
     tri = int(th * 0.95)
@@ -198,7 +226,7 @@ def _draw_subscribe(draw, x, y, scale: float = 1.0, text: str = "구독"):
 
 def _draw_like(draw, x, y, scale: float = 1.0, accent_rgb=(255, 77, 109), text: str = "좋아요"):
     """Outlined like pill with a heart. Returns (w, h)."""
-    font = _load_font(int(34 * scale), bold=True)
+    font = _load_font(int(34 * scale), bold=True, text=text)
     pad_x, pad_y, gap = int(24 * scale), int(13 * scale), int(10 * scale)
     heart = "\u2665"
     hw, hh = _text_wh(draw, heart, font)
@@ -252,32 +280,33 @@ def _spaced_width(draw, text: str, font, tracking: float) -> float:
 
 
 def _draw_spaced_centered(draw, text, cx, cy, font, fill=(255, 255, 255, 255),
-                          tracking: float = 0.0, shadow=None, shadow_r: int = 2):
-    """Draw letter-spaced text horizontally centered at cx, vertically centered at cy."""
+                          tracking: float = 0.0, shadow=None, shadow_off=(0, 4)):
+    """Draw letter-spaced text horizontally centered at cx, vertically centered at cy.
+
+    ``shadow`` (if given) draws ONE soft offset drop shadow — not an outline/border.
+    """
     if not text:
         return
     total = _spaced_width(draw, text, font, tracking)
     _, th = _text_wh(draw, text, font)
     x = cx - total / 2
     y = cy - th / 2
+    sx, sy = shadow_off
     for ch in text:
         if shadow:
-            for dx in (-shadow_r, 0, shadow_r):
-                for dy in (-shadow_r, 0, shadow_r):
-                    if dx or dy:
-                        draw.text((x + dx, y + dy), ch, font=font, fill=shadow)
+            draw.text((x + sx, y + sy), ch, font=font, fill=shadow)
         draw.text((x, y), ch, font=font, fill=fill)
         x += draw.textlength(ch, font=font) + tracking
 
 
-def _fit_font_spaced(draw, text, max_w, start, tracking_ratio=0.04, min_size=42, bold=True):
+def _fit_font_spaced(draw, text, max_w, start, tracking_ratio=0.03, min_size=42, bold=True):
     size = start
     while size > min_size:
-        f = _load_font(size, bold)
+        f = _load_font(size, bold, text=text)
         if _spaced_width(draw, text, f, size * tracking_ratio) <= max_w:
             return f
         size -= 4
-    return _load_font(min_size, bold)
+    return _load_font(min_size, bold, text=text)
 
 
 def render_premium_thumbnail(bg_path, title, subtitle="", brand_text="Seoul Records",
@@ -293,31 +322,32 @@ def render_premium_thumbnail(bg_path, title, subtitle="", brand_text="Seoul Reco
     accent = _hex_to_rgb(accent_color)
 
     img = _cover_fit(bg_path, W, H)
-    # Cinematic grade: gentle overall darken for legibility + edge vignette.
-    img = Image.alpha_composite(img, Image.new("RGBA", (W, H), (8, 10, 18, 70)))
-    img = Image.alpha_composite(img, _radial_vignette(W, H, strength=125))
+    # Cinematic grade: light overall darken for legibility + a soft edge vignette.
+    img = Image.alpha_composite(img, Image.new("RGBA", (W, H), (8, 10, 18, 45)))
+    img = Image.alpha_composite(img, _radial_vignette(W, H, strength=95))
     draw = ImageDraw.Draw(img, "RGBA")
 
     cx, cy = W // 2, H // 2
     if with_title:
-        # Eyebrow — uppercase brand, wide tracking, small.
+        # Eyebrow — uppercase brand, wide tracking, small (Montserrat).
         eyebrow = (brand_text or "Seoul Records").upper()
         ef = _load_font(int(H * 0.024), bold=True)
-        _draw_spaced_centered(draw, eyebrow, cx, cy - int(H * 0.165), ef,
+        _draw_spaced_centered(draw, eyebrow, cx, cy - int(H * 0.20), ef,
                               fill=(255, 255, 255, 205), tracking=H * 0.014)
         # Thin divider line above the title.
         lw = int(W * 0.055)
-        ly = cy - int(H * 0.105)
+        ly = cy - int(H * 0.135)
         draw.rectangle([cx - lw // 2, ly, cx + lw // 2, ly + 3], fill=(*accent, 240))
-        # Main playlist title — centered, letter-spaced, soft shadow.
-        tf = _fit_font_spaced(draw, title, int(W * 0.78), int(H * 0.105))
-        _draw_spaced_centered(draw, title, cx, cy - int(H * 0.03), tf,
-                              fill=(255, 255, 255, 255), tracking=int(H * 0.105) * 0.04,
-                              shadow=(0, 0, 0, 170), shadow_r=3)
-        # Subtitle — centered, accent, smaller.
+        # Main playlist title — centered, letter-spaced, single soft drop shadow
+        # (no outline/border). Montserrat, or Pretendard if the title has Hangul.
+        tf = _fit_font_spaced(draw, title, int(W * 0.80), int(H * 0.10))
+        _draw_spaced_centered(draw, title, cx, cy - int(H * 0.045), tf,
+                              fill=(255, 255, 255, 255), tracking=int(H * 0.10) * 0.03,
+                              shadow=(0, 0, 0, 130), shadow_off=(0, 4))
+        # Subtitle — centered, accent, smaller, with a wider gap below the title.
         if subtitle:
-            sf = _load_font(int(H * 0.032), bold=False)
-            _draw_spaced_centered(draw, subtitle, cx, cy + int(H * 0.072), sf,
+            sf = _load_font(int(H * 0.032), bold=False, text=subtitle)
+            _draw_spaced_centered(draw, subtitle, cx, cy + int(H * 0.11), sf,
                                   fill=(*accent, 235), tracking=H * 0.006)
     else:
         # Clean stage (video background) — only a faint brand mark, no title.

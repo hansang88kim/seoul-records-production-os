@@ -105,3 +105,14 @@ def test_export_streaming_cover_square_hires():
     assert out and Path(out).exists()
     w, h = Image.open(out).size
     assert w == h and w >= 1440  # square, high-res
+
+
+def test_font_selection_latin_vs_hangul():
+    # Hangul detection
+    assert cb._has_hangul("밤의 끝에서") is True
+    assert cb._has_hangul("Night Drive") is False
+    # Latin titles -> Montserrat, Korean titles -> Pretendard (bundled fonts)
+    lat = cb._load_font(80, bold=True, text="CityPop Playlist")
+    kor = cb._load_font(80, bold=True, text="밤의 끝에서")
+    assert "Montserrat" in lat.getname()[0]
+    assert "Pretendard" in kor.getname()[0]
