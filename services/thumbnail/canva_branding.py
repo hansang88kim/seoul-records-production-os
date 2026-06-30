@@ -460,13 +460,13 @@ def render_premium_thumbnail(bg_path, title, subtitle="", brand_text="Seoul Reco
                                                fill=(255, 255, 255, 205), tracking=H * 0.016 * s)))
 
         lw = int(W * 0.06 * s)
-        elements.append((max(3, int(H * 0.004)), int(H * 0.05 * s), lambda yc, w=lw:
+        elements.append((max(3, int(H * 0.004)), int(H * 0.025 * s), lambda yc, w=lw:
                          draw.rectangle([cx - w // 2, yc - 1, cx + w // 2, yc + 2],
                                         fill=(*accent, 240))))
 
         title_px = int(H * 0.142 * s)
         tf = _fit_font_spaced(draw, title, int(W * 0.88), title_px, black=True)
-        elements.append((_line_h(tf), int(H * 0.05 * s), lambda yc, f=tf, t=title:
+        elements.append((_line_h(tf), int(H * 0.026 * s), lambda yc, f=tf, t=title:
                          _draw_spaced_centered(draw, t, cx, yc, f, fill=(*title_rgb, 255),
                                                tracking=title_px * 0.03,
                                                shadow=(0, 0, 0, 130), shadow_off=(0, 4))))
@@ -475,18 +475,18 @@ def render_premium_thumbnail(bg_path, title, subtitle="", brand_text="Seoul Reco
             cf = _load_subtext_font(int(title_px * 0.5), text=cjk_subtext, weight=700)
             if _has_thai(cjk_subtext) or _has_devanagari(cjk_subtext):
                 # Complex scripts: whole shaped string, extra gap for tall marks.
-                elements.append((_line_h(cf), int(H * 0.055 * s), lambda yc, f=cf, t=cjk_subtext:
+                elements.append((_line_h(cf), int(H * 0.03 * s), lambda yc, f=cf, t=cjk_subtext:
                                  _draw_centered_plain(draw, t, cx, yc, f, fill=(*title_rgb, 255),
                                                       shadow=(0, 0, 0, 120), shadow_off=(0, 3))))
             else:
-                elements.append((_line_h(cf), int(H * 0.05 * s), lambda yc, f=cf, t=cjk_subtext:
+                elements.append((_line_h(cf), int(H * 0.024 * s), lambda yc, f=cf, t=cjk_subtext:
                                  _draw_spaced_centered(draw, t, cx, yc, f, fill=(*title_rgb, 255),
                                                        tracking=title_px * 0.04,
                                                        shadow=(0, 0, 0, 120), shadow_off=(0, 3))))
 
         if subtitle:
             sf = _load_font(int(H * 0.0456 * s), bold=False, text=subtitle)
-            elements.append((_line_h(sf), int(H * 0.05 * s), lambda yc, f=sf, t=subtitle:
+            elements.append((_line_h(sf), int(H * 0.026 * s), lambda yc, f=sf, t=subtitle:
                              _draw_spaced_centered(draw, t, cx, yc, f,
                                                    fill=(*accent, 235), tracking=H * 0.006 * s)))
 
