@@ -98,11 +98,14 @@ def render_video_renderer():
     st.caption("모든 텍스트/스티커는 Canva PNG 오버레이입니다 (FFmpeg drawtext 미사용).")
     ocol1, ocol2, ocol3, ocol4 = st.columns(4)
     with ocol1:
-        en_now = st.checkbox("Now Playing", value=True, key="vr_now")
+        en_now = st.checkbox("Now Playing 카드", value=False, key="vr_now",
+                                 help="좌상단 현재 재생 곡 정보 — Canva PNG 업로드 후 켜세요.")
     with ocol2:
-        en_cta = st.checkbox("CTA 스티커", value=True, key="vr_cta")
+        en_cta = st.checkbox("CTA 스티커", value=False, key="vr_cta",
+                                 help="우상단 구독/좋아요 버튼 — Canva PNG 업로드 후 켜세요.")
     with ocol3:
-        en_viz = st.checkbox("비주얼라이저", value=True, key="vr_viz")
+        en_viz = st.checkbox("비주얼라이저", value=False, key="vr_viz",
+                                 help="하단 오디오 반응형 이퀄라이저 바.")
     with ocol4:
         en_center = st.checkbox("중앙 타이틀", value=False, key="vr_center",
                                help="기본 OFF — 재생 영상에는 보통 사용하지 않습니다.")
@@ -130,10 +133,15 @@ def render_video_renderer():
             if up_now:
                 uploaded_assets["now_playing"] = up_now
             st.caption("업로드하지 않은 항목은 Mock으로 자동 대체됩니다.")
+            st.info("💡 **Canva에서 투명 배경 PNG로 제작한 오버레이를 업로드하세요.**\n\n"
+                     "• CTA 스티커 — 구독/좋아요 버튼 (우상단에 표시)\n"
+                     "• 비주얼라이저 프레임 — 이퀄라이저 바 주변 장식 프레임\n"
+                     "• Now Playing 카드 — 현재 재생 곡 제목/아티스트 (좌상단)\n\n"
+                     "아직 없으면 위 체크박스를 **끄고** 깨끗한 배경만 렌더하세요.")
 
     st.session_state["vr_preview_cta"] = st.checkbox(
-        "프리뷰에서 CTA 즉시 표시 (Preview CTA Now)", value=True, key="vr_prev_cta",
-        help="프리뷰 짧은 클립 동안 CTA 스티커를 계속 보여줍니다.",
+        "프리뷰에서 CTA 즉시 표시", value=False, key="vr_prev_cta",
+        help="켜면 프리뷰에 CTA/Now Playing 오버레이가 포함됩니다.",
     )
 
     # ── 4. Visualizer ────────────────────────────────────────────────
