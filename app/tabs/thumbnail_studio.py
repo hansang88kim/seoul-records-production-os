@@ -434,12 +434,16 @@ def _render_exports():
     branded_imgs = sorted(branded_dir.glob("branded_thumbnail_*.png")) if branded_dir.exists() else []
 
     source_options = {}
+    square_for = {}  # label -> native 1:1 background (for the cover), when available
     for b in branded_imgs:
         source_options[f"브랜드 썸네일: {b.name}"] = str(b)
     for cand in selected:
         p = cand.get("uploaded_image_path")
         if p:
-            source_options[f"선택 이미지: {cand['candidate_id']}"] = p
+            label = f"선택 이미지: {cand['candidate_id']}"
+            source_options[label] = p
+            if cand.get("image_1x1"):
+                square_for[label] = cand["image_1x1"]
 
     if not source_options:
         st.warning("⚠️ 먼저 Candidate Gallery에서 이미지를 선택하거나 Brand Thumbnail을 만드세요.")
@@ -447,6 +451,9 @@ def _render_exports():
 
     src_label = st.selectbox("소스 배경 이미지", list(source_options.keys()))
     bg_path = source_options[src_label]
+    square_bg_path = square_for.get(src_label, "")  # native 1:1 → distortion-free cover
+    if square_bg_path:
+        st.caption("💿 1:1 커버는 동일 장면의 네이티브 정사각 이미지를 사용합니다 (좌우 왜곡 없음).")
 
     # Branding text
     from services.thumbnail.country_presets import get_country_preset, get_title_defaults
@@ -508,7 +515,8 @@ def _render_exports():
             yt = ss.session_path(sid) / "exports" / AT.EXPORT_FILENAMES[AT.YOUTUBE_THUMBNAIL_16X9]
             p = ae.export_streaming_cover(sid, str(yt), bg_path, title, subtitle,
                                           brand_text, accent, crop_mode,
-                                          exp_title_color, exp_title_scale, exp_cjk)
+                                          exp_title_color, exp_title_scale, exp_cjk,
+                                          square_bg_path)
             if p:
                 ae.write_asset_manifest(sid, _rebuild_manifest(sid, ae, AT))
                 st.success("✅ 스트리밍 커버 1:1")
@@ -516,7 +524,8 @@ def _render_exports():
         if st.button("📦 전체 내보내기", type="primary", use_container_width=True):
             results = ae.export_all_required_assets(sid, bg_path, title, subtitle,
                                                     brand_text, accent, crop_mode,
-                                                    exp_title_color, exp_title_scale, exp_cjk)
+                                                    exp_title_color, exp_title_scale, exp_cjk,
+                                                    square_bg_path)
             st.success(f"✅ 3종 전체 내보내기 완료!")
 
     st.divider()

@@ -50,6 +50,71 @@ def get_api_key() -> str | None:
     return None
 
 
+# Native generation sizes per aspect. We generate each deliverable at its OWN
+# aspect ratio (never stretch a 16:9 into a 1:1) — the YouTube thumbnail is 16:9
+# and the streaming cover is 1:1. Final exporters upscale from these.
+_ASPECT_DIMS = {
+    "16:9": (1280, 720),
+    "1:1": (1024, 1024),
+    "9:16": (720, 1280),
+}
+
+
+def _aspect_dims(aspect: str) -> tuple[int, int]:
+    return _ASPECT_DIMS.get(aspect, _ASPECT_DIMS["16:9"])
+
+
+def _autotrim_bars(img):
+    """Trim uniform letterbox/pillarbox bars (e.g. white/black) the model may add.
+
+    Conservative: only trims when a border band is near-uniform and matches a
+    corner colour, so normal night scenes (dark/neon corners) are left untouched.
+    """
+    from PIL import Image, ImageChops
+    try:
+        corner = img.getpixel((1, 1))
+        bg = Image.new(img.mode, img.size, corner)
+        bbox = ImageChops.difference(img, bg).convert("L").getbbox()
+        if bbox:
+            l, t, r, b = bbox
+            w, h = img.size
+            # Require the trim to look like real bars (covers most of a side) and
+            # not a tiny speck or an aggressive crop of a busy image.
+            if (t > 2 or (h - b) > 2 or l > 2 or (w - r) > 2):
+                if (r - l) >= w * 0.5 and (b - t) >= h * 0.5:
+                    return img.crop(bbox)
+    except Exception:
+        pass
+    return img
+
+
+def _cover_to(img, tw: int, th: int):
+    """Scale to COVER the target then center-crop to exact (tw, th) — no stretch."""
+    from PIL import Image
+    w, h = img.size
+    if w == tw and h == th:
+        return img
+    scale = max(tw / w, th / h)
+    nw, nh = max(1, round(w * scale)), max(1, round(h * scale))
+    img = img.resize((nw, nh), Image.LANCZOS)
+    x, y = (nw - tw) // 2, (nh - th) // 2
+    return img.crop((x, y, x + tw, y + th))
+
+
+def _finalize_image(path: str, aspect: str):
+    """Post-process a generated file: strip stray bars + lock to the exact native
+    size for its aspect (center-crop cover, never stretch). Best-effort."""
+    try:
+        from PIL import Image
+        tw, th = _aspect_dims(aspect)
+        img = Image.open(path).convert("RGB")
+        img = _autotrim_bars(img)
+        img = _cover_to(img, tw, th)
+        img.save(path, format="PNG")
+    except Exception:
+        pass  # never fail generation over post-processing
+
+
 class ImageGenProvider:
     """Abstract image-generation provider."""
 
@@ -63,11 +128,15 @@ class ImageGenProvider:
         negative_prompt: str = "",
         index: int = 0,
         meta: dict | None = None,
+        aspect: str = "16:9",
+        ref_image_path: str | None = None,
     ) -> dict:
-        """Generate one image to out_path. Returns a result dict.
+        """Generate one image to out_path at the given ``aspect`` ratio.
 
-        Result keys: ok (bool), provider (str), model (str | None),
-        path (str | None), error (str | None).
+        ``aspect`` is "16:9" (default) or "1:1". ``ref_image_path`` optionally
+        supplies a reference image for image-to-image (used to recompose the same
+        scene into a different aspect). Returns a result dict with keys: ok (bool),
+        provider (str), model (str | None), path (str | None), error (str | None).
         """
         raise NotImplementedError
 
@@ -78,7 +147,8 @@ class MockImageGenProvider(ImageGenProvider):
     name = "mock"
     is_real = False
 
-    def generate(self, prompt, out_path, negative_prompt="", index=0, meta=None):
+    def generate(self, prompt, out_path, negative_prompt="", index=0, meta=None,
+                 aspect="16:9", ref_image_path=None):
         meta = meta or {}
         try:
             from PIL import Image, ImageDraw, ImageFont
@@ -86,7 +156,7 @@ class MockImageGenProvider(ImageGenProvider):
             return {"ok": False, "provider": self.name, "model": None,
                     "path": None, "error": f"PIL unavailable: {e}"}
 
-        W, H = 1280, 720  # 16:9 thumbnail canvas
+        W, H = _aspect_dims(aspect)  # native canvas for the requested ratio
         accent = _MOCK_ACCENTS[index % len(_MOCK_ACCENTS)]
         img = Image.new("RGB", (W, H), _MOCK_BG)
         draw = ImageDraw.Draw(img, "RGBA")
@@ -145,7 +215,8 @@ class GeminiRestImageProvider(ImageGenProvider):
         self.model = model or os.environ.get("SEOUL_IMAGE_MODEL", DEFAULT_IMAGE_MODEL)
         self._api_key = api_key or get_api_key()
 
-    def generate(self, prompt, out_path, negative_prompt="", index=0, meta=None):
+    def generate(self, prompt, out_path, negative_prompt="", index=0, meta=None,
+                 aspect="16:9", ref_image_path=None):
         if not self._api_key:
             return {"ok": False, "provider": self.name, "model": self.model,
                     "path": None, "error": "no API key (enter Gemini key in the sidebar)"}
@@ -164,20 +235,42 @@ class GeminiRestImageProvider(ImageGenProvider):
         full_prompt = prompt
         if negative_prompt:
             full_prompt = f"{prompt}\n\nAvoid: {negative_prompt}"
+        # Frame natively for the target ratio and forbid letterbox bars.
+        full_prompt += (
+            f"\n\nCompose this for a {aspect} aspect ratio, full-bleed edge to edge. "
+            f"The image must completely fill the {aspect} frame with no borders, no "
+            f"white or black bars, no letterboxing, no padding."
+        )
+
+        parts = [{"text": full_prompt}]
+        # Optional image-to-image: recompose the SAME scene into another ratio.
+        if ref_image_path:
+            try:
+                ref_b64 = base64.b64encode(Path(ref_image_path).read_bytes()).decode()
+                parts.append({"inlineData": {"mimeType": "image/png", "data": ref_b64}})
+            except Exception:
+                pass
 
         out = Path(out_path)
         out.parent.mkdir(parents=True, exist_ok=True)
         url = _GEMINI_REST_ENDPOINT.format(model=self.model, key=self._api_key)
+        gen_cfg = {
+            "responseModalities": ["TEXT", "IMAGE"],
+            "imageConfig": {"aspectRatio": aspect},
+        }
         try:
-            resp = requests.post(
-                url,
-                headers={"Content-Type": "application/json"},
-                json={
-                    "contents": [{"parts": [{"text": full_prompt}]}],
-                    "generationConfig": {"responseModalities": ["TEXT", "IMAGE"]},
-                },
-                timeout=120,
-            )
+            def _post(cfg):
+                return requests.post(
+                    url, headers={"Content-Type": "application/json"},
+                    json={"contents": [{"parts": parts}], "generationConfig": cfg},
+                    timeout=120,
+                )
+
+            resp = _post(gen_cfg)
+            # Some model versions reject imageConfig — retry without it (the prompt
+            # hint + post-processing still deliver the right aspect, just cropped).
+            if resp.status_code == 400 and "imageconfig" in resp.text.lower():
+                resp = _post({"responseModalities": ["TEXT", "IMAGE"]})
             if resp.status_code != 200:
                 # Surface the API's message WITHOUT echoing the key (which is in the URL).
                 msg = resp.text[:300].replace(self._api_key, "***")
@@ -198,6 +291,7 @@ class GeminiRestImageProvider(ImageGenProvider):
                         "path": None, "error": "no image data in response (model may have "
                                                "returned text only)"}
             out.write_bytes(base64.b64decode(img_b64))
+            _finalize_image(str(out), aspect)  # strip stray bars + lock exact size
             return {"ok": True, "provider": self.name, "model": self.model,
                     "path": str(out), "error": None}
         except Exception as e:
@@ -220,7 +314,8 @@ class GeminiImageProvider(ImageGenProvider):
         self.model = model or os.environ.get("SEOUL_IMAGE_MODEL", DEFAULT_IMAGE_MODEL)
         self._api_key = api_key or get_api_key()
 
-    def generate(self, prompt, out_path, negative_prompt="", index=0, meta=None):
+    def generate(self, prompt, out_path, negative_prompt="", index=0, meta=None,
+                 aspect="16:9", ref_image_path=None):
         if not self._api_key:
             return {"ok": False, "provider": self.name, "model": self.model,
                     "path": None, "error": "no API key (set GEMINI_API_KEY)"}
@@ -235,6 +330,10 @@ class GeminiImageProvider(ImageGenProvider):
         full_prompt = prompt
         if negative_prompt:
             full_prompt = f"{prompt}\n\nAvoid: {negative_prompt}"
+        full_prompt += (
+            f"\n\nCompose this for a {aspect} aspect ratio, full-bleed edge to edge — "
+            f"no borders, no white or black bars, no letterboxing, no padding."
+        )
 
         out = Path(out_path)
         out.parent.mkdir(parents=True, exist_ok=True)
@@ -248,7 +347,7 @@ class GeminiImageProvider(ImageGenProvider):
                     model=self.model,
                     prompt=full_prompt,
                     config=types.GenerateImagesConfig(
-                        number_of_images=1, aspect_ratio="16:9",
+                        number_of_images=1, aspect_ratio=aspect,
                     ),
                 )
                 imgs = getattr(resp, "generated_images", None) or []
@@ -256,8 +355,20 @@ class GeminiImageProvider(ImageGenProvider):
                     data = imgs[0].image.image_bytes
             else:
                 # Gemini image model ("Nano Banana") — interleaved generateContent.
+                # Pass a reference image (image-to-image) when recomposing a scene.
+                contents = [full_prompt]
+                if ref_image_path:
+                    try:
+                        contents.append(types.Part.from_bytes(
+                            data=Path(ref_image_path).read_bytes(), mime_type="image/png"))
+                    except Exception:
+                        pass
                 resp = client.models.generate_content(
-                    model=self.model, contents=[full_prompt],
+                    model=self.model, contents=contents,
+                    config=types.GenerateContentConfig(
+                        response_modalities=["TEXT", "IMAGE"],
+                        image_config=types.ImageConfig(aspect_ratio=aspect),
+                    ),
                 )
                 cands = getattr(resp, "candidates", None) or []
                 if cands:
@@ -271,6 +382,7 @@ class GeminiImageProvider(ImageGenProvider):
                 return {"ok": False, "provider": self.name, "model": self.model,
                         "path": None, "error": "no image data returned by model"}
             out.write_bytes(data)
+            _finalize_image(str(out), aspect)  # strip stray bars + lock exact size
             return {"ok": True, "provider": self.name, "model": self.model,
                     "path": str(out), "error": None}
         except Exception as e:

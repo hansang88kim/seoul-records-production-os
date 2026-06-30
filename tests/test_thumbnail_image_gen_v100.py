@@ -155,11 +155,15 @@ def test_generate_images_project_bound_saves_into_thumbnails(tmp_path):
     thumbs = project / "thumbnails"
     assert thumbs.exists()
     pngs = list(thumbs.glob("*.png"))
-    assert len(pngs) == 3
+    # Each candidate now yields a native 16:9 AND a native 1:1 image.
+    assert len(pngs) == 6
+    assert len(list(thumbs.glob("*_16x9.png"))) == 3
+    assert len(list(thumbs.glob("*_1x1.png"))) == 3
     # Audio and images are in SEPARATE folders under the same project.
     assert (project / "songs" / "track.mp3").exists()
     for c in cands:
         assert str(thumbs) in c["uploaded_image_path"]
+        assert c.get("image_16x9") and c.get("image_1x1")
         assert "/songs/" not in c["uploaded_image_path"].replace("\\", "/")
 
 

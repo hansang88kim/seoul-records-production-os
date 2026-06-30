@@ -178,27 +178,37 @@ def generate_images(session_id: str, prompts: list[dict],
 
     candidates = load_candidates(session_id)
     for i, (c, p) in enumerate(zip(candidates, prompts)):
-        out_path = target / f"{c['candidate_id']}.png"
-        res = provider.generate(
-            p.get("main_prompt", ""),
-            str(out_path),
-            negative_prompt=p.get("negative_prompt", ""),
-            index=i,
-            meta={"scene": p.get("scene", ""), "country": p.get("country", ""),
-                  "theme": p.get("theme", "")},
-        )
-        c["gen_provider"] = res.get("provider")
-        c["gen_model"] = res.get("model")
-        if res.get("ok"):
-            c["uploaded_image_path"] = res["path"]
-            c["generated_image_path"] = res["path"]
+        cid = c["candidate_id"]
+        path_169 = target / f"{cid}_16x9.png"
+        path_11 = target / f"{cid}_1x1.png"
+        meta = {"scene": p.get("scene", ""), "country": p.get("country", ""),
+                "theme": p.get("theme", "")}
+        main = p.get("main_prompt", "")
+        neg = p.get("negative_prompt", "")
+
+        # 16:9 (primary, used for the YouTube thumbnail + gallery).
+        r169 = provider.generate(main, str(path_169), negative_prompt=neg,
+                                 index=i, meta=meta, aspect="16:9")
+        c["gen_provider"] = r169.get("provider")
+        c["gen_model"] = r169.get("model")
+        if r169.get("ok"):
+            # 1:1 of the SAME scene, generated natively. For real providers we pass
+            # the 16:9 as a reference (image-to-image) so the square matches the wide
+            # version instead of being a stretched/cropped copy.
+            ref = r169["path"] if getattr(provider, "is_real", False) else None
+            r11 = provider.generate(main, str(path_11), negative_prompt=neg,
+                                    index=i, meta=meta, aspect="1:1", ref_image_path=ref)
+            c["image_16x9"] = r169["path"]
+            c["image_1x1"] = r11.get("path") if r11.get("ok") else None
+            c["uploaded_image_path"] = r169["path"]   # default shown = 16:9
+            c["generated_image_path"] = r169["path"]
             c["image_source"] = "generated"
             c["status"] = "image_generated"
-            c["gen_error"] = None
+            c["gen_error"] = None if r11.get("ok") else f"1:1 failed: {r11.get('error')}"
         else:
             c["image_source"] = "generation_failed"
             c["status"] = "generation_failed"
-            c["gen_error"] = res.get("error")
+            c["gen_error"] = r169.get("error")
     save_candidates(session_id, candidates)
     return candidates
 

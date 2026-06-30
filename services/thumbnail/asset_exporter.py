@@ -147,9 +147,12 @@ def export_streaming_cover(
     title_color: str = "#FFFFFF",
     title_scale: float = 1.0,
     cjk_subtext: str = "",
+    square_bg_path: str = "",
 ) -> str | None:
     """
-    Export a 1:1 streaming/playlist cover derived from the YouTube thumbnail.
+    Export a 1:1 streaming/playlist cover. When a native square background
+    (``square_bg_path`` — generated at 1:1) is available it is used directly so
+    the cover is never a stretched/cropped 16:9; otherwise falls back to ``bg_path``.
     Preserves the Playlist title. No song title, waveform, or CTA sticker.
 
     crop_mode: center_crop | smart_title_safe | fit_blur | manual
@@ -161,13 +164,16 @@ def export_streaming_cover(
 
     S = AT.CANVAS_SIZES[AT.STREAMING_COVER_1X1][0]  # 3000
 
+    # Prefer a native 1:1 source (no distortion); fall back to the 16:9 bg.
+    cover_bg = square_bg_path if (square_bg_path and Path(square_bg_path).exists()) else bg_path
+
     cover = None
-    if bg_path and Path(bg_path).exists():
+    if cover_bg and Path(cover_bg).exists():
         # Fresh, properly-composed square cover (premium centered title) — avoids
         # the cropped/cut-off title you get from squaring a 16:9 thumbnail.
         try:
             from services.thumbnail.canva_branding import render_premium_thumbnail
-            cover = render_premium_thumbnail(bg_path, title, subtitle, brand_text,
+            cover = render_premium_thumbnail(cover_bg, title, subtitle, brand_text,
                                              accent_color, S, S, with_title=True,
                                              title_color=title_color,
                                              title_scale=title_scale,
@@ -308,9 +314,12 @@ def export_all_required_assets(
     title_color: str = "#FFFFFF",
     title_scale: float = 1.0,
     cjk_subtext: str = "",
+    square_bg_path: str = "",
 ) -> dict:
     """
     Export all three required deliverables + write the asset manifest.
+    ``bg_path`` is the native 16:9 background; ``square_bg_path`` (optional) is the
+    native 1:1 background used for the streaming cover so it isn't a squashed 16:9.
     Returns {asset_type: path} plus 'manifest'.
     """
     results: dict[str, str] = {}
@@ -329,10 +338,10 @@ def export_all_required_assets(
         results[AT.VIDEO_PLAYBACK_BACKGROUND_16X9] = vb
         assets.append(_make_asset_entry(session_id, AT.VIDEO_PLAYBACK_BACKGROUND_16X9, vb))
 
-    # C. Streaming cover (derived from the YouTube thumbnail)
+    # C. Streaming cover — prefer the native 1:1 background.
     sc = export_streaming_cover(session_id, yt or "", bg_path, title, subtitle,
                                 brand_text, accent_color, crop_mode,
-                                title_color, title_scale, cjk_subtext)
+                                title_color, title_scale, cjk_subtext, square_bg_path)
     if sc:
         results[AT.STREAMING_COVER_1X1] = sc
         assets.append(_make_asset_entry(session_id, AT.STREAMING_COVER_1X1, sc))

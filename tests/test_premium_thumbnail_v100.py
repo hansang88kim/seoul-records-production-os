@@ -235,3 +235,38 @@ def test_image_prompt_uses_selected_country():
     jp = generate_flow_prompt("japan", "night", 0)["main_prompt"]
     assert "Japanese city-pop" in jp
     assert get_culture("vietnam") == "Vietnamese"
+
+
+def test_dual_ratio_native_generation_and_trim():
+    import services.thumbnail.session_store as ss2
+    from services.thumbnail.prompt_generator import generate_prompt_batch
+    from services.thumbnail.image_provider import _autotrim_bars, _aspect_dims
+    from PIL import Image as _Img, ImageDraw as _Dw
+    # native dims per aspect
+    assert _aspect_dims("16:9") == (1280, 720)
+    assert _aspect_dims("1:1") == (1024, 1024)
+    # generate_images yields native 16:9 + 1:1 per candidate (mock)
+    sid = ss2.create_session("japan", "night", "v")["session_id"]
+    cands = ss2.generate_images(sid, generate_prompt_batch("japan", "night", 1), use_real=False)
+    c = cands[0]
+    assert _Img.open(c["image_16x9"]).size == (1280, 720)
+    assert _Img.open(c["image_1x1"]).size == (1024, 1024)
+    # autotrim strips uniform white letterbox bars but leaves dark scenes intact
+    wl = _Img.new("RGB", (1024, 1024), (255, 255, 255))
+    _Dw.Draw(wl).rectangle([0, 224, 1024, 800], fill=(20, 30, 60))
+    assert _autotrim_bars(wl).size[1] < 1024
+    dark = _Img.new("RGB", (1280, 720), (12, 14, 26))
+    assert _autotrim_bars(dark).size == (1280, 720)
+
+
+def test_cover_prefers_native_square():
+    import services.thumbnail.session_store as ss2
+    import services.thumbnail.asset_exporter as ae2
+    from services.thumbnail.prompt_generator import generate_prompt_batch
+    from PIL import Image as _Img
+    sid = ss2.create_session("korea", "night", "v")["session_id"]
+    c = ss2.generate_images(sid, generate_prompt_batch("korea", "night", 1), use_real=False)[0]
+    cover = ae2.export_streaming_cover(sid, "", c["image_16x9"], "SEOUL", "CityPop Playlist",
+                                       "Seoul Records", "#00d4ff",
+                                       square_bg_path=c["image_1x1"], cjk_subtext="밤의 음악")
+    assert cover and _Img.open(cover).size == (3000, 3000)
