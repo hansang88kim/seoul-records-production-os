@@ -74,7 +74,7 @@ def _render_prompt_lab():
     col4, col5 = st.columns(2)
     with col4:
         title = st.text_input("플레이리스트 제목 (Canva가 입힐 텍스트)",
-                              value=f"CityPop Playlist Vol.{volume}", key="thumb_title")
+                              value="CityPop Playlist", key="thumb_title")
     with col5:
         subtitle = st.text_input("부제목 (선택)", value="1990s Night Drive", key="thumb_subtitle")
 

@@ -107,12 +107,14 @@ def test_export_streaming_cover_square_hires():
     assert w == h and w >= 1440  # square, high-res
 
 
-def test_font_selection_latin_vs_hangul():
-    # Hangul detection
+def test_font_selection_montserrat_black_title():
+    # Hangul detection still works (used for optional sticker fallback)
     assert cb._has_hangul("밤의 끝에서") is True
     assert cb._has_hangul("Night Drive") is False
-    # Latin titles -> Montserrat, Korean titles -> Pretendard (bundled fonts)
-    lat = cb._load_font(80, bold=True, text="CityPop Playlist")
-    kor = cb._load_font(80, bold=True, text="밤의 끝에서")
-    assert "Montserrat" in lat.getname()[0]
-    assert "Pretendard" in kor.getname()[0]
+    # English title -> Montserrat; black=True -> Black (900) weight
+    reg = cb._load_font(80, bold=True, text="CityPop Playlist")
+    blk = cb._load_font(80, bold=True, text="CityPop Playlist", black=True)
+    assert "Montserrat" in reg.getname()[0]
+    assert blk.getname() == ("Montserrat", "Black")
+    # Pretendard is no longer bundled
+    assert not (cb._FONT_DIR / "Pretendard-Bold.otf").exists()

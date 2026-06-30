@@ -114,14 +114,14 @@ def save_canva_payload(session_id: str, candidate_id: str, payload: dict) -> str
 # ── Cross-platform fonts (CJK-capable) ────────────────────────────────────────
 # Windows 맑은 고딕 / Linux Noto Sans CJK / macOS — CJK fonts render BOTH Korean
 # and Latin, so Korean titles and 구독/좋아요 stickers never show tofu boxes.
-# Bundled fonts (OS-independent) — Montserrat for Latin (YouTube music-channel
-# standard), Pretendard for Korean. OS CJK fonts are a fallback if assets missing.
+# Bundled fonts (OS-independent) — Montserrat for Latin titles (YouTube
+# music-channel standard). Titles are English-only; if a string contains Hangul
+# (e.g. the optional 구독/좋아요 stickers) we fall back to an OS CJK font.
 _FONT_DIR = Path(__file__).resolve().parents[2] / "assets" / "fonts"
+_MONTSERRAT_BLACK = _FONT_DIR / "Montserrat-Black.ttf"
 _MONTSERRAT_BOLD = _FONT_DIR / "Montserrat-Bold.ttf"
 _MONTSERRAT_SEMIBOLD = _FONT_DIR / "Montserrat-SemiBold.ttf"
 _MONTSERRAT_MEDIUM = _FONT_DIR / "Montserrat-Medium.ttf"
-_PRETENDARD_BOLD = _FONT_DIR / "Pretendard-Bold.otf"
-_PRETENDARD_MEDIUM = _FONT_DIR / "Pretendard-Medium.otf"
 
 _FONTS_BOLD = [
     r"C:\Windows\Fonts\malgunbd.ttf",
@@ -144,22 +144,22 @@ def _has_hangul(text) -> bool:
                for ch in (text or ""))
 
 
-def _load_font(size: int, bold: bool = True, text=None):
-    """Bundled Montserrat for Latin; Pretendard when the text contains Hangul.
-
-    Falls back to OS CJK fonts, then PIL default. Pass the actual string as
-    ``text`` so Korean titles pick the Korean face.
+def _load_font(size: int, bold: bool = True, text=None, black: bool = False):
+    """Bundled Montserrat (English-only titles). ``black=True`` uses Montserrat
+    Black (900) for the title. If ``text`` contains Hangul (optional stickers),
+    fall back to an OS CJK font. Falls back to PIL default if nothing loads.
     """
     from PIL import ImageFont
     candidates = []
     if text is not None and _has_hangul(text):
-        candidates += [_PRETENDARD_BOLD if bold else _PRETENDARD_MEDIUM, _PRETENDARD_BOLD]
+        candidates += [Path(p) for p in _FONTS_BOLD]  # OS CJK for Korean glyphs
+    elif black:
+        candidates += [_MONTSERRAT_BLACK, _MONTSERRAT_BOLD]
+    elif bold:
+        candidates += [_MONTSERRAT_BOLD, _MONTSERRAT_SEMIBOLD]
     else:
-        candidates += [
-            _MONTSERRAT_BOLD if bold else _MONTSERRAT_SEMIBOLD,
-            _MONTSERRAT_SEMIBOLD, _MONTSERRAT_MEDIUM,
-        ]
-    candidates += [Path(p) for p in (_FONTS_BOLD if bold else _FONTS_REG)]
+        candidates += [_MONTSERRAT_SEMIBOLD, _MONTSERRAT_MEDIUM]
+    candidates += [Path(p) for p in (_FONTS_BOLD if (bold or black) else _FONTS_REG)]
     for fp in candidates:
         try:
             return ImageFont.truetype(str(fp), size)
@@ -299,14 +299,15 @@ def _draw_spaced_centered(draw, text, cx, cy, font, fill=(255, 255, 255, 255),
         x += draw.textlength(ch, font=font) + tracking
 
 
-def _fit_font_spaced(draw, text, max_w, start, tracking_ratio=0.03, min_size=42, bold=True):
+def _fit_font_spaced(draw, text, max_w, start, tracking_ratio=0.03, min_size=42,
+                     bold=True, black=False):
     size = start
     while size > min_size:
-        f = _load_font(size, bold, text=text)
+        f = _load_font(size, bold, text=text, black=black)
         if _spaced_width(draw, text, f, size * tracking_ratio) <= max_w:
             return f
         size -= 4
-    return _load_font(min_size, bold, text=text)
+    return _load_font(min_size, bold, text=text, black=black)
 
 
 def render_premium_thumbnail(bg_path, title, subtitle="", brand_text="Seoul Records",
@@ -340,7 +341,7 @@ def render_premium_thumbnail(bg_path, title, subtitle="", brand_text="Seoul Reco
         draw.rectangle([cx - lw // 2, ly, cx + lw // 2, ly + 3], fill=(*accent, 240))
         # Main playlist title — centered, letter-spaced, single soft drop shadow
         # (no outline/border). Montserrat, or Pretendard if the title has Hangul.
-        tf = _fit_font_spaced(draw, title, int(W * 0.80), int(H * 0.10))
+        tf = _fit_font_spaced(draw, title, int(W * 0.80), int(H * 0.10), black=True)
         _draw_spaced_centered(draw, title, cx, cy - int(H * 0.045), tf,
                               fill=(255, 255, 255, 255), tracking=int(H * 0.10) * 0.03,
                               shadow=(0, 0, 0, 130), shadow_off=(0, 4))
