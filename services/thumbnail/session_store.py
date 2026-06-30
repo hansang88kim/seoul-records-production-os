@@ -112,7 +112,7 @@ def save_prompts(session_id: str, prompts: list[dict]):
             "canva_accent_color": p.get("canva_accent_color", ""),
             "uploaded_image_path": None,
             "selected_for_branding": False,
-            "rating": None,
+            "rating": "Keep",
             "notes": "",
             "status": "generated_prompt",
             "created_at": datetime.now(timezone.utc).isoformat(),

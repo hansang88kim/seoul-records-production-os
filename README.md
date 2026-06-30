@@ -1,6 +1,6 @@
 # Seoul Records Production OS
 
-**AI Music Label Production Harness — v1.0.0-alpha.18**
+**AI Music Label Production Harness — v1.0.0-alpha.19**
 
 > Creative direction: controlled by ChatGPT and the user.
 > Engineering: this repository.
@@ -77,6 +77,8 @@ to point the console at a live backend.
 ## What This Is
 
 Seoul Records Production OS is a local MVP application for creating AI-generated city pop album projects. It provides a full 5-tab production pipeline from song generation through music distribution, with mock providers for v0.1.x and a clear upgrade path to real integrations.
+
+**v1.0.0-alpha.19: Fix Branding Checkbox Unclickable — The "✨ 브랜딩 선택" checkbox in Candidate Gallery was unresponsive because the candidate rating field was initialized to None while the radio default was "Keep", causing an infinite st.rerun() loop on every render. Fixed by initializing rating to "Keep" and defaulting the comparison safely. 674 tests passing.**
 
 **v1.0.0-alpha.18: Native 16:9 + 1:1 Generation (no stretch, no letterbox) — Each candidate is now generated at BOTH a native 16:9 and a native 1:1 from the start, instead of squaring a 16:9 (which warped the sides). The 1:1 is reframed from the same scene (image-to-image on real providers) so the square matches the wide version. Generation requests a full-bleed frame via the Gemini imageConfig aspectRatio (with a graceful retry if a model build rejects it) and auto-trims any stray white/black letterbox bars. The streaming cover now uses the native 1:1 background (distortion-free); the YouTube thumbnail uses the 16:9. Candidates store image_16x9 + image_1x1. Note: this doubles image API calls per candidate. 674 tests passing.**
 

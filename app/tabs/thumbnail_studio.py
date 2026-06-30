@@ -282,7 +282,7 @@ def _render_candidate_gallery():
                     index=["Keep", "Maybe", "Reject"].index(cand["rating"]) if cand.get("rating") in ["Keep", "Maybe", "Reject"] else 0,
                     key=f"rating_{cid}", horizontal=True, label_visibility="collapsed",
                 )
-                if rating != cand.get("rating"):
+                if rating != cand.get("rating", "Keep"):
                     ss.set_candidate_rating(sess["session_id"], cid, rating)
                     st.rerun()
 
