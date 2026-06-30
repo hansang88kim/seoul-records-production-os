@@ -441,26 +441,7 @@ def render_premium_thumbnail(bg_path, title, subtitle="", brand_text="Seoul Reco
     sq = 0.80 if (W == H) else 1.0
 
     img = _cover_fit(bg_path, W, H)
-    # For 1:1 with a wide source: zoom out to show more of the scene, then fill
-    # the uncovered strip with a blurred copy so it doesn't look like a harsh crop.
-    if W == H:
-        try:
-            from PIL import ImageFilter
-            src = Image.open(bg_path).convert("RGBA")
-            sw, sh = src.size
-            if sw / sh > 1.3:  # source is significantly wider than the square
-                # Fit-to-width (shows the full width, leaves top/bottom blank).
-                scale = W / sw
-                nw, nh = W, max(1, round(sh * scale))
-                fitted = src.resize((nw, nh), Image.LANCZOS)
-                # Background: blurred+darkened full-cover version.
-                bg_blur = _cover_fit(bg_path, W, H)
-                bg_blur = Image.alpha_composite(bg_blur, Image.new("RGBA", (W, H), (10, 12, 20, 160)))
-                bg_blur = bg_blur.filter(ImageFilter.GaussianBlur(40))
-                bg_blur.paste(fitted, (0, (H - nh) // 2))
-                img = bg_blur
-        except Exception:
-            pass
+    # Cinematic grade: light overall darken for legibility + a soft edge vignette.
     img = Image.alpha_composite(img, Image.new("RGBA", (W, H), (8, 10, 18, 45)))
     img = Image.alpha_composite(img, _radial_vignette(W, H, strength=95))
     draw = ImageDraw.Draw(img, "RGBA")

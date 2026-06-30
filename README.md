@@ -1,6 +1,6 @@
 # Seoul Records Production OS
 
-**AI Music Label Production Harness — v1.0.0-alpha.20**
+**AI Music Label Production Harness — v1.0.0-alpha.21**
 
 > Creative direction: controlled by ChatGPT and the user.
 > Engineering: this repository.
@@ -77,6 +77,8 @@ to point the console at a live backend.
 ## What This Is
 
 Seoul Records Production OS is a local MVP application for creating AI-generated city pop album projects. It provides a full 5-tab production pipeline from song generation through music distribution, with mock providers for v0.1.x and a clear upgrade path to real integrations.
+
+**v1.0.0-alpha.21: Native 1:1 Cover (no blur hack) — Removed the zoom-out/ blur approach for 1:1 covers; instead the cover uses the natively generated 1:1 background image directly (same concept, composed for square from the start by the image model). The 1:1 font-size reduction (sq=0.80) is kept so the title block stays proportional. 674 tests passing.**
 
 **v1.0.0-alpha.20: Fixed-Line Colors + 1:1 Improvements + FFmpeg Bundled — (1) Seoul Records and CityPop Playlist are still fixed, but now have their own color pickers (eyebrow_color, subtitle_color) in Brand Thumbnail + Exports. (2) 1:1 square renders use ~20% smaller fonts so the title block fits proportionally. (3) When a wide (16:9) source is rendered as 1:1, it now zooms out to show the full width and fills the top/bottom with a dark blurred copy (instead of harsh side-crop). (4) FFmpeg: added imageio-ffmpeg as a dependency so ffmpeg is bundled via pip (no separate system install needed); _ffmpeg_available falls back to imageio_ffmpeg.get_ffmpeg_exe(); build commands use the full path. 674 tests passing.**
 
