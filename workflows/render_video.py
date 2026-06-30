@@ -22,12 +22,38 @@ def _format_timestamp(seconds: float) -> str:
     return f"{m:02d}:{s:02d}"
 
 
+def _get_ffmpeg_exe() -> str | None:
+    """Return a working ffmpeg path: system PATH first, then imageio-ffmpeg bundle."""
+    path = shutil.which("ffmpeg")
+    if path:
+        return path
+    try:
+        import imageio_ffmpeg
+        return imageio_ffmpeg.get_ffmpeg_exe()
+    except Exception:
+        return None
+
+
 def _ffmpeg_available() -> bool:
-    return shutil.which("ffmpeg") is not None
+    return _get_ffmpeg_exe() is not None
+
+
+def _get_ffprobe_exe() -> str | None:
+    path = shutil.which("ffprobe")
+    if path:
+        return path
+    # imageio-ffmpeg doesn't bundle ffprobe, but try common relative paths.
+    ffmpeg = _get_ffmpeg_exe()
+    if ffmpeg:
+        from pathlib import Path as _P
+        probe = _P(ffmpeg).parent / ("ffprobe.exe" if _P(ffmpeg).suffix == ".exe" else "ffprobe")
+        if probe.exists():
+            return str(probe)
+    return None
 
 
 def _ffprobe_available() -> bool:
-    return shutil.which("ffprobe") is not None
+    return _get_ffprobe_exe() is not None
 
 
 def _get_audio_duration_ffprobe(wav_path: Path) -> float | None:
@@ -71,8 +97,9 @@ def build_ffmpeg_command(
     output_video_path: Path,
 ) -> str:
     """Build the FFmpeg render command string."""
+    exe = _get_ffmpeg_exe() or "ffmpeg"
     return (
-        f'ffmpeg -loop 1 -i "{background_image_path}" '
+        f'"{exe}" -y -loop 1 -i "{background_image_path}" '
         f'-f concat -safe 0 -i "{audio_list_path}" '
         f'-c:v libx264 -tune stillimage -c:a aac -b:a 320k '
         f'-pix_fmt yuv420p -shortest '
@@ -202,7 +229,7 @@ def export_video_package(
             try:
                 audio_mix_path = out_dir / "final_audio_mix.mp3"
                 audio_mix_cmd = (
-                    f'ffmpeg -y -f concat -safe 0 -i "{audio_list_path}" '
+                    f'"{_get_ffmpeg_exe() or "ffmpeg"}" -y -f concat -safe 0 -i "{audio_list_path}" '
                     f'-c:a libmp3lame -q:a 2 "{audio_mix_path}"'
                 )
                 mix_result = subprocess.run(

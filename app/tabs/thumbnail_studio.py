@@ -355,11 +355,18 @@ def _render_brand_thumbnail():
     with sc4:
         title_center = st.checkbox("제목 중앙 배치", value=True, key="brand_title_center")
 
-    # Title color + size
-    tc1, tc2 = st.columns([1, 2])
+    # Title color + size + fixed-line colors
+    tc1, tc2, tc3, tc4 = st.columns([1, 1, 1, 2])
     with tc1:
         title_color = st.color_picker("제목 색상", value="#FFFFFF", key="brand_title_color")
     with tc2:
+        eyebrow_color = st.color_picker("상단 색상", value="#FFFFFF", key="brand_eyebrow_color",
+                                        help="Seoul Records 텍스트 색상")
+    with tc3:
+        subtitle_color = st.color_picker("하단 색상", value=cand.get("canva_accent_color", "#ff4d6d") if selected else "#ff4d6d",
+                                         key="brand_subtitle_color",
+                                         help="CityPop Playlist 텍스트 색상 (기본 = 엑센트)")
+    with tc4:
         title_scale = st.slider("제목 크기", 0.80, 1.60, 1.10, 0.05,
                                 key="brand_title_scale",
                                 help="1.0 = 기본 · 값이 클수록 제목이 커집니다.")
@@ -382,6 +389,7 @@ def _render_brand_thumbnail():
                     title_layout="center" if title_center else "lower-left",
                     title_color=title_color, title_scale=title_scale,
                     cjk_subtext=cjk_subtext,
+                    eyebrow_color=eyebrow_color, subtitle_color=subtitle_color,
                 )
                 results.append((cand, branded, payload))
             else:
@@ -485,10 +493,16 @@ def _render_exports():
                                      "manual": "수동",
                                  }.get(m, m), key="exp_crop")
 
-    ec1, ec2 = st.columns([1, 2])
+    ec1, ec2, ec3, ec4 = st.columns([1, 1, 1, 2])
     with ec1:
         exp_title_color = st.color_picker("제목 색상", value="#FFFFFF", key="exp_title_color")
     with ec2:
+        exp_eyebrow_color = st.color_picker("상단 색상", value="#FFFFFF", key="exp_eyebrow_color",
+                                            help="Seoul Records 텍스트 색상")
+    with ec3:
+        exp_subtitle_color = st.color_picker("하단 색상", value=accent, key="exp_subtitle_color",
+                                             help="CityPop Playlist 색상 (기본 = 엑센트)")
+    with ec4:
         exp_title_scale = st.slider("제목 크기", 0.80, 1.60, 1.10, 0.05,
                                     key="exp_title_scale",
                                     help="1.0 = 기본 · 값이 클수록 제목이 커집니다.")
@@ -500,7 +514,8 @@ def _render_exports():
     with bcol1:
         if st.button("🖼️ YouTube 썸네일", use_container_width=True):
             p = ae.export_youtube_thumbnail(sid, bg_path, title, subtitle, brand_text,
-                                            accent, exp_title_color, exp_title_scale, exp_cjk)
+                                            accent, exp_title_color, exp_title_scale, exp_cjk,
+                                            exp_eyebrow_color, exp_subtitle_color)
             if p:
                 ae.write_asset_manifest(sid, _rebuild_manifest(sid, ae, AT))
                 st.success("✅ YouTube 썸네일 16:9")
@@ -516,6 +531,7 @@ def _render_exports():
             p = ae.export_streaming_cover(sid, str(yt), bg_path, title, subtitle,
                                           brand_text, accent, crop_mode,
                                           exp_title_color, exp_title_scale, exp_cjk,
+                                          exp_eyebrow_color, exp_subtitle_color,
                                           square_bg_path)
             if p:
                 ae.write_asset_manifest(sid, _rebuild_manifest(sid, ae, AT))
@@ -525,6 +541,7 @@ def _render_exports():
             results = ae.export_all_required_assets(sid, bg_path, title, subtitle,
                                                     brand_text, accent, crop_mode,
                                                     exp_title_color, exp_title_scale, exp_cjk,
+                                                    exp_eyebrow_color, exp_subtitle_color,
                                                     square_bg_path)
             st.success(f"✅ 3종 전체 내보내기 완료!")
 

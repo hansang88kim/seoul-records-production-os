@@ -22,3 +22,6 @@ python-telegram-bot>=21.0
 # Real thumbnail image generation (Gemini / Nano Banana). Optional: only needed
 # when 'use real images' is on. Set GEMINI_API_KEY (https://aistudio.google.com/apikey).
 google-genai>=1.0.0
+
+# v1.0.0-alpha.20: bundled FFmpeg via imageio-ffmpeg (no system install needed)
+imageio-ffmpeg>=0.5.1

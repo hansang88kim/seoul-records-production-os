@@ -79,6 +79,8 @@ def export_youtube_thumbnail(
     title_color: str = "#FFFFFF",
     title_scale: float = 1.0,
     cjk_subtext: str = "",
+    eyebrow_color: str = "#FFFFFF",
+    subtitle_color: str = "",
 ) -> str | None:
     """
     Export a branded YouTube thumbnail (16:9). Contains the Playlist/CityPop/Vol.
@@ -93,7 +95,8 @@ def export_youtube_thumbnail(
     img = render_premium_thumbnail(bg_path, title, subtitle, brand_text, accent_color,
                                    W, H, with_title=True,
                                    title_color=title_color, title_scale=title_scale,
-                                   cjk_subtext=cjk_subtext)
+                                   cjk_subtext=cjk_subtext,
+                                   eyebrow_color=eyebrow_color, subtitle_color=subtitle_color)
 
     out = _exports_dir(session_id) / AT.EXPORT_FILENAMES[AT.YOUTUBE_THUMBNAIL_16X9]
     img.save(out)
@@ -147,6 +150,8 @@ def export_streaming_cover(
     title_color: str = "#FFFFFF",
     title_scale: float = 1.0,
     cjk_subtext: str = "",
+    eyebrow_color: str = "#FFFFFF",
+    subtitle_color: str = "",
     square_bg_path: str = "",
 ) -> str | None:
     """
@@ -177,7 +182,9 @@ def export_streaming_cover(
                                              accent_color, S, S, with_title=True,
                                              title_color=title_color,
                                              title_scale=title_scale,
-                                             cjk_subtext=cjk_subtext)
+                                             cjk_subtext=cjk_subtext,
+                                             eyebrow_color=eyebrow_color,
+                                             subtitle_color=subtitle_color)
         except Exception:
             cover = None
     if cover is None:
@@ -314,6 +321,8 @@ def export_all_required_assets(
     title_color: str = "#FFFFFF",
     title_scale: float = 1.0,
     cjk_subtext: str = "",
+    eyebrow_color: str = "#FFFFFF",
+    subtitle_color: str = "",
     square_bg_path: str = "",
 ) -> dict:
     """
@@ -327,7 +336,8 @@ def export_all_required_assets(
 
     # A. YouTube thumbnail (the source for the streaming cover)
     yt = export_youtube_thumbnail(session_id, bg_path, title, subtitle, brand_text,
-                                  accent_color, title_color, title_scale, cjk_subtext)
+                                  accent_color, title_color, title_scale, cjk_subtext,
+                                  eyebrow_color, subtitle_color)
     if yt:
         results[AT.YOUTUBE_THUMBNAIL_16X9] = yt
         assets.append(_make_asset_entry(session_id, AT.YOUTUBE_THUMBNAIL_16X9, yt))
@@ -341,7 +351,8 @@ def export_all_required_assets(
     # C. Streaming cover — prefer the native 1:1 background.
     sc = export_streaming_cover(session_id, yt or "", bg_path, title, subtitle,
                                 brand_text, accent_color, crop_mode,
-                                title_color, title_scale, cjk_subtext, square_bg_path)
+                                title_color, title_scale, cjk_subtext,
+                                eyebrow_color, subtitle_color, square_bg_path)
     if sc:
         results[AT.STREAMING_COVER_1X1] = sc
         assets.append(_make_asset_entry(session_id, AT.STREAMING_COVER_1X1, sc))

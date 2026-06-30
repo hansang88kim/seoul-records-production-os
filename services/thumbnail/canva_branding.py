@@ -423,48 +423,64 @@ def _fit_font_spaced(draw, text, max_w, start, tracking_ratio=0.03, min_size=42,
 
 def render_premium_thumbnail(bg_path, title, subtitle="", brand_text="Seoul Records",
                              accent_color="#00d4ff", W=1920, H=1080, with_title=True,
-                             title_color="#FFFFFF", title_scale=1.0, cjk_subtext=""):
+                             title_color="#FFFFFF", title_scale=1.0, cjk_subtext="",
+                             eyebrow_color="#FFFFFF", subtitle_color=""):
     """
-    Premium music-channel thumbnail (10만+ 채널 레퍼런스): a cinematic background
-    with a vignette and a clean CENTER-aligned title block. TOKYO/東京 style — an
-    optional Hanja/Hangul ``cjk_subtext`` line sits just under the main title.
-
-    Layout (vertically centered, auto-spaced so nothing overlaps at any size):
-    eyebrow → thin divider → title (Montserrat Black) → cjk_subtext → subtitle.
-    ``title_color`` sets the title + CJK line fill (hex); ``title_scale`` multiplies
-    sizes. Returns a PIL RGB Image.
+    Premium music-channel thumbnail. ``eyebrow_color`` sets the fixed top line
+    (Seoul Records); ``subtitle_color`` sets the fixed bottom line (CityPop
+    Playlist) — defaults to accent_color when empty. For 1:1 renders, fonts are
+    automatically ~20 % smaller so the block fits the square proportionally.
     """
     from PIL import Image, ImageDraw
     accent = _hex_to_rgb(accent_color)
     title_rgb = _hex_to_rgb(title_color)
+    eyebrow_rgb = _hex_to_rgb(eyebrow_color or "#FFFFFF")
+    sub_rgb = _hex_to_rgb(subtitle_color) if subtitle_color else accent
     s = max(0.6, min(2.0, float(title_scale)))  # clamp
+    # Square renders (1:1 cover): shrink fonts ~20 % so the block doesn't dominate.
+    sq = 0.80 if (W == H) else 1.0
 
     img = _cover_fit(bg_path, W, H)
-    # Cinematic grade: light overall darken for legibility + a soft edge vignette.
+    # For 1:1 with a wide source: zoom out to show more of the scene, then fill
+    # the uncovered strip with a blurred copy so it doesn't look like a harsh crop.
+    if W == H:
+        try:
+            from PIL import ImageFilter
+            src = Image.open(bg_path).convert("RGBA")
+            sw, sh = src.size
+            if sw / sh > 1.3:  # source is significantly wider than the square
+                # Fit-to-width (shows the full width, leaves top/bottom blank).
+                scale = W / sw
+                nw, nh = W, max(1, round(sh * scale))
+                fitted = src.resize((nw, nh), Image.LANCZOS)
+                # Background: blurred+darkened full-cover version.
+                bg_blur = _cover_fit(bg_path, W, H)
+                bg_blur = Image.alpha_composite(bg_blur, Image.new("RGBA", (W, H), (10, 12, 20, 160)))
+                bg_blur = bg_blur.filter(ImageFilter.GaussianBlur(40))
+                bg_blur.paste(fitted, (0, (H - nh) // 2))
+                img = bg_blur
+        except Exception:
+            pass
     img = Image.alpha_composite(img, Image.new("RGBA", (W, H), (8, 10, 18, 45)))
     img = Image.alpha_composite(img, _radial_vignette(W, H, strength=95))
     draw = ImageDraw.Draw(img, "RGBA")
 
     cx, cy = W // 2, H // 2
     if with_title:
-        # Vertical stack: each element reserves its full line-box height + a gap
-        # above it, then draws centered on the element's vertical center. Using
-        # the line box (not the glyph bbox) reserves room for tall marks so
-        # Thai/Devanagari can't collide with the title. Everything scales with s.
-        elements = []  # (height, gap_above, draw_fn)
+        elements = []
 
         eyebrow = (brand_text or "Seoul Records").upper()
-        ef = _load_font(int(H * 0.0312 * s), bold=True)
+        ef = _load_font(int(H * 0.0312 * s * sq), bold=True)
         elements.append((_line_h(ef), 0, lambda yc, f=ef, t=eyebrow:
                          _draw_spaced_centered(draw, t, cx, yc, f,
-                                               fill=(255, 255, 255, 205), tracking=H * 0.016 * s)))
+                                               fill=(*eyebrow_rgb, 205), tracking=H * 0.016 * s * sq)))
 
-        lw = int(W * 0.06 * s)
+        lw = int(W * 0.06 * s * sq)
         elements.append((max(3, int(H * 0.004)), int(H * 0.014 * s), lambda yc, w=lw:
                          draw.rectangle([cx - w // 2, yc - 1, cx + w // 2, yc + 2],
                                         fill=(*accent, 240))))
 
-        title_px = int(H * 0.142 * s)
+        title_px = int(H * 0.142 * s * sq)
         tf = _fit_font_spaced(draw, title, int(W * 0.88), title_px, black=True)
         elements.append((_line_h(tf), int(H * 0.015 * s), lambda yc, f=tf, t=title:
                          _draw_spaced_centered(draw, t, cx, yc, f, fill=(*title_rgb, 255),
@@ -474,7 +490,6 @@ def render_premium_thumbnail(bg_path, title, subtitle="", brand_text="Seoul Reco
         if cjk_subtext:
             cf = _load_subtext_font(int(title_px * 0.5), text=cjk_subtext, weight=700)
             if _has_thai(cjk_subtext) or _has_devanagari(cjk_subtext):
-                # Complex scripts: whole shaped string, extra gap for tall marks.
                 elements.append((_line_h(cf), int(H * 0.018 * s), lambda yc, f=cf, t=cjk_subtext:
                                  _draw_centered_plain(draw, t, cx, yc, f, fill=(*title_rgb, 255),
                                                       shadow=(0, 0, 0, 120), shadow_off=(0, 3))))
@@ -485,10 +500,10 @@ def render_premium_thumbnail(bg_path, title, subtitle="", brand_text="Seoul Reco
                                                        shadow=(0, 0, 0, 120), shadow_off=(0, 3))))
 
         if subtitle:
-            sf = _load_font(int(H * 0.0456 * s), bold=False, text=subtitle)
+            sf = _load_font(int(H * 0.0456 * s * sq), bold=False, text=subtitle)
             elements.append((_line_h(sf), int(H * 0.015 * s), lambda yc, f=sf, t=subtitle:
                              _draw_spaced_centered(draw, t, cx, yc, f,
-                                                   fill=(*accent, 235), tracking=H * 0.006 * s)))
+                                                   fill=(*sub_rgb, 235), tracking=H * 0.006 * s * sq)))
 
         total = sum(h + g for h, g, _ in elements)
         y = cy - total / 2
@@ -519,6 +534,8 @@ def mock_render_branded_thumbnail(
     title_color: str = "#FFFFFF",
     title_scale: float = 1.0,
     cjk_subtext: str = "",
+    eyebrow_color: str = "#FFFFFF",
+    subtitle_color: str = "",
 ) -> str | None:
     """
     Render a finished, premium music-channel thumbnail locally (PIL) — no Canva.
@@ -548,6 +565,7 @@ def mock_render_branded_thumbnail(
         bg_path, title, subtitle, brand_text, accent_color, W, H,
         with_title=(title_layout != "none"),
         title_color=title_color, title_scale=title_scale, cjk_subtext=cjk_subtext,
+        eyebrow_color=eyebrow_color, subtitle_color=subtitle_color,
     )
 
     # Optional CTA stickers overlaid on top (off by default).
