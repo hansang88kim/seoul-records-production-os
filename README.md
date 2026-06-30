@@ -1,6 +1,6 @@
 # Seoul Records Production OS
 
-**AI Music Label Production Harness — v1.0.0-alpha.15**
+**AI Music Label Production Harness — v1.0.0-alpha.16**
 
 > Creative direction: controlled by ChatGPT and the user.
 > Engineering: this repository.
@@ -77,6 +77,8 @@ to point the console at a live backend.
 ## What This Is
 
 Seoul Records Production OS is a local MVP application for creating AI-generated city pop album projects. It provides a full 5-tab production pipeline from song generation through music distribution, with mock providers for v0.1.x and a clear upgrade path to real integrations.
+
+**v1.0.0-alpha.16: Tighter Still — Inter-line gaps reduced further (~0.025H → ~0.015H) so the four-line title block is more compact, leaving even more background visible above and below. Complex scripts still reserve their line box (no collisions). 671 tests passing.**
 
 **v1.0.0-alpha.15: Tighter Title Block — The inter-line gaps in the title block were roughly halved so the four lines sit closer together as a compact unit, leaving more empty space top and bottom for the thumbnail background to show through. Font sizes are unchanged; complex scripts (Thai/Devanagari) still reserve their full line box so they never collide. 671 tests passing.**
 
