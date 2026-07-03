@@ -400,6 +400,10 @@ with st.sidebar:
     st.markdown("")
     _credential_field("Gemini", "GOOGLE_GEMINI_API_KEY", "AI...", verify_fn=_verify_gemini, persist_env=True)
 
+    st.markdown("<div style='color:#6a7a94;font-size:0.7rem;font-weight:600;text-transform:uppercase;letter-spacing:1.5px;margin:0.8rem 0 0.3rem'>🎨 Image Gen</div>", unsafe_allow_html=True)
+    _credential_field("Midjourney (Apiframe)", "APIFRAME_API_KEY", "Apiframe API 키",
+                      persist_env=True)
+
     st.divider()
 
     # ── Job Status Panel ─────────────────────────────────────────────

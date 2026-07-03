@@ -159,22 +159,24 @@ def image_target_dir(session_id: str) -> Path:
 
 
 def generate_images(session_id: str, prompts: list[dict],
-                    use_real: bool = False, model: str | None = None) -> list[dict]:
+                    use_real: bool = False, model: str | None = None,
+                    engine: str = "gemini") -> list[dict]:
     """Generate ACTUAL images for each prompt and link them to candidates.
 
     Saves prompt text first (reusing save_prompts), then renders one image per
-    prompt via the image provider (mock by default; real Gemini/Nano Banana when
-    use_real and an API key + SDK are present). Generated files land in the
-    project's image folder when the session is project-bound. The image path is
-    stored as ``uploaded_image_path`` so the existing select/brand pipeline works
-    unchanged. Returns the updated candidate list.
+    prompt via the image provider (mock by default; real Gemini/Nano Banana or
+    Midjourney-via-Apiframe when use_real and the matching API key are present —
+    select with ``engine`` = "gemini" | "midjourney"). Generated files land in
+    the project's image folder when the session is project-bound. The image path
+    is stored as ``uploaded_image_path`` so the existing select/brand pipeline
+    works unchanged. Returns the updated candidate list.
     """
     from services.thumbnail.image_provider import get_image_provider
 
     # Base candidates + prompt files.
     save_prompts(session_id, prompts)
     target = image_target_dir(session_id)
-    provider = get_image_provider(use_real=use_real, model=model)
+    provider = get_image_provider(use_real=use_real, model=model, engine=engine)
 
     candidates = load_candidates(session_id)
     for i, (c, p) in enumerate(zip(candidates, prompts)):

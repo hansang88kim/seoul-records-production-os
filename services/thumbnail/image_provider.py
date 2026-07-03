@@ -391,16 +391,32 @@ class GeminiImageProvider(ImageGenProvider):
                     "path": None, "error": f"generation failed: {type(e).__name__}: {e}"}
 
 
-def get_image_provider(use_real: bool = False, model: str | None = None) -> ImageGenProvider:
+def get_image_provider(use_real: bool = False, model: str | None = None,
+                       engine: str = "gemini") -> ImageGenProvider:
     """Return the appropriate provider.
 
-    Real provider only when use_real AND an API key is set; otherwise the mock —
-    so tests/default runs never call out. The real backend defaults to REST
-    (requests only, no extra install); set SEOUL_IMAGE_BACKEND=sdk to use the
-    google-genai SDK (required for Imagen models).
+    ``engine`` selects the real backend family:
+      * "gemini" (default) — Google Gemini image models (Nano Banana / Imagen).
+      * "midjourney"       — the user's Midjourney account via Apiframe
+                             (APIFRAME_API_KEY required).
+
+    Real provider only when use_real AND the matching API key is set; otherwise
+    the mock — so tests/default runs never call out. For Gemini the real backend
+    defaults to REST (requests only, no extra install); set
+    SEOUL_IMAGE_BACKEND=sdk to use the google-genai SDK (required for Imagen).
     """
     if not use_real:
         return MockImageGenProvider()
+
+    if (engine or "gemini").strip().lower() == "midjourney":
+        # Lazy import: keeps this module dependency-free of the MJ provider.
+        from services.thumbnail.midjourney_provider import (
+            MidjourneyApiframeProvider, get_apiframe_key,
+        )
+        if not get_apiframe_key():
+            return MockImageGenProvider()
+        return MidjourneyApiframeProvider()
+
     if not get_api_key():
         return MockImageGenProvider()
 

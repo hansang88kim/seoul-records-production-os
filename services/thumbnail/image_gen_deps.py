@@ -50,3 +50,23 @@ def check_image_gen_dependencies() -> dict:
         ),
         "key_env_vars": list(_API_KEY_ENV_VARS),
     }
+
+
+def check_midjourney_dependencies() -> dict:
+    """Structured readiness report for Midjourney generation via Apiframe.
+
+    Requires only `requests` (always available) + an Apiframe API key, so
+    readiness == key presence. The API key VALUE is never included.
+    """
+    from services.thumbnail.midjourney_provider import get_apiframe_key
+    key = get_apiframe_key() is not None
+    return {
+        "api_key_present": key,
+        "ready": key,
+        "model": "midjourney (Apiframe)",
+        "key_hint": (
+            "Enter your Apiframe API key in the left sidebar (🎨 Image Gen → "
+            "Midjourney), or set APIFRAME_API_KEY. Key: https://apiframe.pro dashboard"
+        ),
+        "key_env_vars": ["APIFRAME_API_KEY"],
+    }
