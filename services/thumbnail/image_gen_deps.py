@@ -66,7 +66,8 @@ def check_midjourney_dependencies() -> dict:
         "model": "midjourney (Apiframe)",
         "key_hint": (
             "Enter your Apiframe API key in the left sidebar (🎨 Image Gen → "
-            "Midjourney), or set APIFRAME_API_KEY. Key: https://apiframe.pro dashboard"
+            "Midjourney), or set APIFRAME_API_KEY. Key (v2, starts with afk_): "
+            "https://apiframe.ai dashboard"
         ),
         "key_env_vars": ["APIFRAME_API_KEY"],
     }

@@ -1,11 +1,14 @@
 """
-tests/test_midjourney_provider.py — Midjourney via Apiframe (v1.0.0-alpha.30).
+tests/test_midjourney_provider.py — Midjourney via Apiframe v2 (v1.0.0-alpha.32).
 
-Covers the new Midjourney image engine:
+Covers the Midjourney image engine, rewritten for Apiframe v2
+(https://api.apiframe.ai/v2 — X-API-Key auth, POST /images/generate,
+GET /jobs/:id):
   * provider fails cleanly without an API key (no network)
-  * imagine → fetch(processing) → fetch(image_urls) happy path, files written
-  * --no translation of the negative prompt; aspect_ratio in the payload
-  * failed task and timeout surface clean errors WITHOUT the API key
+  * submit → poll(QUEUED/PROCESSING) → poll(COMPLETED) happy path, files written
+  * --no translation of the negative prompt; midjourneyParams.aspect_ratio sent
+  * failed job and timeout surface clean errors WITHOUT the API key
+  * verify_apiframe_key() (GET /v2/me) — used by the sidebar connect flow
   * factory routing: get_image_provider(engine="midjourney") — key/no-key
   * generate_images(engine=...) passes the engine through to the factory
   * dependency check reports readiness WITHOUT exposing the key
@@ -16,8 +19,6 @@ returns the mock whenever APIFRAME_API_KEY is absent (always true in CI).
 from __future__ import annotations
 
 import json
-import os
-from pathlib import Path
 from unittest import mock
 
 import pytest
@@ -28,7 +29,7 @@ from services.thumbnail import image_gen_deps as deps
 from services.thumbnail import midjourney_provider as mj
 
 
-_FAKE_KEY = "apiframe_test_key_SECRET_9f8e7d"
+_FAKE_KEY = "afk_test_key_SECRET_9f8e7d"
 _PNG = b"\x89PNG\r\n\x1a\n" + b"\x00" * 24  # minimal PNG-magic payload
 
 
@@ -39,6 +40,7 @@ def studio_tmp(monkeypatch, tmp_path):
     for var in ip._API_KEY_ENV_VARS:
         monkeypatch.delenv(var, raising=False)
     monkeypatch.delenv("APIFRAME_API_KEY", raising=False)
+    monkeypatch.setattr(mj, "_POLL_INTERVAL_SEC", 0)
     yield
 
 
@@ -62,68 +64,76 @@ def test_mj_provider_no_key_returns_error_without_network():
     post.assert_not_called()
 
 
-# ─── Happy path: imagine → processing → finished ─────────────────────────────
+# ─── Happy path: submit → QUEUED/PROCESSING → COMPLETED ──────────────────────
 
-def test_mj_happy_path_polls_and_downloads(monkeypatch, tmp_path):
-    monkeypatch.setattr(mj, "_POLL_INTERVAL_SEC", 0)
+def test_mj_happy_path_polls_and_downloads(tmp_path):
     prov = mj.MidjourneyApiframeProvider(api_key=_FAKE_KEY)
     out = tmp_path / "cand" / "c1_16x9.png"
 
-    posts = []
+    posts, gets = [], []
 
     def fake_post(url, headers=None, json=None, timeout=None):
         posts.append({"url": url, "json": json, "headers": headers})
-        if url.endswith("/imagine"):
-            return _resp(200, {"task_id": "task-abc-123"})
-        # fetch: first call processing, then finished with 4 urls
-        n_fetch = sum(1 for p in posts if p["url"].endswith("/fetch"))
-        if n_fetch == 1:
-            return _resp(200, {"task_id": "task-abc-123", "status": "processing",
-                               "percentage": "40"})
+        assert url == f"{mj.APIFRAME_BASE_URL}/images/generate"
+        return _resp(202, {"jobId": "job-abc-123", "status": "QUEUED"})
+
+    def fake_get(url, headers=None, timeout=None):
+        gets.append(url)
+        assert url == f"{mj.APIFRAME_BASE_URL}/jobs/job-abc-123"
+        if len(gets) == 1:
+            return _resp(200, {"status": "PROCESSING", "progress": 40, "result": None})
         return _resp(200, {
-            "task_id": "task-abc-123", "task_type": "imagine",
-            "original_image_url": "https://cdn.example/grid.png",
-            "image_urls": [f"https://cdn.example/img{i}.png" for i in range(1, 5)],
+            "status": "COMPLETED", "progress": 100,
+            "result": {
+                "images": [f"https://cdn2.apiframe.ai/images/job-abc-123-{i}.png" for i in range(1, 5)],
+                "gridUrl": "https://cdn2.apiframe.ai/images/job-abc-123-grid.png",
+            },
         })
 
-    def fake_get(url, timeout=None):
+    def fake_download(url, timeout=None):
         return _resp(200, content=_PNG)
 
     with mock.patch("requests.post", side_effect=fake_post), \
-         mock.patch("requests.get", side_effect=fake_get):
+         mock.patch("requests.get", side_effect=lambda url, headers=None, timeout=None:
+                     fake_get(url, headers, timeout) if "/jobs/" in url else fake_download(url, timeout)):
         r = prov.generate("neon rainy Seoul street, 1990s anime",
                           str(out), negative_prompt="text, watermark",
                           aspect="16:9")
 
     assert r["ok"] is True, r
     assert r["provider"] == "midjourney-apiframe"
-    assert r["task_id"] == "task-abc-123"
+    assert r["task_id"] == "job-abc-123"
     assert out.exists()
 
-    # Imagine payload: aspect_ratio field + --no negatives in the prompt
-    imagine = next(p for p in posts if p["url"].endswith("/imagine"))
-    assert imagine["json"]["aspect_ratio"] == "16:9"
-    assert "--no text, watermark" in imagine["json"]["prompt"]
-    assert imagine["headers"]["Authorization"] == _FAKE_KEY
+    # Submit payload: X-API-Key header + midjourneyParams.aspect_ratio + --no negatives
+    submit = posts[0]
+    assert submit["headers"]["X-API-Key"] == _FAKE_KEY
+    assert submit["json"]["model"] == "midjourney"
+    assert submit["json"]["midjourneyParams"]["aspect_ratio"] == "16:9"
+    assert "--no text, watermark" in submit["json"]["prompt"]
 
     # The other 3 quadrants saved as _alt2.._alt4 next to the primary
     for n in (2, 3, 4):
         assert out.with_name(f"c1_16x9_alt{n}.png").exists()
 
 
-def test_mj_no_negative_prompt_has_no_no_flag(monkeypatch, tmp_path):
-    monkeypatch.setattr(mj, "_POLL_INTERVAL_SEC", 0)
+def test_mj_no_negative_prompt_has_no_no_flag(tmp_path):
     prov = mj.MidjourneyApiframeProvider(api_key=_FAKE_KEY)
     captured = {}
 
     def fake_post(url, headers=None, json=None, timeout=None):
-        if url.endswith("/imagine"):
-            captured["prompt"] = json["prompt"]
-            return _resp(200, {"task_id": "t1"})
-        return _resp(200, {"image_urls": ["https://cdn.example/1.png"]})
+        captured["prompt"] = json["prompt"]
+        return _resp(202, {"jobId": "t1", "status": "QUEUED"})
+
+    def fake_get(url, headers=None, timeout=None):
+        return _resp(200, {"status": "COMPLETED", "result": {"images": ["https://cdn2.apiframe.ai/images/1.png"]}})
+
+    def fake_dl(url, timeout=None):
+        return _resp(200, content=_PNG)
 
     with mock.patch("requests.post", side_effect=fake_post), \
-         mock.patch("requests.get", return_value=_resp(200, content=_PNG)):
+         mock.patch("requests.get", side_effect=lambda url, headers=None, timeout=None:
+                     fake_get(url) if "/jobs/" in url else fake_dl(url)):
         r = prov.generate("clean prompt", str(tmp_path / "o.png"), aspect="1:1")
 
     assert r["ok"] is True
@@ -132,17 +142,17 @@ def test_mj_no_negative_prompt_has_no_no_flag(monkeypatch, tmp_path):
 
 # ─── Failure paths ────────────────────────────────────────────────────────────
 
-def test_mj_failed_task_surfaces_error_without_key(monkeypatch, tmp_path):
-    monkeypatch.setattr(mj, "_POLL_INTERVAL_SEC", 0)
+def test_mj_failed_job_surfaces_error_without_key(tmp_path):
     prov = mj.MidjourneyApiframeProvider(api_key=_FAKE_KEY)
 
     def fake_post(url, headers=None, json=None, timeout=None):
-        if url.endswith("/imagine"):
-            return _resp(200, {"task_id": "t-fail"})
-        return _resp(200, {"task_id": "t-fail", "status": "failed",
-                           "error": f"banned prompt (key={_FAKE_KEY})"})
+        return _resp(202, {"jobId": "t-fail", "status": "QUEUED"})
 
-    with mock.patch("requests.post", side_effect=fake_post):
+    def fake_get(url, headers=None, timeout=None):
+        return _resp(200, {"status": "FAILED", "error": f"banned prompt (key={_FAKE_KEY})"})
+
+    with mock.patch("requests.post", side_effect=fake_post), \
+         mock.patch("requests.get", side_effect=fake_get):
         r = prov.generate("bad", str(tmp_path / "x.png"))
 
     assert r["ok"] is False
@@ -154,7 +164,7 @@ def test_mj_imagine_http_error_no_key_leak(tmp_path):
     prov = mj.MidjourneyApiframeProvider(api_key=_FAKE_KEY)
 
     def fake_post(url, headers=None, json=None, timeout=None):
-        return _resp(401, {"errors": [{"msg": f"invalid key {_FAKE_KEY}"}]})
+        return _resp(401, {"error": f"invalid key {_FAKE_KEY}"})
 
     with mock.patch("requests.post", side_effect=fake_post):
         r = prov.generate("p", str(tmp_path / "x.png"))
@@ -164,8 +174,23 @@ def test_mj_imagine_http_error_no_key_leak(tmp_path):
     assert _FAKE_KEY not in r["error"]
 
 
+def test_mj_v1_style_key_gets_clean_error(tmp_path):
+    """Regression: a v1 key (no 'afk_' prefix) hitting v2 must surface the
+    server's error text cleanly, not crash — this is exactly what happened
+    in production before this rewrite."""
+    prov = mj.MidjourneyApiframeProvider(api_key="v1-style-key-no-prefix")
+
+    def fake_post(url, headers=None, json=None, timeout=None):
+        return _resp(400, {"error": "Your API key starts with 'v1' which means you are on Apiframe v1."})
+
+    with mock.patch("requests.post", side_effect=fake_post):
+        r = prov.generate("p", str(tmp_path / "x.png"))
+
+    assert r["ok"] is False
+    assert "HTTP 400" in r["error"]
+
+
 def test_mj_timeout_returns_clean_error(monkeypatch, tmp_path):
-    monkeypatch.setattr(mj, "_POLL_INTERVAL_SEC", 0)
     monkeypatch.setenv("SEOUL_MJ_TIMEOUT", "30")  # min clamp is 30
 
     # Freeze-step time: each time.time() call advances past the deadline fast.
@@ -175,23 +200,54 @@ def test_mj_timeout_returns_clean_error(monkeypatch, tmp_path):
     prov = mj.MidjourneyApiframeProvider(api_key=_FAKE_KEY)
 
     def fake_post(url, headers=None, json=None, timeout=None):
-        if url.endswith("/imagine"):
-            return _resp(200, {"task_id": "t-slow"})
-        return _resp(200, {"status": "processing", "percentage": "10"})
+        return _resp(202, {"jobId": "t-slow", "status": "QUEUED"})
 
-    with mock.patch("requests.post", side_effect=fake_post):
+    def fake_get(url, headers=None, timeout=None):
+        return _resp(200, {"status": "PROCESSING", "progress": 10})
+
+    with mock.patch("requests.post", side_effect=fake_post), \
+         mock.patch("requests.get", side_effect=fake_get):
         r = prov.generate("slow", str(tmp_path / "x.png"))
 
     assert r["ok"] is False
     assert "timed out" in r["error"]
 
 
-def test_mj_imagine_no_task_id_is_error(tmp_path):
+def test_mj_imagine_no_job_id_is_error(tmp_path):
     prov = mj.MidjourneyApiframeProvider(api_key=_FAKE_KEY)
-    with mock.patch("requests.post", return_value=_resp(200, {"message": "queued?"})):
+    with mock.patch("requests.post", return_value=_resp(202, {"message": "queued?"})):
         r = prov.generate("p", str(tmp_path / "x.png"))
     assert r["ok"] is False
-    assert "task_id" in r["error"]
+    assert "jobId" in r["error"]
+
+
+# ─── verify_apiframe_key (GET /v2/me — sidebar connect flow) ────────────────
+
+def test_verify_apiframe_key_success():
+    def fake_get(url, headers=None, timeout=None):
+        assert url == f"{mj.APIFRAME_BASE_URL}/me"
+        assert headers["X-API-Key"] == _FAKE_KEY
+        return _resp(200, {"user": {"email": "a@b.com", "role": "ADMIN"},
+                           "team": {"plan": "free", "credits": 50}})
+
+    with mock.patch("requests.get", side_effect=fake_get):
+        ok, msg = mj.verify_apiframe_key(_FAKE_KEY)
+    assert ok is True
+    assert "50" in msg
+
+
+def test_verify_apiframe_key_401():
+    with mock.patch("requests.get", return_value=_resp(401, {"error": "invalid"})):
+        ok, msg = mj.verify_apiframe_key(_FAKE_KEY)
+    assert ok is False
+    assert _FAKE_KEY not in msg
+
+
+def test_verify_apiframe_key_v1_key_hint():
+    with mock.patch("requests.get", return_value=_resp(400, {"error": "wrong version"})):
+        ok, msg = mj.verify_apiframe_key("not-an-afk-key")
+    assert ok is False
+    assert "v2" in msg or "afk_" in msg
 
 
 # ─── Factory routing ─────────────────────────────────────────────────────────
@@ -240,7 +296,7 @@ def test_generate_images_passes_engine_to_factory(monkeypatch):
 
 # ─── Dependency check ────────────────────────────────────────────────────────
 
-def test_mj_dependency_check_no_key(monkeypatch):
+def test_mj_dependency_check_no_key():
     d = deps.check_midjourney_dependencies()
     assert d["ready"] is False
     assert d["api_key_present"] is False

@@ -272,6 +272,14 @@ def _verify_gemini(key):
         return False, f"{type(e).__name__}: {e}"
 
 
+def _verify_apiframe(key):
+    try:
+        from services.thumbnail.midjourney_provider import verify_apiframe_key
+        return verify_apiframe_key(key)
+    except Exception as e:
+        return False, f"{type(e).__name__}: {e}"
+
+
 # ─── Settings page (credentials + job status; moved out of the sidebar) ─────
 def render_settings_page():
     st.markdown("# ⚙️ Settings")
@@ -291,7 +299,7 @@ def render_settings_page():
 
     with col2:
         st.markdown("##### 🎨 Image Gen")
-        _credential_field("Midjourney (Apiframe)", "APIFRAME_API_KEY", "Apiframe API 키", persist_env=True)
+        _credential_field("Midjourney (Apiframe)", "APIFRAME_API_KEY", "afk_...", verify_fn=_verify_apiframe, persist_env=True)
 
     st.divider()
 
