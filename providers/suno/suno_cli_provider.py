@@ -322,7 +322,6 @@ class SunoCliProvider(ComposerProvider):
     def __init__(self):
         self._bin = _get_suno_bin()
         self._last_clip_ids: list[str] = []
-        self._last_download_dir: str = ""
 
     def get_capabilities(self) -> ProviderCapabilities:
         return ProviderCapabilities(
@@ -446,10 +445,17 @@ class SunoCliProvider(ComposerProvider):
         """
         Full generation flow (mirrors the working manual CLI workflow):
           1. suno auth --cookie <cookie>   (authenticate — REQUIRED, raises on fail)
-          2. suno generate ... --wait --download <dir>
+          2. suno generate ... --wait      (blocks until generation completes)
+          3. suno list --limit 4           (resolve clip IDs by title match)
 
-        NO --json flag (conflicts with --wait --download).
-        Returns comma-separated clip IDs parsed from downloaded filenames.
+        v1.0.0-alpha.29: NO local auto-download. This deliberately does NOT
+        pass --download to the CLI — the user downloads the finished song
+        manually from suno.com (Suno Pro/Premier gives WAV; MP3 preview via
+        `download_mp3_preview()` remains available as an explicit opt-in call
+        for callers that still want it, e.g. workflows/suno_one_song_dry_run.py).
+
+        NO --json flag on generate (conflicts with --wait).
+        Returns comma-separated clip IDs resolved via `suno list`.
         """
         # ── Step 1: Authenticate (REQUIRED) ──────────────────────────────
         # Always re-auth before every generation. The cookie session is
@@ -486,13 +492,11 @@ class SunoCliProvider(ComposerProvider):
         lyrics_file = Path(tempfile.mktemp(suffix=".txt", prefix="suno_lyrics_"))
         lyrics_file.write_text(lyrics, encoding="utf-8")
 
-        # Download directory
-        download_dir = opts.get("download_dir")
-        if download_dir:
-            download_path = Path(download_dir)
-        else:
-            download_path = Path(tempfile.mkdtemp(prefix="suno_dl_"))
-        download_path.mkdir(parents=True, exist_ok=True)
+        # NOTE: no local download directory is created or passed to the CLI.
+        # `opts.get("download_dir")`, if present, is accepted but ignored —
+        # kept only so callers that still pass it (e.g. for report-file
+        # placement in app/tabs/song_lab.py) don't need to change their call
+        # sites. It has no effect on the `suno generate` command below.
 
         # Build command — match exact paperfoot/suno-cli v0.5.7 syntax
         cmd = [
@@ -501,7 +505,6 @@ class SunoCliProvider(ComposerProvider):
             "--tags", style,
             "--lyrics-file", str(lyrics_file),
             "--wait",
-            "--download", str(download_path),
         ]
 
         # Optional flags — combine explicit excludes + any negatives pulled
@@ -542,7 +545,7 @@ class SunoCliProvider(ComposerProvider):
         if persona:
             cmd.extend(["--persona", persona])
 
-        logger.info("suno generate: title=%s download=%s", title, download_path)
+        logger.info("suno generate: title=%s (no local download)", title)
 
         # ── Generate with CAPTCHA auto-retry ─────────────────────────────
         # CAPTCHA loading on suno.com is intermittent (server-side). Retry
@@ -597,95 +600,38 @@ class SunoCliProvider(ComposerProvider):
         if proc is None and last_err is not None:
             raise last_err
 
-        self._last_download_dir = str(download_path)
-
-        # ── Find downloaded MP3s ─────────────────────────────────────────
-        # suno-cli saves to --download dir. Check there first, then fall back
-        # to the CLI's default Documents/suno folder.
-        mp3s = sorted(download_path.glob("*.mp3"))
-
-        if not mp3s:
-            # Fallback 1: CLI default download location (~/Documents/suno/)
-            default_dirs = [
-                Path.home() / "Documents" / "suno",
-                Path.home() / "Documents" / "Suno",
-                Path.home() / "suno",
-            ]
-            for ddir in default_dirs:
-                if ddir.exists():
-                    # Find MP3s modified in the last 5 minutes
-                    import time as _t
-                    recent = [
-                        f for f in ddir.glob("*.mp3")
-                        if (_t.time() - f.stat().st_mtime) < 300
-                    ]
-                    if recent:
-                        # Copy them into our download_path
-                        import shutil as _sh
-                        for f in sorted(recent):
-                            dest = download_path / f.name
-                            if not dest.exists():
-                                _sh.copy2(f, dest)
-                        mp3s = sorted(download_path.glob("*.mp3"))
-                        logger.info("Found %d MP3s in CLI default dir %s", len(recent), ddir)
-                        break
-
-        # Parse clip IDs from filenames (format: title-slug-CLIPID8.mp3)
-        clip_ids = [mp3.stem for mp3 in mp3s if len(mp3.stem) >= 4]
-
-        if not clip_ids:
-            # Fallback 2: query suno list for the most recent clips
-            try:
-                list_data = _run_suno_json(["list", "--limit", "4"], timeout=30, suno_bin=self._bin)
-                clips = list_data.get("data", [])
-                if isinstance(clips, dict):
-                    clips = clips.get("clips", clips.get("songs", []))
-                # Match by title
-                matching = [c for c in clips if c.get("title", "") == title]
-                if matching:
-                    clip_ids = [c.get("id", "")[:8] for c in matching[:2] if c.get("id")]
-                    # Download these clips
-                    if clip_ids:
-                        full_ids = [c.get("id", "") for c in matching[:2] if c.get("id")]
-                        try:
-                            _run_suno_raw(
-                                ["download"] + full_ids + ["--output", str(download_path)],
-                                timeout=120, suno_bin=self._bin,
-                            )
-                            mp3s = sorted(download_path.glob("*.mp3"))
-                            clip_ids = [mp3.stem for mp3 in mp3s] or clip_ids
-                        except Exception:
-                            pass
-            except Exception as e:
-                logger.warning("suno list fallback failed: %s", type(e).__name__)
+        # ── Resolve clip IDs (no download) ────────────────────────────────
+        # `suno generate --wait` completes generation but we never pass
+        # --download, so no local files exist to parse IDs from. Resolve
+        # the clip IDs by querying `suno list` and matching on title —
+        # this is the same documented workflow as the manual CLI usage
+        # (see docs/v0.4_suno_cli_provider.md: "suno generate --wait →
+        # generates song, returns clip IDs"). No files are fetched here.
+        clip_ids: list[str] = []
+        try:
+            list_data = _run_suno_json(["list", "--limit", "4"], timeout=30, suno_bin=self._bin)
+            clips = list_data.get("data", [])
+            if isinstance(clips, dict):
+                clips = clips.get("clips", clips.get("songs", []))
+            matching = [c for c in clips if c.get("title", "") == title]
+            if matching:
+                clip_ids = [c.get("id", "")[:8] for c in matching[:2] if c.get("id")]
+        except Exception as e:
+            logger.warning("suno list lookup failed: %s", type(e).__name__)
 
         if not clip_ids:
             clip_ids = ["generated"]  # at least mark as attempted
 
         task_id = ",".join(clip_ids)
         self._last_clip_ids = clip_ids
-        logger.info("suno generate done: %d files in %s", len(mp3s), download_path)
+        logger.info("suno generate done: task_id=%s (download skipped by design)", task_id)
         return task_id
 
     # ─── get_status ──────────────────────────────────────────────────────
 
     def get_status(self, task_id: str) -> dict:
         ids = task_id.split(",")
-        try:
-            data = _run_suno_json(["status"] + ids, suno_bin=self._bin)
-        except ProviderError:
-            # If status fails, check if files exist from generate
-            if self._last_download_dir:
-                mp3s = list(Path(self._last_download_dir).glob("*.mp3"))
-                if mp3s:
-                    return {
-                        "status": "completed",
-                        "candidates": [{"candidate_id": chr(65+i), "status": "completed",
-                                        "file_path": str(f)} for i, f in enumerate(mp3s)],
-                        "progress": 1.0,
-                        "error": None,
-                    }
-            raise
+        data = _run_suno_json(["status"] + ids, suno_bin=self._bin)
 
         clips = data.get("data", [])
         if isinstance(clips, dict):
@@ -717,16 +663,11 @@ class SunoCliProvider(ComposerProvider):
         )
 
     def download_mp3_preview(self, task_id: str, output_path: Path) -> Path | None:
-        # Files already downloaded by create_song --wait --download
-        if self._last_download_dir:
-            mp3s = sorted(Path(self._last_download_dir).glob("*.mp3"))
-            if mp3s:
-                output_path.parent.mkdir(parents=True, exist_ok=True)
-                import shutil as _sh
-                _sh.copy2(mp3s[0], output_path)
-                return output_path
-
-        # Fallback: suno download (no --json for download either)
+        """
+        Explicit, opt-in MP3 download for a given task_id. NOT called
+        automatically by create_song() — callers invoke this on demand
+        (e.g. workflows/suno_one_song_dry_run.py).
+        """
         ids = task_id.split(",")
         output_path.parent.mkdir(parents=True, exist_ok=True)
         try:

@@ -84,8 +84,8 @@ def test_run_suno_uses_resolved_binary(tmp_path):
 
 # ─── generate command construction ──────────────────────────────────────────
 
-def test_generate_command_includes_wait_and_download(monkeypatch, tmp_path):
-    """create_song must include --wait --download and NOT --json."""
+def test_generate_command_includes_wait_but_not_download(monkeypatch, tmp_path):
+    """create_song must include --wait but NOT --download or --json (v1.0.0-alpha.29: no local download)."""
     from providers.suno import suno_cli_provider as m
     from importlib import reload
     fake_bin = tmp_path / "suno.exe"
@@ -96,24 +96,21 @@ def test_generate_command_includes_wait_and_download(monkeypatch, tmp_path):
 
     p = m.SunoCliProvider()
     captured = []
-    dl_dir = str(tmp_path / "downloads")
 
     def mock_run(cmd, **kw):
         # credits check (--json) returns valid session
         if "--json" in cmd:
             return mock.Mock(returncode=0, stdout=json.dumps({"data": {"credits_left": 100}}), stderr="")
         captured.extend(cmd)
-        Path(dl_dir).mkdir(parents=True, exist_ok=True)
-        (Path(dl_dir) / "test-song-abc12345.mp3").write_bytes(b"fake")
         return mock.Mock(returncode=0, stdout="", stderr="")
 
     with mock.patch("subprocess.run", side_effect=mock_run):
         p.create_song("밤이 지나면", "city pop", "test",
-                       {"download_dir": dl_dir, "vocal_gender": "Female", "weirdness": 35})
+                       {"vocal_gender": "Female", "weirdness": 35})
 
     cmd_str = " ".join(captured)
     assert "--wait" in cmd_str
-    assert "--download" in cmd_str
+    assert "--download" not in cmd_str, f"--download must NOT be in generate command: {cmd_str}"
     assert "--json" not in cmd_str, f"--json must NOT be in generate command: {cmd_str}"
     assert "--vocal" in cmd_str
     assert "female" in cmd_str
@@ -146,8 +143,43 @@ def test_generate_does_not_include_json_flag(monkeypatch, tmp_path):
 
     assert "--json" not in captured, f"--json in generate args: {captured}"
 
+def test_create_song_resolves_task_id_via_list_no_download(monkeypatch, tmp_path):
+    """
+    v1.0.0-alpha.29: create_song resolves the task_id via `suno list`
+    (title match) since no --download is passed. `suno download` must
+    NEVER be invoked automatically.
+    """
+    from providers.suno import suno_cli_provider as m
+    from importlib import reload
+    fake_bin = tmp_path / "suno"
+    fake_bin.write_text("fake", encoding="utf-8")
+    monkeypatch.setenv("SUNO_CLI_BIN", str(fake_bin))
+    monkeypatch.setenv("SUNO_COOKIE", "fake_cookie")
+    reload(m)
+
+    p = m.SunoCliProvider()
+    calls = []
+
+    def mock_run(cmd, **kw):
+        calls.append(list(cmd))
+        if "list" in cmd:
+            return mock.Mock(returncode=0, stdout=json.dumps({
+                "data": [{"id": "resolved-clip-id-1234", "title": "밤이 지나면", "status": "completed"}]
+            }), stderr="")
+        if "--json" in cmd:  # credits verify
+            return mock.Mock(returncode=0, stdout=json.dumps({"data": {"credits_left": 100}}), stderr="")
+        return mock.Mock(returncode=0, stdout="", stderr="")  # auth / generate
+
+    with mock.patch("subprocess.run", side_effect=mock_run):
+        task_id = p.create_song("밤이 지나면", "city pop", "test", {})
+
+    assert task_id == "resolved"  # first 8 chars of "resolved-clip-id-1234"
+    assert not any("download" in c for c in calls), \
+        f"'suno download' must never be called automatically: {calls}"
+
+
 def test_generate_full_command_matches_cli_syntax(monkeypatch, tmp_path):
-    """Full command matches: suno generate --title --tags --lyrics-file --exclude --vocal --weirdness --style-influence --wait --download <dir>."""
+    """Full command matches: suno generate --title --tags --lyrics-file --exclude --vocal --weirdness --style-influence --wait (no --download)."""
     from providers.suno import suno_cli_provider as m
     from importlib import reload
     fake_bin = tmp_path / "suno"
@@ -158,14 +190,11 @@ def test_generate_full_command_matches_cli_syntax(monkeypatch, tmp_path):
 
     p = m.SunoCliProvider()
     captured = []
-    dl = str(tmp_path / "out")
 
     def mock_run(cmd, **kw):
         if "--json" in cmd:
             return mock.Mock(returncode=0, stdout=json.dumps({"data": {"credits_left": 100}}), stderr="")
         captured.extend(cmd)
-        Path(dl).mkdir(parents=True, exist_ok=True)
-        (Path(dl) / "song-a1b2c3d4.mp3").write_bytes(b"fake")
         return mock.Mock(returncode=0, stdout="", stderr="")
 
     with mock.patch("subprocess.run", side_effect=mock_run):
@@ -174,7 +203,6 @@ def test_generate_full_command_matches_cli_syntax(monkeypatch, tmp_path):
             "vocal_gender": "Female",
             "weirdness": 40,
             "style_influence": 65,
-            "download_dir": dl,
         })
 
     assert captured[0] == str(fake_bin)
@@ -187,7 +215,7 @@ def test_generate_full_command_matches_cli_syntax(monkeypatch, tmp_path):
     assert "--weirdness" in captured
     assert "--style-influence" in captured
     assert "--wait" in captured
-    assert "--download" in captured
+    assert "--download" not in captured
     assert "--json" not in captured
 
 def test_model_name_normalized(monkeypatch, tmp_path):

@@ -137,19 +137,16 @@ def test_auto_batch_function_exists():
 
 
 def test_generate_one_auto_uses_mock(monkeypatch, tmp_path):
-    """_generate_one_auto with mock AI returns a result dict."""
+    """_generate_one_auto with mock AI returns a result dict (no local download)."""
     from app.tabs import song_lab
     from unittest import mock
 
     monkeypatch.setenv("SUNO_COOKIE", "fake_cookie")
 
-    # Mock SunoCliProvider so it doesn't actually call suno
+    # Mock SunoCliProvider so it doesn't actually call suno.
+    # v1.0.0-alpha.29: create_song no longer downloads anything — it just
+    # returns a task_id.
     def fake_create_song(self, title, style, lyrics, options):
-        # Simulate a downloaded file
-        dl = options.get("download_dir", str(tmp_path))
-        from pathlib import Path as P
-        P(dl).mkdir(parents=True, exist_ok=True)
-        (P(dl) / "song-abc12345.mp3").write_bytes(b"fake")
         return "abc12345"
 
     with mock.patch("providers.suno.suno_cli_provider.SunoCliProvider.create_song", fake_create_song):
@@ -159,6 +156,7 @@ def test_generate_one_auto_uses_mock(monkeypatch, tmp_path):
 
     assert result["status"] == "generated"
     assert result["title"]  # mock provides a title
+    assert result["task_id"] == "abc12345"
 
 
 def test_auto_batch_title_style_lyrics_all_generated():
@@ -178,7 +176,6 @@ def test_exclude_sent_via_flag_not_in_style(monkeypatch, tmp_path):
     from providers.suno import suno_cli_provider as m
     from importlib import reload
     from unittest import mock
-    from pathlib import Path
     fake_bin = tmp_path / "suno"
     fake_bin.write_text("fake", encoding="utf-8")
     monkeypatch.setenv("SUNO_CLI_BIN", str(fake_bin))
@@ -187,27 +184,25 @@ def test_exclude_sent_via_flag_not_in_style(monkeypatch, tmp_path):
 
     p = m.SunoCliProvider()
     captured = []
-    dl = str(tmp_path / "dl")
 
     def mock_run(cmd, **kw):
         import json as _j
         if "--json" in cmd:
             return mock.Mock(returncode=0, stdout=_j.dumps({"data": {"credits_left": 100}}), stderr="")
         captured.extend(cmd)
-        from pathlib import Path as P
-        P(dl).mkdir(parents=True, exist_ok=True)
-        (P(dl) / "x-12345678.mp3").write_bytes(b"fake")
         return mock.Mock(returncode=0, stdout="", stderr="")
 
     with mock.patch("subprocess.run", side_effect=mock_run):
         p.create_song(
             "test", "Japanese city pop, warm piano", "lyrics",
-            {"download_dir": dl, "exclude_styles": ["sax lead", "trot", "EDM"]},
+            {"exclude_styles": ["sax lead", "trot", "EDM"]},
         )
 
     cmd_str = " ".join(captured)
     # --exclude flag present with the excludes
     assert "--exclude" in cmd_str
+    # No local download flag anymore
+    assert "--download" not in cmd_str
     # The style/tags must NOT contain the exclude terms
     tags_idx = captured.index("--tags") + 1
     tags_value = captured[tags_idx]
@@ -248,10 +243,9 @@ def test_generate_plan_only_returns_draft():
 
 
 def test_generate_one_from_draft_uses_exclude_flag(monkeypatch, tmp_path):
-    """_generate_one_from_draft sends exclude via flag, clean style."""
+    """_generate_one_from_draft sends exclude via flag, clean style (no local download)."""
     from app.tabs import song_lab
     from unittest import mock
-    from pathlib import Path as P
 
     monkeypatch.setenv("SUNO_COOKIE", "cookie")
     captured = []
@@ -259,9 +253,6 @@ def test_generate_one_from_draft_uses_exclude_flag(monkeypatch, tmp_path):
     def fake_create(self, title, style, lyrics, options):
         captured.append(("style", style))
         captured.append(("exclude", options.get("exclude_styles")))
-        dl = options.get("download_dir", str(tmp_path))
-        P(dl).mkdir(parents=True, exist_ok=True)
-        (P(dl) / "x-12345678.mp3").write_bytes(b"fake")
         return "x12345678"
 
     draft = {"title": "테스트", "style": "Japanese city pop, warm piano", "lyrics": "[Verse]\n가사"}
@@ -269,6 +260,7 @@ def test_generate_one_from_draft_uses_exclude_flag(monkeypatch, tmp_path):
         result = song_lab._generate_one_from_draft(draft, {"model": "v5.5"})
 
     assert result["status"] == "generated"
+    assert result["task_id"] == "x12345678"
     # Style passed clean (no -sax), exclude as list
     style_val = [v for k, v in captured if k == "style"][0]
     exclude_val = [v for k, v in captured if k == "exclude"][0]
@@ -277,58 +269,13 @@ def test_generate_one_from_draft_uses_exclude_flag(monkeypatch, tmp_path):
     assert "sax lead" in exclude_val
 
 
-# ─── Single folder + keep longest mp3 ────────────────────────────────────────
+# ─── Single folder (project songs, no per-song subfolders) ──────────────────
 
 def test_download_dir_is_project_songs_folder(monkeypatch, tmp_path):
-    """All songs in a project download to the SAME songs/ folder (no subfolders)."""
+    """All songs in a project share the SAME songs/ folder (no subfolders)."""
     import app.project_manager as pm
     monkeypatch.setattr(pm, "OUTPUTS_DIR", tmp_path)
     d1 = pm.song_project_download_dir("앨범1", "곡 하나")
     d2 = pm.song_project_download_dir("앨범1", "곡 둘")
     assert d1 == d2  # same folder
     assert d1.name == "songs"
-
-
-def test_keep_longest_new_mp3(monkeypatch, tmp_path):
-    """Of newly-generated clips, only the longest is kept; shorter deleted."""
-    from app.tabs import song_lab
-    from unittest import mock
-
-    folder = tmp_path / "songs"
-    folder.mkdir()
-    # Pre-existing file (should be ignored)
-    old = folder / "old-song.mp3"
-    old.write_bytes(b"old")
-    before = song_lab._snapshot_mp3s(folder)
-
-    # Two new clips
-    short = folder / "new-short.mp3"
-    long = folder / "new-long.mp3"
-    short.write_bytes(b"s")
-    long.write_bytes(b"l")
-
-    # Mock durations: long=200s, short=150s
-    from pathlib import Path as _P
-    def fake_dur(p):
-        return 200.0 if _P(p).name == "new-long.mp3" else 150.0
-    monkeypatch.setattr(song_lab, "_mp3_duration", fake_dur)
-
-    kept = song_lab._keep_longest_new_mp3(folder, before)
-    assert kept == long  # longest returned as primary
-    assert long.exists()
-    assert short.exists()  # shorter KEPT too (user chooses later)
-    assert old.exists()  # pre-existing untouched
-
-
-def test_keep_longest_ignores_preexisting(monkeypatch, tmp_path):
-    """If no new files, returns None and deletes nothing."""
-    from app.tabs import song_lab
-    folder = tmp_path / "songs"
-    folder.mkdir()
-    existing = folder / "a.mp3"
-    existing.write_bytes(b"x")
-    before = song_lab._snapshot_mp3s(folder)
-    # No new files added
-    kept = song_lab._keep_longest_new_mp3(folder, before)
-    assert kept is None
-    assert existing.exists()

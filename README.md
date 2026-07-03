@@ -1,6 +1,6 @@
 # Seoul Records Production OS
 
-**AI Music Label Production Harness — v1.0.0-alpha.28**
+**AI Music Label Production Harness — v1.0.0-alpha.29**
 
 > Creative direction: controlled by ChatGPT and the user.
 > Engineering: this repository.
@@ -77,6 +77,8 @@ to point the console at a live backend.
 ## What This Is
 
 Seoul Records Production OS is a local MVP application for creating AI-generated city pop album projects. It provides a full 5-tab production pipeline from song generation through music distribution, with mock providers for v0.1.x and a clear upgrade path to real integrations.
+
+**v1.0.0-alpha.29: Remove Local Auto-Download from Suno Generation — Suno generation (Quick Single / Plan-based / Auto Batch / background Worker) no longer downloads MP3/WAV files automatically to disk. `create_song()` now runs `suno generate --wait` without `--download`, resolving the task_id via `suno list` (title match) instead of parsing downloaded filenames — the same workflow documented for manual CLI use. Removed the download/candidate-selection logic from `app/tabs/song_lab.py` (`_run_generation`, `_generate_one_from_draft`, `_generate_one_auto`) and `workers/suno_generation_worker.py`; each now saves only task_id + metadata and directs the user to download the finished song from suno.com directly. `download_wav()` and the automatic download branches of `download_mp3_preview()`/`get_status()` in `SunoCliProvider` were also cleaned up (`download_mp3_preview()` remains available as an explicit opt-in call). Scope note: `agents/composer_agent.py` and `app/tabs/tab1_song_generation.py` are unused legacy code paths (never called by the live app) and were intentionally left untouched this round. 673 tests passing.**
 
 **v1.0.0-alpha.28: Video = Branded Thumbnail + Track Title — (1) Video background now uses the branded youtube thumbnail (same image viewers click on) instead of a separate clean background. (2) Current track title (01. 곡 제목) displayed at bottom-center via drawtext with Montserrat-Bold, changing per chapter. (3) Removed Canva frame lock/opacity controls (simplified UI). (4) Film grain default ON. 674 tests passing.**
 

@@ -102,10 +102,9 @@ def run_job(job_id: str):
         _log(job_id, f"Track {idx+1}/{len(plan)}: {title} 시작")
 
         try:
+            # v1.0.0-alpha.29: no local download. dl_dir is used only as the
+            # folder for prompt-snapshot / submitted-payload metadata files.
             dl_dir = song_project_download_dir(project, title)
-
-            # Snapshot existing files
-            before = {str(p) for p in dl_dir.glob("*.mp3")}
 
             # Per-track vocal gender (from batch variation) overrides the default
             track_vocal = draft.get("vocal_gender") or settings.get("vocal_gender", "Female")
@@ -116,7 +115,6 @@ def run_job(job_id: str):
                 "instrumental": settings.get("instrumental", False),
                 "weirdness": settings.get("weirdness", 35),
                 "style_influence": settings.get("style_influence", 70),
-                "download_dir": str(dl_dir),
             }
 
             # Save prompt snapshot (canonical)
@@ -148,7 +146,7 @@ def run_job(job_id: str):
                     "vocal_sent": options.get("vocal_gender", "Female"),
                     "weirdness_sent": options.get("weirdness", 35),
                     "style_influence_sent": options.get("style_influence", 70),
-                    "download_dir": str(dl_dir),
+                    "download_note": "다운로드 안 함 — suno.com에서 직접 다운로드",
                     "prompt_snapshot_id": None,
                 }
                 (track_dir).mkdir(parents=True, exist_ok=True)
@@ -170,39 +168,19 @@ def run_job(job_id: str):
             task_id = provider.create_song(title, style, lyrics, options,
                                            progress_callback=_on_progress)
 
-            # Keep BOTH generated clips (user chooses later). Suno makes 2.
-            new_files = [p for p in dl_dir.glob("*.mp3") if str(p) not in before]
-            # Sort longest-first so the "primary" file_path is the longer one,
-            # but keep ALL files on disk (don't delete the shorter clip).
-            if len(new_files) > 1:
-                try:
-                    import mutagen.mp3
-                    new_files.sort(
-                        key=lambda p: (mutagen.mp3.MP3(str(p)).info.length or 0),
-                        reverse=True,
-                    )
-                except Exception:
-                    new_files.sort(key=lambda p: p.stat().st_size, reverse=True)
-
-            kept = new_files[0] if new_files else None
-
-            # Save provider response metadata
+            # v1.0.0-alpha.29: no local download. create_song() returning
+            # without raising IS the success signal — save task_id/metadata
+            # only; the user downloads the finished song from suno.com.
             try:
                 response_meta = {
                     "provider": "suno_cli",
                     "provider_track_id": task_id,
                     "provider_title": title,
                     "provider_model": options.get("model", "v5.5"),
-                    "provider_status": "complete" if new_files else "no_files",
-                    "downloaded_files": [str(f) for f in new_files] if new_files else [],
+                    "provider_status": "submitted",
+                    "download_note": "다운로드 안 함 — suno.com에서 직접 다운로드",
                     "parsed_at": datetime.now(timezone.utc).isoformat(),
                 }
-                if kept:
-                    try:
-                        import mutagen.mp3
-                        response_meta["provider_duration"] = mutagen.mp3.MP3(str(kept)).info.length
-                    except Exception:
-                        pass
                 (track_dir).mkdir(parents=True, exist_ok=True)
                 (track_dir / "provider_response.json").write_text(
                     json.dumps(response_meta, ensure_ascii=False, indent=2), encoding="utf-8"
@@ -210,35 +188,27 @@ def run_job(job_id: str):
             except Exception:
                 pass
 
-            if kept:
-                draft["status"] = "generated"
-                draft["file_path"] = str(kept)
-                draft["all_files"] = [str(f) for f in new_files]  # both clips
-                ok += 1
-                if len(new_files) > 1:
-                    _log(job_id, f"Track {idx+1}: {title} ✅ 완료 → {len(new_files)}곡 다운로드 (둘 다 보관)")
-                else:
-                    _log(job_id, f"Track {idx+1}: {title} ✅ 완료 → {kept.name}")
+            draft["status"] = "generated"
+            draft["task_id"] = task_id
+            ok += 1
+            _log(job_id, f"Track {idx+1}: {title} ✅ Suno 생성 완료 · task_id={task_id} "
+                          f"(suno.com에서 직접 다운로드)")
 
-                # Record in project manifest
-                try:
-                    from app.project_manager import add_song_to_project
-                    add_song_to_project(project, {
-                        "title": title, "status": "completed",
-                        "provider": "suno_cli", "model": options["model"],
-                        "file_type": "mp3", "file_path": str(kept),
-                        "distribution_eligible": False,
-                        "created_at": datetime.now(timezone.utc).isoformat(),
-                        "style": style, "project": project,
-                        "job_id": job_id,
-                    })
-                except Exception:
-                    pass
-            else:
-                draft["status"] = "no_files"
-                draft["error"] = f"파일 못 찾음 (task: {task_id})"
-                fail += 1
-                _log(job_id, f"Track {idx+1}: {title} ⚠️ 파일 없음", "error")
+            # Record in project manifest
+            try:
+                from app.project_manager import add_song_to_project
+                add_song_to_project(project, {
+                    "title": title, "status": "submitted",
+                    "provider": "suno_cli", "model": options["model"],
+                    "file_type": None, "file_path": "",
+                    "distribution_eligible": False,
+                    "created_at": datetime.now(timezone.utc).isoformat(),
+                    "task_id": task_id,
+                    "style": style, "project": project,
+                    "job_id": job_id,
+                })
+            except Exception:
+                pass
 
         except Exception as e:
             draft["status"] = "failed"

@@ -34,41 +34,6 @@ def _save_generated_song(song: dict):
     st.session_state["generated_songs"].insert(0, song)
 
 
-def _mp3_duration(path) -> float:
-    """Get mp3 duration in seconds (0 if unreadable)."""
-    try:
-        import mutagen.mp3
-        return mutagen.mp3.MP3(str(path)).info.length or 0.0
-    except Exception:
-        return 0.0
-
-
-def _snapshot_mp3s(folder) -> set:
-    """Set of existing mp3 paths in a folder (before generation)."""
-    try:
-        return {str(p) for p in Path(folder).glob("*.mp3")}
-    except Exception:
-        return set()
-
-
-def _keep_longest_new_mp3(folder, before: set):
-    """
-    After generation, find NEW mp3s (not in `before`). Suno makes 2 clips
-    per request — we KEEP BOTH (user chooses later) but return the longer
-    one as the primary. No files are deleted.
-    Returns the primary (longest) mp3 Path, or None if no new files.
-    """
-    folder = Path(folder)
-    new_files = [p for p in folder.glob("*.mp3") if str(p) not in before]
-    if not new_files:
-        return None
-    if len(new_files) == 1:
-        return new_files[0]
-    # Sort longest-first; keep ALL files (don't delete)
-    new_files.sort(key=_mp3_duration, reverse=True)
-    return new_files[0]
-
-
 def _save_plan_to_disk(project_name: str, plan: list[dict]):
     """Save a batch plan to the project folder so it survives refresh."""
     from app.project_manager import song_project_dir
@@ -139,7 +104,9 @@ def _run_generation(params: dict, project: str = ""):
     provider = SunoCliProvider()
     title = params["title"]
 
-    # Download into the project folder so songs group together
+    # Project folder (used only for the generation_report.json below —
+    # v1.0.0-alpha.29: no audio is downloaded here anymore, so this is
+    # NOT passed to the provider as a download destination).
     proj = project or "기본"
     dl_dir = song_project_download_dir(proj, title)
 
@@ -151,11 +118,7 @@ def _run_generation(params: dict, project: str = ""):
         "weirdness": params.get("weirdness", 35),
         "style_influence": params.get("style_influence", 70),
         "model": params.get("model", "v5.5"),
-        "download_dir": str(dl_dir),
     }
-
-    # Snapshot existing mp3s so we can identify the NEW ones afterward
-    before_mp3s = _snapshot_mp3s(dl_dir)
 
     # Create persistent job for tracking
     from services.job_store import create_job, update_job, add_log_line, complete_job
@@ -193,79 +156,52 @@ def _run_generation(params: dict, project: str = ""):
 
         elapsed = int(time.time() - start_time)
 
-        # Keep only the LONGEST of the newly-generated clips (Suno makes 2)
-        kept = _keep_longest_new_mp3(dl_dir, before_mp3s)
-        if not kept and getattr(provider, "_last_download_dir", None):
-            actual_dir = Path(provider._last_download_dir)
-            if str(actual_dir) != str(dl_dir):
-                kept = _keep_longest_new_mp3(actual_dir, before_mp3s)
-                if kept:
-                    dl_dir = actual_dir
-        mp3s = [kept] if kept else []
+        # v1.0.0-alpha.29: no local download. Suno generation itself is
+        # the completion signal — save the task_id and metadata, and let
+        # the user fetch the WAV/MP3 from suno.com directly.
+        status_container.success(
+            f"✅ Suno 생성 완료 ({elapsed}초 소요) · task_id: {task_id}\n\n"
+            f"suno.com에서 '{title}'을(를) 찾아 직접 다운로드하세요."
+        )
+        complete_job(job_id, "completed")
+        add_log_line(job_id, f"완료 (다운로드는 suno.com에서 직접): {title} · task_id={task_id}")
 
-        if mp3s:
-            dur = _mp3_duration(kept)
-            n_clips = len([p for p in Path(dl_dir).glob("*.mp3") if str(p) not in before_mp3s])
-            clip_msg = f"{n_clips}곡 다운로드 (둘 다 보관)" if n_clips > 1 else "1곡"
-            status_container.success(f"✅ 생성 완료! {clip_msg} · 대표 {int(dur)}초 ({elapsed}초 소요)")
-            complete_job(job_id, "completed")
-            add_log_line(job_id, f"완료: {title} ({int(dur)}초)")
-        else:
-            status_container.warning(f"⚠️ Suno 생성은 됐지만 파일을 못 찾았습니다 ({elapsed}초). task_id: {task_id}")
-            complete_job(job_id, "failed")
-            add_log_line(job_id, f"실패: 파일 못 찾음 (task: {task_id})", "error")
-
-        songs = []
-        labels = ["A", "B", "C", "D"]
-
-        for i, mp3 in enumerate(mp3s):
-            cid = labels[i] if i < len(labels) else str(i)
-            # Get duration from file if possible
-            duration = None
-            try:
-                import mutagen.mp3
-                audio = mutagen.mp3.MP3(str(mp3))
-                duration = audio.info.length
-            except Exception:
-                pass
-
-            song = {
-                "title": title,
-                "candidate_id": cid,
-                "status": "completed",
-                "provider": "suno_cli",
-                "model": params.get("model", "v5.5"),
-                "duration": duration,
-                "file_type": "mp3",
-                "file_path": str(mp3),
-                "distribution_eligible": False,  # MP3 = preview only
-                "created_at": datetime.now(timezone.utc).isoformat(),
-                "clip_id": mp3.stem,
-                "style": params["style"],
-                "vocal": params.get("vocal_gender", ""),
-                "weirdness": params.get("weirdness", 35),
-                "style_influence": params.get("style_influence", 70),
-                "project": proj,
-            }
-            songs.append(song)
-            _save_generated_song(song)
-            # Record in the project manifest so songs group by project
-            try:
-                from app.project_manager import add_song_to_project
-                add_song_to_project(proj, song)
-            except Exception:
-                pass
+        song = {
+            "title": title,
+            "status": "submitted",  # generated on Suno; not downloaded locally
+            "provider": "suno_cli",
+            "model": params.get("model", "v5.5"),
+            "duration": None,
+            "file_type": None,
+            "file_path": "",
+            "distribution_eligible": False,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "task_id": task_id,
+            "style": params["style"],
+            "vocal": params.get("vocal_gender", ""),
+            "weirdness": params.get("weirdness", 35),
+            "style_influence": params.get("style_influence", 70),
+            "project": proj,
+        }
+        _save_generated_song(song)
+        # Record in the project manifest so songs group by project
+        try:
+            from app.project_manager import add_song_to_project
+            add_song_to_project(proj, song)
+        except Exception:
+            pass
 
         # Save report
         report = {
             "title": title,
             "task_id": task_id,
-            "songs": songs,
+            "songs": [song],
             "params": {k: v for k, v in params.items() if k != "lyrics"},
             "elapsed_seconds": elapsed,
-            "download_dir": str(dl_dir),
+            "download_note": "다운로드 안 함 — suno.com에서 직접 다운로드하세요.",
             "created_at": datetime.now(timezone.utc).isoformat(),
         }
+        dl_dir.mkdir(parents=True, exist_ok=True)
         report_path = dl_dir / "generation_report.json"
         report_path.write_text(
             json.dumps(report, indent=2, ensure_ascii=False),
@@ -390,11 +326,13 @@ def _generate_plan_only(concept: str, ai_provider_name: str, language: str = "ko
 def _generate_one_from_draft(draft: dict, base_params: dict, project: str = "기본") -> dict:
     """
     Generate ONE song in Suno from an already-prepared draft (title/style/lyrics).
-    Downloads into the project folder. Re-authenticates internally.
+    Re-authenticates internally.
+
+    v1.0.0-alpha.29: no local download. Returns the task_id so the user can
+    find the song on suno.com and download it there directly.
     """
     from providers.suno.suno_cli_provider import SunoCliProvider
     from app.ui.composer_panel import DEFAULT_EXCLUDE
-    from app.project_manager import song_project_download_dir
 
     result = dict(draft)
     title = draft.get("title", "제목 없음")
@@ -405,7 +343,6 @@ def _generate_one_from_draft(draft: dict, base_params: dict, project: str = "기
 
     try:
         provider = SunoCliProvider()
-        dl_dir = song_project_download_dir(project, title)
 
         options = {
             "exclude_styles": exclude_list,
@@ -414,44 +351,28 @@ def _generate_one_from_draft(draft: dict, base_params: dict, project: str = "기
             "instrumental": base_params.get("instrumental", False),
             "weirdness": base_params.get("weirdness", 35),
             "style_influence": base_params.get("style_influence", 70),
-            "download_dir": str(dl_dir),
         }
 
-        before_mp3s = _snapshot_mp3s(dl_dir)
         task_id = provider.create_song(title, style, lyrics, options)
 
-        # Keep only the longest of the 2 generated clips
-        kept = _keep_longest_new_mp3(dl_dir, before_mp3s)
-        if not kept and getattr(provider, "_last_download_dir", None):
-            actual = Path(provider._last_download_dir)
-            if str(actual) != str(dl_dir):
-                kept = _keep_longest_new_mp3(actual, before_mp3s)
-                if kept:
-                    dl_dir = actual
-        mp3s = [kept] if kept else []
+        result["status"] = "generated"
+        result["task_id"] = task_id
 
-        if mp3s:
-            result["status"] = "generated"
-            result["file_count"] = len(mp3s)
+        song = {
+            "title": title, "status": "submitted",
+            "provider": "suno_cli", "model": options["model"],
+            "duration": None, "file_type": None, "file_path": "",
+            "distribution_eligible": False,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "task_id": task_id,
+            "style": style, "project": project,
+        }
+        _save_generated_song(song)
+        try:
             from app.project_manager import add_song_to_project
-            for i, mp3 in enumerate(mp3s):
-                cid = ["A", "B", "C", "D"][i] if i < 4 else str(i)
-                song = {
-                    "title": title, "candidate_id": cid, "status": "completed",
-                    "provider": "suno_cli", "model": options["model"],
-                    "duration": None, "file_type": "mp3", "file_path": str(mp3),
-                    "distribution_eligible": False,
-                    "created_at": datetime.now(timezone.utc).isoformat(),
-                    "style": style, "project": project,
-                }
-                _save_generated_song(song)
-                try:
-                    add_song_to_project(project, song)
-                except Exception:
-                    pass
-        else:
-            result["status"] = "no_files"
-            result["error"] = f"생성됐지만 파일 못 찾음 (task: {task_id})"
+            add_song_to_project(project, song)
+        except Exception:
+            pass
     except Exception as e:
         err_status = getattr(e, "status", "failed")
         result["status"] = "failed"
@@ -502,46 +423,30 @@ def _generate_one_auto(concept: str, ai_provider_name: str, base_params: dict) -
     }
 
     # ── Step 3: Suno generates (re-auths internally) ─────────────────────
+    # v1.0.0-alpha.29: no local download. Success = create_song() returning
+    # a task_id without raising; the user downloads from suno.com directly.
     try:
-        from app.project_manager import song_project_download_dir
         provider = SunoCliProvider()
-        dl_dir = song_project_download_dir(base_params.get("project", "기본"), pkg.title)
 
         options = dict(params)
-        options["download_dir"] = str(dl_dir)
         options.pop("title", None)
         options.pop("lyrics", None)
         options.pop("style", None)
 
-        before_mp3s = _snapshot_mp3s(dl_dir)
         task_id = provider.create_song(pkg.title, pkg.style, pkg.lyrics, options)
 
-        kept = _keep_longest_new_mp3(dl_dir, before_mp3s)
-        if not kept and getattr(provider, "_last_download_dir", None):
-            actual = Path(provider._last_download_dir)
-            if str(actual) != str(dl_dir):
-                kept = _keep_longest_new_mp3(actual, before_mp3s)
-                if kept:
-                    dl_dir = actual
-        mp3s = [kept] if kept else []
+        result["status"] = "generated"
+        result["task_id"] = task_id
 
-        if mp3s:
-            result["status"] = "generated"
-            result["file_count"] = len(mp3s)
-            # Save to generated songs list
-            for i, mp3 in enumerate(mp3s):
-                cid = ["A", "B", "C", "D"][i] if i < 4 else str(i)
-                _save_generated_song({
-                    "title": pkg.title, "candidate_id": cid, "status": "completed",
-                    "provider": "suno_cli", "model": params["model"],
-                    "duration": None, "file_type": "mp3", "file_path": str(mp3),
-                    "distribution_eligible": False,
-                    "created_at": datetime.now(timezone.utc).isoformat(),
-                    "style": pkg.style,
-                })
-        else:
-            result["status"] = "no_files"
-            result["error"] = f"생성됐지만 파일 못 찾음 (task: {task_id})"
+        _save_generated_song({
+            "title": pkg.title, "status": "submitted",
+            "provider": "suno_cli", "model": params["model"],
+            "duration": None, "file_type": None, "file_path": "",
+            "distribution_eligible": False,
+            "created_at": datetime.now(timezone.utc).isoformat(),
+            "task_id": task_id,
+            "style": pkg.style,
+        })
 
     except Exception as e:
         err_status = getattr(e, "status", "failed")
