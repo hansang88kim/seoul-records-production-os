@@ -54,8 +54,9 @@ def test_unitedmasters_tab_exists():
 
 
 def test_home_tabs_include_unitedmasters():
+    # v1.0.0-alpha.31: unified sidebar-nav router (render_dashboard)
     import app.dashboard as dash
-    src = inspect.getsource(dash.render_home_tabs)
+    src = inspect.getsource(dash.render_dashboard)
     assert "render_unitedmasters" in src
     assert "UnitedMasters" in src
 

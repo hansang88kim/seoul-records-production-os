@@ -19,9 +19,12 @@ def _dashboard_src() -> str:
 
 
 def _home_tabs_src() -> str:
-    """Extract just the render_home_tabs function source."""
+    """
+    v1.0.0-alpha.31: home/production tabs were unified into a single sidebar-nav
+    router, render_dashboard(page). Return its source (all pages wired here).
+    """
     import app.dashboard as dash
-    return inspect.getsource(dash.render_home_tabs)
+    return inspect.getsource(dash.render_dashboard)
 
 
 # ─── Home tabs include the new tabs ──────────────────────────────────────────
@@ -60,14 +63,14 @@ def test_home_tabs_keep_project_management():
 # ─── Production tabs still include them ───────────────────────────────────────
 
 def test_project_open_tabs_still_include_video_renderer():
-    import app.dashboard as dash
-    src = inspect.getsource(dash.render_production_tabs)
+    # v1.0.0-alpha.31: single router now serves both project-open and
+    # no-project states (page selection no longer depends on project state).
+    src = _home_tabs_src()
     assert "render_video_renderer" in src
 
 
 def test_project_open_tabs_still_include_youtube_package():
-    import app.dashboard as dash
-    src = inspect.getsource(dash.render_production_tabs)
+    src = _home_tabs_src()
     assert "render_youtube_package" in src
 
 

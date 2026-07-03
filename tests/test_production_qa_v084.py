@@ -68,15 +68,16 @@ def test_production_qa_tab_exists():
 
 
 def test_home_tabs_include_production_qa():
+    # v1.0.0-alpha.31: unified sidebar-nav router (render_dashboard)
     import app.dashboard as dash
-    src = inspect.getsource(dash.render_home_tabs)
+    src = inspect.getsource(dash.render_dashboard)
     assert "render_production_qa" in src
     assert "Production QA" in src
 
 
 def test_production_tabs_include_production_qa():
     import app.dashboard as dash
-    src = inspect.getsource(dash.render_production_tabs)
+    src = inspect.getsource(dash.render_dashboard)
     assert "render_production_qa" in src
 
 

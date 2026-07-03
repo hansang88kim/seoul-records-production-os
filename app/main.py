@@ -20,249 +20,139 @@ st.set_page_config(
 )
 
 # ─── Global CSS ──────────────────────────────────────────────────────────────
+# Palette mirrors frontend/styles/globals.css (Studio Console design tokens):
+# near-black slate background, soft cyan primary, magenta + amber accents.
 st.markdown("""
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+KR:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <style>
-    /* ── Base ──────────────────────────────────────────────────────────── */
-    .stApp {
-        background:
-            radial-gradient(ellipse 80% 50% at 50% -20%, rgba(200, 185, 122, 0.06), transparent),
-            radial-gradient(ellipse 60% 50% at 100% 100%, rgba(80, 110, 180, 0.05), transparent),
-            #070b16;
-        font-family: 'Inter', 'Noto Sans KR', -apple-system, sans-serif;
-    }
-    .block-container {
-        padding: 4rem 2rem 4rem;
-        max-width: 1280px;
-    }
-
-    /* ── Typography ───────────────────────────────────────────────────── */
-    h1 {
-        color: #e8dcc0;
-        font-weight: 700;
-        font-size: 1.6rem;
-        letter-spacing: -0.5px;
-        margin-bottom: 0.25rem;
-    }
-    h2 {
-        color: #d4c48a;
-        font-weight: 600;
-        font-size: 1.25rem;
-        letter-spacing: -0.3px;
-    }
-    h3 {
-        color: #c0b070;
-        font-weight: 600;
-        font-size: 1.05rem;
-    }
-    h4 {
-        color: #d4c48a;
-        font-weight: 600;
-        font-size: 1rem;
-        letter-spacing: -0.2px;
-        margin: 0.5rem 0;
-    }
-    h5 {
-        color: #9a8d6a;
-        font-weight: 500;
-        font-size: 0.85rem;
-        text-transform: uppercase;
-        letter-spacing: 1px;
-        margin-bottom: 0.5rem;
-    }
-    p, span, label, .stMarkdown {
-        color: #b0bcd0;
-        font-size: 0.88rem;
-        line-height: 1.5;
-    }
-    .stCaption, small {
-        color: #5a6a84 !important;
-        font-size: 0.78rem;
+    :root {
+        --bg:        #16171d;
+        --card:      #1e1f27;
+        --card-2:    #22232c;
+        --border:    #34353f99;
+        --fg:        #f4f4f6;
+        --muted:     #9a9ba6;
+        --muted-2:   #6b6c78;
+        --cyan:      #7fd4e8;
+        --cyan-dim:  rgba(127, 212, 232, 0.14);
+        --magenta:   #e8639f;
+        --magenta-dim: rgba(232, 99, 159, 0.14);
+        --amber:     #e8c37c;
+        --amber-dim: rgba(232, 195, 124, 0.14);
+        --success:   #74d9a0;
+        --danger:    #e06a52;
     }
 
-    /* ── Tabs ─────────────────────────────────────────────────────────── */
-    .stTabs [data-baseweb="tab-list"] {
-        gap: 0;
-        background: #0c1224;
-        border-radius: 10px;
-        padding: 3px;
-        border: 1px solid #151f38;
+    /* -- Base -- */
+    .stApp { background: var(--bg); font-family: 'Inter', 'Noto Sans KR', -apple-system, sans-serif; }
+    .block-container { padding: 3rem 2rem 4rem; max-width: 1320px; }
+
+    /* -- Typography -- */
+    h1 { color: var(--fg); font-weight: 700; font-size: 1.7rem; letter-spacing: -0.5px; margin-bottom: 0.25rem; }
+    h2 { color: var(--fg); font-weight: 600; font-size: 1.2rem; letter-spacing: -0.3px; }
+    h3 { color: var(--fg); font-weight: 600; font-size: 1.02rem; }
+    h4 { color: var(--fg); font-weight: 600; font-size: 0.95rem; letter-spacing: -0.2px; margin: 0.5rem 0; }
+    h5 { color: var(--muted); font-weight: 600; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 1.2px; margin-bottom: 0.5rem; }
+    p, span, label, .stMarkdown { color: var(--muted); font-size: 0.88rem; line-height: 1.55; }
+    .stCaption, small { color: var(--muted-2) !important; font-size: 0.78rem; }
+
+    /* -- Cards (bordered containers used as dashboard/metric panels) -- */
+    div[data-testid="column"] > div[data-testid="stVerticalBlockBorderWrapper"] {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 14px;
     }
-    .stTabs [data-baseweb="tab"] {
-        color: #4a5a78;
-        font-size: 0.82rem;
-        font-weight: 500;
-        padding: 0.5rem 1.2rem;
-        border-radius: 8px;
-        border: none;
-    }
-    .stTabs [aria-selected="true"] {
-        color: #e8dcc0;
-        background: rgba(200, 185, 122, 0.12);
-        border: 1px solid rgba(200, 185, 122, 0.2);
+    div[data-testid="stVerticalBlockBorderWrapper"]:has(> div > [data-testid="stVerticalBlock"]) {
+        border-radius: 14px;
     }
 
-    /* ── Sidebar ──────────────────────────────────────────────────────── */
-    [data-testid="stSidebar"] {
-        background: #0a1020;
-        border-right: 1px solid #131c32;
-    }
-    [data-testid="stSidebar"] h2 {
-        font-size: 1.1rem;
-        color: #e8dcc0;
-    }
-    [data-testid="stSidebar"] h5 {
-        font-size: 0.72rem;
-        color: #6a7a94;
-    }
+    /* -- Tabs (still used inside individual pages) -- */
+    .stTabs [data-baseweb="tab-list"] { gap: 0; background: var(--card-2); border-radius: 10px; padding: 3px; border: 1px solid var(--border); }
+    .stTabs [data-baseweb="tab"] { color: var(--muted-2); font-size: 0.82rem; font-weight: 500; padding: 0.5rem 1.2rem; border-radius: 8px; border: none; }
+    .stTabs [aria-selected="true"] { color: var(--fg); background: var(--cyan-dim); border: 1px solid rgba(127, 212, 232, 0.25); }
 
-    /* ── Inputs ────────────────────────────────────────────────────────── */
-    .stTextInput > div > div > input,
-    .stTextArea > div > div > textarea,
-    .stSelectbox > div > div {
-        background: #0e1628;
-        border: 1px solid #1a2540;
-        border-radius: 8px;
-        color: #c8d0e0;
-        font-size: 0.85rem;
-        font-family: 'Inter', 'Noto Sans KR', sans-serif;
-    }
-    .stTextInput > div > div > input:focus,
-    .stTextArea > div > div > textarea:focus {
-        border-color: #c8b97a;
-        box-shadow: 0 0 0 1px rgba(200, 185, 122, 0.3);
-    }
-    .stTextInput > label,
-    .stTextArea > label,
-    .stSelectbox > label {
-        color: #8090a8;
-        font-size: 0.8rem;
-        font-weight: 500;
-    }
+    /* -- Sidebar -- */
+    [data-testid="stSidebar"] { background: #1a1b21; border-right: 1px solid var(--border); }
+    [data-testid="stSidebar"] h2 { font-size: 1.1rem; color: var(--fg); }
+    [data-testid="stSidebar"] h5 { font-size: 0.72rem; color: var(--muted); }
+    [data-testid="stSidebar"] .stButton > button { text-align: left; justify-content: flex-start; width: 100%; }
+    [data-testid="stSidebar"] .stButton > button[kind="secondary"] { background: transparent; color: var(--muted); border: 1px solid transparent; font-weight: 500; }
+    [data-testid="stSidebar"] .stButton > button[kind="secondary"]:hover { background: var(--card-2); color: var(--fg); border-color: var(--border); }
+    [data-testid="stSidebar"] .stButton > button[kind="primary"] { background: var(--cyan-dim); color: var(--cyan); border: 1px solid rgba(127, 212, 232, 0.3); font-weight: 600; box-shadow: none; }
+    [data-testid="stSidebar"] .stButton > button[kind="primary"]:hover { background: var(--cyan-dim); transform: none; box-shadow: none; }
 
-    /* ── Buttons ───────────────────────────────────────────────────────── */
+    /* -- Inputs -- */
+    .stTextInput > div > div > input, .stTextArea > div > div > textarea, .stSelectbox > div > div {
+        background: var(--card-2); border: 1px solid var(--border); border-radius: 8px; color: var(--fg);
+        font-size: 0.85rem; font-family: 'Inter', 'Noto Sans KR', sans-serif;
+    }
+    .stTextInput > div > div > input:focus, .stTextArea > div > div > textarea:focus {
+        border-color: var(--cyan); box-shadow: 0 0 0 1px rgba(127, 212, 232, 0.35);
+    }
+    .stTextInput > label, .stTextArea > label, .stSelectbox > label { color: var(--muted); font-size: 0.8rem; font-weight: 500; }
+
+    /* -- Buttons (main content area) -- */
     .stButton > button {
-        font-family: 'Inter', 'Noto Sans KR', sans-serif;
-        font-size: 0.82rem;
-        font-weight: 500;
-        border-radius: 8px;
-        padding: 0.45rem 1rem;
-        transition: all 0.15s ease;
+        font-family: 'Inter', 'Noto Sans KR', sans-serif; font-size: 0.82rem; font-weight: 500;
+        border-radius: 8px; padding: 0.45rem 1rem; transition: all 0.15s ease;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
     .stButton > button[kind="primary"] {
-        background: linear-gradient(135deg, #c8b97a 0%, #9a8650 100%);
-        color: #080d1a;
-        font-weight: 600;
-        border: none;
-        box-shadow: 0 2px 8px rgba(200, 185, 122, 0.2);
+        background: var(--cyan); color: #0e2a30; font-weight: 600; border: none;
+        box-shadow: 0 2px 8px rgba(127, 212, 232, 0.18);
     }
     .stButton > button[kind="primary"]:hover {
-        background: linear-gradient(135deg, #ddd0a0 0%, #b8a060 100%);
-        box-shadow: 0 4px 16px rgba(200, 185, 122, 0.3);
-        transform: translateY(-1px);
+        background: #9adfef; box-shadow: 0 4px 16px rgba(127, 212, 232, 0.28); transform: translateY(-1px);
     }
-    .stButton > button[kind="secondary"] {
-        background: #111b30;
-        color: #8a98b4;
-        border: 1px solid #1e2e4a;
-    }
-    .stButton > button[kind="secondary"]:hover {
-        background: #162040;
-        color: #b0bcd0;
-        border-color: #2a3e60;
-    }
+    .stButton > button[kind="secondary"] { background: var(--card-2); color: var(--muted); border: 1px solid var(--border); }
+    .stButton > button[kind="secondary"]:hover { background: #2a2b34; color: var(--fg); border-color: #454652; }
 
-    /* ── Expander ──────────────────────────────────────────────────────── */
-    [data-testid="stExpander"] {
-        background: #0c1224;
-        border: 1px solid #151f38;
-        border-radius: 10px;
-    }
-    [data-testid="stExpander"] summary {
-        color: #8a98b4;
-        font-size: 0.85rem;
-    }
+    /* -- Expander -- */
+    [data-testid="stExpander"] { background: var(--card-2); border: 1px solid var(--border); border-radius: 10px; }
+    [data-testid="stExpander"] summary { color: var(--muted); font-size: 0.85rem; }
 
-    /* ── Metrics ───────────────────────────────────────────────────────── */
-    [data-testid="stMetricValue"] {
-        color: #e8dcc0;
-        font-size: 1.3rem;
-        font-weight: 600;
-    }
-    [data-testid="stMetricLabel"] {
-        color: #5a6a84;
-        font-size: 0.72rem;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-    }
+    /* -- Metrics -- */
+    [data-testid="stMetricValue"] { color: var(--fg); font-size: 1.5rem; font-weight: 700; }
+    [data-testid="stMetricLabel"] { color: var(--muted-2); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.5px; }
 
-    /* ── Slider ────────────────────────────────────────────────────────── */
-    .stSlider > div > div > div > div {
-        background: #c8b97a;
-    }
-    .stSlider label {
-        color: #8090a8;
-        font-size: 0.8rem;
-    }
+    /* -- Slider -- */
+    .stSlider > div > div > div > div { background: var(--cyan); }
+    .stSlider label { color: var(--muted); font-size: 0.8rem; }
 
-    /* ── Radio ─────────────────────────────────────────────────────────── */
-    .stRadio > label {
-        color: #8090a8;
-        font-size: 0.82rem;
-    }
-    .stRadio > div {
-        gap: 0.3rem;
-    }
+    /* -- Radio -- */
+    .stRadio > label { color: var(--muted); font-size: 0.82rem; }
+    .stRadio > div { gap: 0.3rem; }
 
-    /* ── Progress ──────────────────────────────────────────────────────── */
-    .stProgress > div > div {
-        background: linear-gradient(90deg, #c8b97a, #a89050);
-        border-radius: 4px;
-    }
+    /* -- Progress -- */
+    .stProgress > div > div { background: linear-gradient(90deg, var(--cyan), #4fb8d0); border-radius: 4px; }
+    .stProgress > div { background: var(--card-2); }
 
-    /* ── Divider ───────────────────────────────────────────────────────── */
-    hr {
-        border-color: #131c32 !important;
-        margin: 0.75rem 0;
-    }
+    /* -- Divider -- */
+    hr { border-color: var(--border) !important; margin: 0.75rem 0; }
 
-    /* ── Alert boxes ──────────────────────────────────────────────────── */
-    .stAlert {
-        border-radius: 8px;
-        font-size: 0.83rem;
-    }
+    /* -- Alert boxes -- */
+    .stAlert { border-radius: 8px; font-size: 0.83rem; }
 
-    /* ── File uploader ────────────────────────────────────────────────── */
-    [data-testid="stFileUploader"] {
-        border: 1px dashed #1e2e4a;
-        border-radius: 10px;
-        padding: 1rem;
-    }
+    /* -- File uploader -- */
+    [data-testid="stFileUploader"] { border: 1px dashed var(--border); border-radius: 10px; padding: 1rem; }
 
-    /* ── Button text no-wrap ───────────────────────────────────────────── */
-    .stButton > button {
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
+    /* -- Checkbox inline -- */
+    .stCheckbox label { color: var(--muted-2); font-size: 0.78rem; }
 
-    /* ── Checkbox inline ──────────────────────────────────────────────── */
-    .stCheckbox label {
-        color: #6a7a94;
-        font-size: 0.78rem;
-    }
+    /* -- Selectbox -- */
+    .stSelectbox label { font-size: 0.78rem; color: var(--muted-2); }
 
-    /* ── Selectbox ─────────────────────────────────────────────────────── */
-    .stSelectbox label {
-        font-size: 0.78rem;
-        color: #6a7a94;
-    }
+    /* -- Badges / status pills (used via st.markdown snippets) -- */
+    .srx-pill { display: inline-block; padding: 0.15rem 0.6rem; border-radius: 999px; font-size: 0.72rem; font-weight: 600; }
+    .srx-pill-cyan    { background: var(--cyan-dim);    color: var(--cyan); }
+    .srx-pill-magenta { background: var(--magenta-dim); color: var(--magenta); }
+    .srx-pill-amber   { background: var(--amber-dim);   color: var(--amber); }
 
-    /* ── Scrollbar ─────────────────────────────────────────────────────── */
+    /* -- Scrollbar -- */
     ::-webkit-scrollbar { width: 6px; }
-    ::-webkit-scrollbar-track { background: #080d1a; }
-    ::-webkit-scrollbar-thumb { background: #1e2e4a; border-radius: 3px; }
-    ::-webkit-scrollbar-thumb:hover { background: #2a3e60; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #454652; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -382,71 +272,106 @@ def _verify_gemini(key):
         return False, f"{type(e).__name__}: {e}"
 
 
-# ─── Sidebar ─────────────────────────────────────────────────────────────────
-with st.sidebar:
-    st.markdown(f"""
-    <div style="text-align:center;padding:0.5rem 0 0.2rem">
-        <div style="font-size:1.3rem;font-weight:700;color:#e8dcc0;letter-spacing:-0.5px">🎵 Seoul Records</div>
-        <div style="font-size:0.65rem;color:#4a5a78;letter-spacing:2px;text-transform:uppercase;margin-top:2px">Production OS v{APP_VERSION}</div>
-    </div>
-    """, unsafe_allow_html=True)
+# ─── Settings page (credentials + job status; moved out of the sidebar) ─────
+def render_settings_page():
+    st.markdown("# ⚙️ Settings")
+    st.caption("API 키/쿠키 연결 관리. 값은 로컬 .env에만 저장되며 화면·로그에 노출되지 않습니다.")
     st.divider()
 
-    st.markdown("<div style='color:#6a7a94;font-size:0.7rem;font-weight:600;text-transform:uppercase;letter-spacing:1.5px;margin:0.3rem 0'>🔑 Suno</div>", unsafe_allow_html=True)
-    _credential_field("Suno 쿠키", "SUNO_COOKIE", "suno.com 쿠키", verify_fn=_verify_suno, persist_env=True)
+    col1, col2 = st.columns(2)
+    with col1:
+        st.markdown("##### 🔑 Suno")
+        _credential_field("Suno 쿠키", "SUNO_COOKIE", "suno.com 쿠키", verify_fn=_verify_suno, persist_env=True)
 
-    st.markdown("<div style='color:#6a7a94;font-size:0.7rem;font-weight:600;text-transform:uppercase;letter-spacing:1.5px;margin:0.8rem 0 0.3rem'>🤖 AI Composer</div>", unsafe_allow_html=True)
-    _credential_field("ChatGPT", "OPENAI_API_KEY", "sk-...", verify_fn=_verify_openai, persist_env=True)
-    st.markdown("")
-    _credential_field("Gemini", "GOOGLE_GEMINI_API_KEY", "AI...", verify_fn=_verify_gemini, persist_env=True)
+        st.write("")
+        st.markdown("##### 🤖 AI Composer")
+        _credential_field("ChatGPT", "OPENAI_API_KEY", "sk-...", verify_fn=_verify_openai, persist_env=True)
+        st.write("")
+        _credential_field("Gemini", "GOOGLE_GEMINI_API_KEY", "AI...", verify_fn=_verify_gemini, persist_env=True)
 
-    st.markdown("<div style='color:#6a7a94;font-size:0.7rem;font-weight:600;text-transform:uppercase;letter-spacing:1.5px;margin:0.8rem 0 0.3rem'>🎨 Image Gen</div>", unsafe_allow_html=True)
-    _credential_field("Midjourney (Apiframe)", "APIFRAME_API_KEY", "Apiframe API 키",
-                      persist_env=True)
+    with col2:
+        st.markdown("##### 🎨 Image Gen")
+        _credential_field("Midjourney (Apiframe)", "APIFRAME_API_KEY", "Apiframe API 키", persist_env=True)
 
     st.divider()
 
-    # ── Job Status Panel ─────────────────────────────────────────────
-    # Recover interrupted jobs on each render (detects dead workers)
+    # ── Job Status Panel ──────────────────────────────────────────────────
     try:
         from services.generation_job_manager import mark_interrupted_jobs, start_next_queued_job
         mark_interrupted_jobs()
-        # Safety net: if nothing is running but jobs are queued, start the next
-        # (covers the case where a worker died before chaining the queue)
         start_next_queued_job()
     except Exception:
         pass
 
+    st.markdown("##### 🔄 작업 상태")
     try:
         from services.job_store import get_active_jobs, list_jobs
+        from services.generation_job_manager import get_queued_jobs
         active = get_active_jobs()
         recent = list_jobs(limit=5)
+        queued = get_queued_jobs()
 
-        if active:
-            st.markdown("<div style='color:#6a7a94;font-size:0.7rem;font-weight:600;text-transform:uppercase;letter-spacing:1.5px;margin:0.3rem 0'>🔄 진행 중</div>", unsafe_allow_html=True)
-            for j in active:
-                if j.get("status") != "running":
-                    continue
+        running = [j for j in active if j.get("status") == "running"]
+        if running:
+            st.markdown("<div style='color:#9a9ba6;font-size:0.7rem;font-weight:600;text-transform:uppercase;letter-spacing:1.5px;margin:0.3rem 0'>진행 중</div>", unsafe_allow_html=True)
+            for j in running:
                 pct = j.get("progress_percent", 0) or 0
                 title = j.get("current_track_title", "")
                 st.progress(pct / 100)
                 st.caption(f"🎵 {title} · {j.get('completed_tracks',0)}/{j.get('total_tracks',0)}곡")
 
-        # Queued jobs
-        from services.generation_job_manager import get_queued_jobs
-        queued = get_queued_jobs()
         if queued:
-            st.markdown("<div style='color:#6a7a94;font-size:0.7rem;font-weight:600;text-transform:uppercase;letter-spacing:1.5px;margin:0.3rem 0'>📋 대기열</div>", unsafe_allow_html=True)
+            st.markdown("<div style='color:#9a9ba6;font-size:0.7rem;font-weight:600;text-transform:uppercase;letter-spacing:1.5px;margin:0.3rem 0'>대기열</div>", unsafe_allow_html=True)
             for qi, j in enumerate(queued):
                 st.caption(f"⏳ {qi+1}. {j.get('project','?')} · {j.get('total_tracks',0)}곡 대기 중")
 
         completed = [j for j in recent if j.get("status") in ("completed", "partially_failed")]
         if completed:
-            st.markdown("<div style='color:#6a7a94;font-size:0.7rem;font-weight:600;text-transform:uppercase;letter-spacing:1.5px;margin:0.3rem 0'>📋 최근 작업</div>", unsafe_allow_html=True)
+            st.markdown("<div style='color:#9a9ba6;font-size:0.7rem;font-weight:600;text-transform:uppercase;letter-spacing:1.5px;margin:0.3rem 0'>최근 작업</div>", unsafe_allow_html=True)
             for j in completed[:3]:
                 status_icon = "✅" if j["status"] == "completed" else "⚠️"
                 st.caption(f"{status_icon} {j.get('project','?')} · {j.get('completed_tracks',0)}/{j.get('total_tracks',0)}곡")
-    except Exception:
-        pass  # job store not available yet
 
-render_dashboard()
+        if not running and not queued and not completed:
+            st.caption("표시할 작업 이력이 없습니다.")
+    except Exception:
+        st.caption("job store를 불러올 수 없습니다.")
+
+
+# ─── Sidebar: brand header + vertical nav ────────────────────────────────────
+NAV_ITEMS = [
+    ("dashboard", "🏠", "Dashboard"),
+    ("song_lab", "🎵", "Song Lab"),
+    ("thumbnail", "🖼️", "Thumbnail Studio"),
+    ("video", "🎬", "Video Renderer"),
+    ("youtube", "▶️", "YouTube Package"),
+    ("qa", "✅", "Production QA"),
+    ("um", "🎶", "UnitedMasters"),
+    ("project", "📁", "프로젝트 관리"),
+    ("settings", "⚙️", "Settings"),
+]
+
+if "nav_page" not in st.session_state:
+    st.session_state.nav_page = "dashboard"
+
+with st.sidebar:
+    st.markdown(f"""
+    <div style="text-align:center;padding:0.5rem 0 1rem">
+        <div style="font-size:1.3rem;font-weight:700;color:#f4f4f6;letter-spacing:-0.5px">🎵 Seoul Records</div>
+        <div style="font-size:0.65rem;color:#6b6c78;letter-spacing:2px;text-transform:uppercase;margin-top:2px">Production OS v{APP_VERSION}</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    for key, icon, label in NAV_ITEMS:
+        active = st.session_state.nav_page == key
+        if st.button(f"{icon}  {label}", key=f"nav_{key}", use_container_width=True,
+                     type="primary" if active else "secondary"):
+            st.session_state.nav_page = key
+            st.rerun()
+
+# ─── Route ────────────────────────────────────────────────────────────────────
+_page = st.session_state.nav_page
+if _page == "settings":
+    render_settings_page()
+else:
+    render_dashboard(_page)

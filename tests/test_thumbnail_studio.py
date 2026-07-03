@@ -260,10 +260,10 @@ def test_music_generation_codepath_unchanged():
 # ─── Thumbnail Studio visible in both home AND production tabs ────────────────
 
 def test_home_tabs_include_thumbnail_studio():
-    """The home screen (no project) must wire in render_thumbnail_studio."""
+    """v1.0.0-alpha.31: the unified sidebar-nav router must wire in render_thumbnail_studio."""
     import inspect
     import app.dashboard as dash
-    src = inspect.getsource(dash.render_home_tabs)
+    src = inspect.getsource(dash.render_dashboard)
     assert "render_thumbnail_studio" in src
     assert "Thumbnail Studio" in src
 

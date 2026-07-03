@@ -1,6 +1,6 @@
 # Seoul Records Production OS
 
-**AI Music Label Production Harness — v1.0.0-alpha.30**
+**AI Music Label Production Harness — v1.0.0-alpha.31**
 
 > Creative direction: controlled by ChatGPT and the user.
 > Engineering: this repository.
@@ -77,6 +77,8 @@ to point the console at a live backend.
 ## What This Is
 
 Seoul Records Production OS is a local MVP application for creating AI-generated city pop album projects. It provides a full 5-tab production pipeline from song generation through music distribution, with mock providers for v0.1.x and a clear upgrade path to real integrations.
+
+**v1.0.0-alpha.31: Streamlit UI Reskin (Studio Console dark theme) — Reworked the Streamlit app's visual design and navigation to match the frontend/ Next.js console's design tokens (frontend/styles/globals.css: near-black slate background, soft cyan primary, magenta + amber accents), without touching any business logic. Full CSS repalette in app/main.py (cards, buttons, inputs, tabs, progress bars, sidebar). Navigation model changed from horizontal st.tabs() to a left sidebar nav list (Dashboard / Song Lab / Thumbnail Studio / Video Renderer / YouTube Package / Production QA / UnitedMasters / 프로젝트 관리 / Settings), matching the Next.js console's route structure — implemented via st.session_state["nav_page"] and a single router, render_dashboard(page), replacing the old render_home_tabs()/render_production_tabs() split. API-key/cookie credential fields and the job-status panel moved out of the sidebar into a new Settings page. Added a real-data Dashboard landing page (project count, song count, active/queued jobs, recent songs, quick-action buttons) sourced from job_store/project_manager — unlike the Next.js console's mock-first snapshot, every number here is live. All existing page render functions (Song Lab, Thumbnail Studio, Video Renderer, YouTube Package, Production QA, UnitedMasters, Project) are unchanged; only how they're reached changed. Updated 4 tests (test_home_navigation_v081.py, test_production_qa_v084.py, test_unitedmasters_v090.py, test_thumbnail_studio.py) that asserted on the old render_home_tabs/render_production_tabs source to check the new unified router instead. 688 tests passing.**
 
 **v1.0.0-alpha.30: Midjourney Image Engine (Apiframe · own MJ account) — Thumbnail Studio can now generate real images with Midjourney in addition to Gemini (Nano Banana). New `MidjourneyApiframeProvider` (services/thumbnail/midjourney_provider.py) drives the user's own Midjourney account through the Apiframe REST API: POST /imagine (aspect_ratio in the payload, negative prompt translated to Midjourney's --no) → poll POST /fetch until image_urls arrive → download the first quadrant as the candidate and save the other 3 as *_alt2..4.png for manual swapping. `get_image_provider()` / `generate_images()` gained an `engine` parameter ("gemini" | "midjourney", default gemini — fully backward compatible), Prompt Lab got an 이미지 엔진 selector, the sidebar got a 🎨 Image Gen → Midjourney (Apiframe) credential field (APIFRAME_API_KEY, persisted to .env, never logged/masked in errors), and image_gen_deps got check_midjourney_dependencies(). ref_image_path is ignored for MJ (no local-file i2i) — the 1:1 cover is composed natively via aspect_ratio. 15 new tests (all network mocked). 688 tests passing.**
 
