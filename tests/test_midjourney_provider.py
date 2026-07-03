@@ -221,6 +221,79 @@ def test_mj_imagine_no_job_id_is_error(tmp_path):
     assert "jobId" in r["error"]
 
 
+# ─── Capacity-error retry (v1.0.0-alpha.33) ──────────────────────────────────
+
+def test_mj_retries_on_capacity_error_then_succeeds(monkeypatch, tmp_path):
+    monkeypatch.setattr(mj, "_CAPACITY_BACKOFF_SEC", (0, 0, 0))
+    prov = mj.MidjourneyApiframeProvider(api_key=_FAKE_KEY)
+    submit_calls = []
+
+    def fake_post(url, headers=None, json=None, timeout=None):
+        submit_calls.append(1)
+        return _resp(202, {"jobId": f"job-{len(submit_calls)}", "status": "QUEUED"})
+
+    def fake_get(url, headers=None, timeout=None):
+        if len(submit_calls) == 1:
+            return _resp(200, {"status": "FAILED", "error": "No available capacity — please retry shortly"})
+        return _resp(200, {"status": "COMPLETED", "result": {"images": ["https://cdn2.apiframe.ai/images/ok.png"]}})
+
+    def fake_dl(url, timeout=None):
+        return _resp(200, content=_PNG)
+
+    with mock.patch("requests.post", side_effect=fake_post), \
+         mock.patch("requests.get", side_effect=lambda url, headers=None, timeout=None:
+                     fake_get(url) if "/jobs/" in url else fake_dl(url)):
+        r = prov.generate("p", str(tmp_path / "x.png"))
+
+    assert r["ok"] is True
+    assert len(submit_calls) == 2  # first attempt failed with capacity, second succeeded
+
+
+def test_mj_gives_up_after_max_capacity_retries(monkeypatch, tmp_path):
+    monkeypatch.setattr(mj, "_CAPACITY_BACKOFF_SEC", (0, 0, 0))
+    monkeypatch.setenv("SEOUL_MJ_CAPACITY_RETRIES", "1")  # 2 total attempts
+    prov = mj.MidjourneyApiframeProvider(api_key=_FAKE_KEY)
+    submit_calls = []
+
+    def fake_post(url, headers=None, json=None, timeout=None):
+        submit_calls.append(1)
+        return _resp(202, {"jobId": "job-x", "status": "QUEUED"})
+
+    def fake_get(url, headers=None, timeout=None):
+        return _resp(200, {"status": "FAILED", "error": "No available capacity"})
+
+    with mock.patch("requests.post", side_effect=fake_post), \
+         mock.patch("requests.get", side_effect=fake_get):
+        r = prov.generate("p", str(tmp_path / "x.png"))
+
+    assert r["ok"] is False
+    assert "capacity" in r["error"].lower()
+    assert len(submit_calls) == 2  # 1 initial + 1 retry, then gives up
+
+
+def test_mj_non_capacity_error_does_not_retry(monkeypatch, tmp_path):
+    monkeypatch.setattr(mj, "_CAPACITY_BACKOFF_SEC", (0, 0, 0))
+    prov = mj.MidjourneyApiframeProvider(api_key=_FAKE_KEY)
+    submit_calls = []
+
+    def fake_post(url, headers=None, json=None, timeout=None):
+        submit_calls.append(1)
+        return _resp(401, {"error": "invalid key"})
+
+    with mock.patch("requests.post", side_effect=fake_post):
+        r = prov.generate("p", str(tmp_path / "x.png"))
+
+    assert r["ok"] is False
+    assert len(submit_calls) == 1  # no retry on a non-transient error
+
+
+def test_is_capacity_error_detects_known_markers():
+    assert mj._is_capacity_error("No available capacity — please retry shortly")
+    assert mj._is_capacity_error("imagine HTTP 503: queue is temporarily unavailable")
+    assert not mj._is_capacity_error("invalid API key")
+    assert not mj._is_capacity_error("")
+
+
 # ─── verify_apiframe_key (GET /v2/me — sidebar connect flow) ────────────────
 
 def test_verify_apiframe_key_success():

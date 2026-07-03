@@ -1,6 +1,6 @@
 # Seoul Records Production OS
 
-**AI Music Label Production Harness — v1.0.0-alpha.32**
+**AI Music Label Production Harness — v1.0.0-alpha.33**
 
 > Creative direction: controlled by ChatGPT and the user.
 > Engineering: this repository.
@@ -77,6 +77,8 @@ to point the console at a live backend.
 ## What This Is
 
 Seoul Records Production OS is a local MVP application for creating AI-generated city pop album projects. It provides a full 5-tab production pipeline from song generation through music distribution, with mock providers for v0.1.x and a clear upgrade path to real integrations.
+
+**v1.0.0-alpha.33: Auto-Retry Midjourney "No Available Capacity" Errors — the first real end-to-end Apiframe v2 test authenticated fine but failed with `generation failed: No available capacity — please retry shortly`. Per Apiframe's own FAQ, this (and HTTP 503) means the provider-side job queue is momentarily full — unrelated to credits or auth — and Apiframe explicitly recommends retrying with exponential backoff; failed jobs are auto-refunded, so retries cost no extra credits. `MidjourneyApiframeProvider.generate()` now retries the whole submit+poll cycle up to `SEOUL_MJ_CAPACITY_RETRIES` times (default 2 extra attempts = 3 total) with 5s/15s/30s backoff before surfacing the error, via a new `_is_capacity_error()` marker check ("no available capacity", "503", "queue is temporarily", "temporarily unavailable"). Non-transient errors (bad key, invalid prompt, etc.) are not retried. Thumbnail Studio's Midjourney caption now mentions the auto-retry. 4 new tests (retry-then-succeed, give-up-after-max-retries, no-retry-on-non-capacity-error, marker detection). 696 tests passing.**
 
 **v1.0.0-alpha.32: Fix Midjourney Provider for Apiframe v2 — the first real Apiframe test came back with `imagine HTTP 401` and then, after clarifying the account was on Apiframe v2 (keys prefixed `afk_`), a clean `HTTP 400: your key starts with 'afk_' ... this endpoint is for Apiframe v1` straight from Apiframe's own error message. `services/thumbnail/midjourney_provider.py` was rewritten end-to-end against the current Apiframe v2 API (https://api.apiframe.ai/v2): `X-API-Key` header (not `Authorization`), unified `POST /images/generate` with `model: "midjourney"` + `midjourneyParams.aspect_ratio`, async job returned as `{jobId, status}`, polled via `GET /jobs/:id` (`QUEUED → PROCESSING → COMPLETED/FAILED`, `result.images[]` + `result.gridUrl`). negative_prompt still folds into the prompt as Midjourney's native `--no` — v2 has no separate field for it. Added `verify_apiframe_key()` (`GET /v2/me`, returns plan + credit balance) and wired it into the sidebar's Midjourney credential field as a real `verify_fn` — previously that field had none, so a bad/v1 key silently showed "connected" until the first real generation failed. 19 tests rewritten for the v2 shapes (all network mocked), including a regression test for the exact v1-key-on-v2-endpoint error. 692 tests passing.**
 

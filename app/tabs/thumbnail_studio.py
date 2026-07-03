@@ -131,7 +131,7 @@ def _render_prompt_lab():
         elif use_real:
             if engine == "midjourney":
                 st.caption("🟢 실제 생성 ON · Midjourney (Apiframe · 본인 계정) "
-                           "· 1장당 약 1~3분 소요")
+                           "· 1장당 약 1~3분 소요 (일시적 용량 부족 시 자동 재시도)")
             else:
                 st.caption(f"🟢 실제 생성 ON · 모델 {dep['model']} ({dep['backend'].upper()})")
 

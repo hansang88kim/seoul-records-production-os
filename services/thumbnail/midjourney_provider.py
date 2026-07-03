@@ -27,6 +27,13 @@ Flow (Apiframe v2 REST API — https://apiframe.ai/docs):
      saved next to it as *_alt2..4.png (best-effort) so the user can swap
      later.
 
+v1.0.0-alpha.33: "No available capacity" / HTTP 503 are transient
+provider-side queue-full errors (Apiframe FAQ: retry with exponential
+backoff — failed jobs are auto-refunded, so retrying costs no extra
+credits). generate() now retries the whole submit+poll cycle up to
+SEOUL_MJ_CAPACITY_RETRIES times (default 2 extra attempts = 3 total)
+with 5s/15s/30s backoff before surfacing the error to the user.
+
 Notes:
   * The API key comes from APIFRAME_API_KEY (sidebar 🎨 Image Gen → Midjourney).
     It is NEVER logged and is masked out of any error text.
@@ -52,6 +59,27 @@ _KEY_ENV_VAR = "APIFRAME_API_KEY"
 
 # Apiframe recommends polling every 2-3s for image jobs.
 _POLL_INTERVAL_SEC = 3
+
+# "No available capacity" / 503 are transient provider-side queue-full
+# errors (see https://apiframe.ai/docs/faq: "What does a 503 error mean?"
+# -> "job queue is temporarily unavailable ... retry with exponential
+# backoff"). Failed jobs are auto-refunded by Apiframe, so retrying here
+# does not cost extra credits. Configurable via SEOUL_MJ_CAPACITY_RETRIES
+# (default 3 total attempts) and backoff delays in seconds.
+_CAPACITY_ERROR_MARKERS = ("no available capacity", "503", "queue is temporarily", "temporarily unavailable")
+_CAPACITY_BACKOFF_SEC = (5, 15, 30)
+
+
+def _is_capacity_error(msg: str) -> bool:
+    low = (msg or "").lower()
+    return any(marker in low for marker in _CAPACITY_ERROR_MARKERS)
+
+
+def _capacity_retries() -> int:
+    try:
+        return max(0, int(os.environ.get("SEOUL_MJ_CAPACITY_RETRIES", "2")))
+    except ValueError:
+        return 2
 
 
 def get_apiframe_key() -> str | None:
@@ -139,6 +167,8 @@ class MidjourneyApiframeProvider(ImageGenProvider):
             return None, _mask(f"imagine request failed: {type(e).__name__}: {e}", self._api_key)
 
         if resp.status_code not in (200, 202):
+            # 503 = job queue temporarily full (Apiframe FAQ: retry with
+            # backoff). Keep the raw text so _is_capacity_error can detect it.
             return None, _mask(f"imagine HTTP {resp.status_code}: {resp.text[:300]}", self._api_key)
         try:
             data = resp.json()
@@ -232,16 +262,22 @@ class MidjourneyApiframeProvider(ImageGenProvider):
         # ref_image_path is intentionally ignored (no local-file i2i support);
         # the 1:1 is composed natively via aspect_ratio instead.
 
-        job_id, err = self._submit_imagine(full_prompt, aspect)
+        job_id, err, urls = None, None, None
+        attempts = _capacity_retries() + 1
+        for attempt in range(attempts):
+            job_id, err = self._submit_imagine(full_prompt, aspect)
+            if not err:
+                urls, err = self._poll_until_done(job_id)
+            if not err:
+                break
+            if not _is_capacity_error(err) or attempt == attempts - 1:
+                break
+            delay = _CAPACITY_BACKOFF_SEC[min(attempt, len(_CAPACITY_BACKOFF_SEC) - 1)]
+            time.sleep(delay)
+
         if err:
             return {"ok": False, "provider": self.name, "model": self.model,
-                    "path": None, "error": err}
-
-        urls, err = self._poll_until_done(job_id)
-        if err or not urls:
-            return {"ok": False, "provider": self.name, "model": self.model,
-                    "path": None, "error": err or "no image URLs returned",
-                    "task_id": job_id}
+                    "path": None, "error": err, "task_id": job_id}
 
         out = Path(out_path)
         dl_err = self._download(urls[0], out)
