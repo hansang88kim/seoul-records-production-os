@@ -446,7 +446,7 @@ class SunoCliProvider(ComposerProvider):
         Full generation flow (mirrors the working manual CLI workflow):
           1. suno auth --cookie <cookie>   (authenticate — REQUIRED, raises on fail)
           2. suno generate ... --wait      (blocks until generation completes)
-          3. suno list --limit 4           (resolve clip IDs by title match)
+          3. suno list                     (resolve clip IDs by title match)
 
         v1.0.0-alpha.29: NO local auto-download. This deliberately does NOT
         pass --download to the CLI — the user downloads the finished song
@@ -609,7 +609,7 @@ class SunoCliProvider(ComposerProvider):
         # generates song, returns clip IDs"). No files are fetched here.
         clip_ids: list[str] = []
         try:
-            list_data = _run_suno_json(["list", "--limit", "4"], timeout=30, suno_bin=self._bin)
+            list_data = _run_suno_json(["list"], timeout=30, suno_bin=self._bin)
             clips = list_data.get("data", [])
             if isinstance(clips, dict):
                 clips = clips.get("clips", clips.get("songs", []))
@@ -726,7 +726,7 @@ class SunoCliProvider(ComposerProvider):
 
         # Fallback: resolve via `suno list` and match on id prefix.
         try:
-            list_data = _run_suno_json(["list", "--limit", "20"], timeout=30,
+            list_data = _run_suno_json(["list"], timeout=30,
                                        suno_bin=self._bin)
             clips = list_data.get("data", [])
             if isinstance(clips, dict):
