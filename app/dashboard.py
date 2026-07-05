@@ -304,9 +304,9 @@ def render_library():
                         songs = []
                     if not songs:
                         st.caption("이 프로젝트에는 아직 곡이 없습니다.")
+                    from services.library_labels import format_duration
                     for s in songs:
-                        dur = s.get("duration")
-                        dur_str = f"{int(dur // 60)}:{int(dur % 60):02d}" if dur else "—"
+                        dur_str = format_duration(s.get("duration"))
                         st.markdown(
                             "<div style='display:flex;justify-content:space-between;padding:0.3rem 0;"
                             "border-bottom:1px solid #34353f55'>"
@@ -317,8 +317,9 @@ def render_library():
 
     with lib_tab_images:
         try:
-            from services.thumbnail.session_store import list_sessions, load_candidates
-            sessions = list_sessions(limit=30)
+            from services.library_labels import list_image_library_sessions
+            from services.thumbnail.session_store import load_candidates
+            sessions = list_image_library_sessions(limit=30)
         except Exception:
             sessions = []
 
@@ -327,13 +328,13 @@ def render_library():
         else:
             for sess in sessions:
                 sid = sess.get("session_id", "")
-                title = sess.get("title") or sess.get("theme") or sid
                 try:
                     cands = load_candidates(sid)
                 except Exception:
                     cands = []
                 generated = [c for c in cands if c.get("uploaded_image_path")]
-                with st.expander(f"🖼️ {title} ({len(generated)}/{len(cands)}장 생성됨) · {sid}"):
+                # Same label everywhere (Video Renderer picker, Candidate Gallery)
+                with st.expander(f"🖼️ {sess['library_label']}"):
                     if not generated:
                         st.caption("생성된 이미지가 없습니다.")
                         continue

@@ -854,6 +854,51 @@ def _render_project_album():
         st.info("아직 프로젝트가 없습니다. Quick Single 또는 Auto Batch에서 프로젝트 이름을 입력해 곡을 생성하세요.")
         return
 
+    # ── 📚 Song Library에서 곡 가져오기 (v1.0.0-alpha.43) ────────────────
+    # 좌측 Library의 곡 라이브러리와 동일한 이름으로 곡을 골라, 선택한
+    # 프로젝트로 복사합니다 (파일 + manifest).
+    from services.library_labels import song_entry_label
+    from app.project_manager import copy_song_to_project
+
+    with st.expander("📚 Song Library에서 곡 가져오기", expanded=False):
+        all_songs = []  # (label, source_project, song)
+        for p in projects:
+            for s in get_song_project_songs(p["name"]):
+                all_songs.append((song_entry_label(p["name"], s), p["name"], s))
+
+        if not all_songs:
+            st.caption("라이브러리에 곡이 없습니다.")
+        else:
+            target = st.selectbox(
+                "대상 프로젝트", [p["name"] for p in projects],
+                key="lib_import_target",
+                help="선택한 곡들이 이 프로젝트의 songs/ 폴더로 복사됩니다.",
+            )
+            picks = st.multiselect(
+                "가져올 곡 (좌측 Library와 동일한 이름)",
+                range(len(all_songs)),
+                format_func=lambda i: all_songs[i][0],
+                key="lib_import_songs",
+            )
+            if st.button("➕ 선택한 곡을 프로젝트로 복사", key="lib_import_go",
+                         use_container_width=True, disabled=not picks):
+                copied, skipped = 0, 0
+                for i in picks:
+                    _, src_proj, song = all_songs[i]
+                    if src_proj == target:
+                        skipped += 1
+                        continue
+                    if copy_song_to_project(target, song):
+                        copied += 1
+                    else:
+                        skipped += 1
+                if copied:
+                    st.success(f"✅ {copied}곡을 '{target}' 프로젝트로 복사했습니다."
+                               + (f" (중복/원본 {skipped}곡 건너뜀)" if skipped else ""))
+                    st.rerun()
+                else:
+                    st.warning("복사된 곡이 없습니다 (이미 있거나 원본 프로젝트와 동일).")
+
     # Project summary cards
     st.markdown(f"**총 {len(projects)}개 프로젝트**")
     for proj in projects:

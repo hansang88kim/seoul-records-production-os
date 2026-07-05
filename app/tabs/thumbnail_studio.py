@@ -305,12 +305,46 @@ def _render_prompt_lab():
 
 
 def _render_candidate_gallery():
-    """Mode 2 — upload Flow images and manage candidates."""
+    """Mode 2 — pick a session from the image Library (or the current one),
+    upload Flow images, and manage candidates. Prompt Lab is no longer a
+    prerequisite: any session in the sidebar Library's 이미지 라이브러리 can be
+    opened here directly (v1.0.0-alpha.43)."""
+    from services.library_labels import list_image_library_sessions
+
     st.markdown("#### 🖼️ Candidate Gallery — Flow 이미지 업로드 & 선택")
+
+    # ── Library session picker (identical labels to 좌측 Library) ─────────
+    lib_sessions = list_image_library_sessions(limit=30)
+    current_sid = st.session_state.get("thumb_session_id")
+
+    if lib_sessions:
+        option_ids = [s["session_id"] for s in lib_sessions]
+        option_labels = {s["session_id"]: s["library_label"] for s in lib_sessions}
+        if current_sid in option_ids:
+            options = option_ids
+            default_idx = option_ids.index(current_sid)
+        else:
+            options = ["__none__"] + option_ids
+            option_labels["__none__"] = "(이미지 라이브러리에서 세션 선택)"
+            default_idx = 0
+        chosen = st.selectbox(
+            "📚 이미지 라이브러리 세션", options, index=default_idx,
+            format_func=lambda s: option_labels.get(s, s),
+            key="gallery_lib_session",
+            help="좌측 Library의 이미지 라이브러리와 동일한 목록입니다. "
+                 "Prompt Lab을 거치지 않아도 기존 세션의 이미지를 바로 선택할 수 있습니다.",
+        )
+        if chosen != "__none__" and chosen != current_sid:
+            st.session_state["thumb_session_id"] = chosen
+            st.session_state.pop("brand_results", None)
+            st.rerun()
 
     sess = _current_session()
     if not sess:
-        st.info("먼저 Prompt Lab에서 프롬프트를 생성하세요.")
+        if lib_sessions:
+            st.info("위에서 이미지 라이브러리 세션을 선택하거나, Prompt Lab에서 새로 생성하세요.")
+        else:
+            st.info("아직 세션이 없습니다. Prompt Lab에서 프롬프트를 생성하세요.")
         return
 
     st.caption(f"세션: {sess['session_id']} · {sess['country']} · {sess['theme']}")

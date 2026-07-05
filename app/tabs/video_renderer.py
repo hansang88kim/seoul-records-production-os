@@ -72,13 +72,45 @@ def render_video_renderer():
         st.caption("WAV는 필요하지 않습니다 — MP3만 있으면 됩니다.")
         return
 
-    st.caption(f"발견된 MP3: {len(tracks)}개 (WAV 불필요)")
-    labels = [f"{t['name']} ({int(t['duration_sec'])//60}:{int(t['duration_sec'])%60:02d}) · {t['source']}"
-              for t in tracks]
+    # Library-identical names/meta (v1.0.0-alpha.43): the same
+    # "{프로젝트} · {곡제목} (m:ss)" labels the sidebar Library shows.
+    from services.library_labels import (
+        enrich_tracks_with_song_library, group_track_indices_by_project,
+    )
+    tracks = enrich_tracks_with_song_library(tracks)
+    labels = [t["library_label"] for t in tracks]
+
+    st.caption(f"발견된 MP3: {len(tracks)}개 (WAV 불필요) · 이름은 좌측 Library와 동일")
+
+    # ── Project-folder bulk selection ────────────────────────────────
+    proj_groups = group_track_indices_by_project(tracks)
+
+    # Keep a valid selection in session state (guards against file churn)
+    if "vr_mp3_sel" not in st.session_state:
+        st.session_state["vr_mp3_sel"] = list(range(min(len(tracks), 10)))
+    st.session_state["vr_mp3_sel"] = [
+        i for i in st.session_state["vr_mp3_sel"] if 0 <= i < len(tracks)
+    ]
+
+    if proj_groups:
+        def _apply_project_selection():
+            idxs: list[int] = []
+            for pname in st.session_state.get("vr_sel_projects", []):
+                idxs.extend(proj_groups.get(pname, []))
+            st.session_state["vr_mp3_sel"] = sorted(set(idxs))
+
+        st.multiselect(
+            "📁 프로젝트 폴더 선택 (하위 MP3 전체 자동 선택)",
+            sorted(proj_groups.keys()),
+            key="vr_sel_projects", on_change=_apply_project_selection,
+            help="프로젝트를 고르면 그 폴더의 모든 MP3가 아래 목록에서 한 번에 선택됩니다. "
+                 "이후 아래에서 개별 곡을 빼거나 추가할 수 있습니다.",
+        )
+
     chosen_idx = st.multiselect(
         "플레이리스트에 포함할 MP3 선택 (순서대로)",
         range(len(tracks)), format_func=lambda i: labels[i],
-        default=list(range(min(len(tracks), 10))),
+        key="vr_mp3_sel",
     )
     selected_tracks = [tracks[i] for i in chosen_idx]
 
@@ -109,9 +141,12 @@ def render_video_renderer():
         bg_info = {"asset_type": None, "path": None, "is_clean_playback": False,
                    "warning": "배경 없음"}
     else:
-        sess_labels = {f"{s['session_id']} ({s['country']})": s["session_id"]
+        # Library-identical session labels (v1.0.0-alpha.43)
+        from services.library_labels import thumbnail_session_library_label
+        sess_labels = {thumbnail_session_library_label(s): s["session_id"]
                        for s in thumb_sessions}
-        sel_sess = st.selectbox("Thumbnail 세션 선택", list(sess_labels.keys()))
+        sel_sess = st.selectbox("Thumbnail 세션 선택 (이름은 좌측 Library와 동일)",
+                                list(sess_labels.keys()))
         sess_id = sess_labels[sel_sess]
         bg_info = select_video_background(sess_id)
 
@@ -150,8 +185,9 @@ def render_video_renderer():
     asset_mode = st.radio(
         "오버레이 자산 소스",
         ["Canva PNG 업로드", "Mock 자산 (테스트용 자동 생성)"],
+        index=1,  # v1.0.0-alpha.43: Mock 자산이 기본값
         horizontal=True, key="vr_asset_mode",
-        help="실제 사용 시 Canva에서 export한 PNG를 업로드하세요. Mock은 테스트 fallback입니다.",
+        help="기본값은 Mock(자동 생성)입니다. 실제 사용 시 Canva에서 export한 PNG를 업로드하세요.",
     )
     uploaded_assets = {}
     if asset_mode.startswith("Canva"):

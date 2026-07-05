@@ -338,6 +338,51 @@ def get_song_project_songs(project_name: str) -> list[dict]:
     return load_song_manifest(project_name).get("songs", [])
 
 
+def copy_song_to_project(target_project: str, song: dict) -> dict | None:
+    """
+    Copy a Library song into another project (v1.0.0-alpha.43).
+
+    The audio file (when it exists on disk) is copied into the target
+    project's songs/ folder and a manifest entry is added, so the song shows
+    up in 프로젝트 관리 / Library / Video Renderer under the target project
+    with the SAME title. Returns the new manifest entry, or None when the
+    copy was skipped (no source file, or an identically-named file is
+    already in the target project).
+    """
+    src = song.get("file_path") or ""
+    src_path = Path(src) if src else None
+    dest_dir = song_project_dir(target_project) / "songs"
+    dest_dir.mkdir(parents=True, exist_ok=True)
+
+    new_song = dict(song)
+    new_song["imported_from_project"] = song.get("project", "")
+
+    if src_path and src_path.exists():
+        dest = dest_dir / src_path.name
+        # Skip duplicates: same file already recorded in the target manifest
+        existing = load_song_manifest(target_project).get("songs", [])
+        for e in existing:
+            efp = e.get("file_path") or ""
+            if efp and Path(efp).name == dest.name:
+                return None
+        if src_path.resolve() != dest.resolve():
+            shutil.copy2(src_path, dest)
+        new_song["file_path"] = str(dest)
+    elif not src_path:
+        # Metadata-only song (e.g. submitted-on-Suno, not downloaded yet):
+        # still record it so the target project lists the title.
+        titles = {
+            (e.get("title") or "").strip()
+            for e in load_song_manifest(target_project).get("songs", [])
+        }
+        if (new_song.get("title") or "").strip() in titles:
+            return None
+    else:
+        return None  # file_path set but missing on disk
+
+    return add_song_to_project(target_project, new_song)
+
+
 def delete_song_project(project_name: str) -> bool:
     pdir = _song_projects_root() / _song_slug(project_name)
     if pdir.exists():
