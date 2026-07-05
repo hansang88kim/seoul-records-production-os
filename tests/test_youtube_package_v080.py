@@ -85,9 +85,12 @@ def test_metadata_generator_creates_title():
 
 
 def test_metadata_generator_creates_description(yt_outputs):
+    # Legacy English auto-description path (alpha.59 kept it behind
+    # use_djhana_template=False; the default is now the DJ HANA frame).
     from services.youtube.metadata_generator import generate_all_metadata
     meta = generate_all_metadata("", "Korea", 1, "Night Drive",
-                                 yt_outputs["chapters"], 60)
+                                 yt_outputs["chapters"], 60,
+                                 use_djhana_template=False)
     desc = meta["description"]
     assert "About this mix" in desc
     assert "Seoul Records" in desc
@@ -96,7 +99,8 @@ def test_metadata_generator_creates_description(yt_outputs):
 
 def test_metadata_generator_includes_chapters(yt_outputs):
     from services.youtube.metadata_generator import generate_all_metadata
-    meta = generate_all_metadata("", "Korea", 1, "", yt_outputs["chapters"], 60)
+    meta = generate_all_metadata("", "Korea", 1, "", yt_outputs["chapters"], 60,
+                                 use_djhana_template=False)
     # Chapters preserved with exact timestamps + Korean (no mojibake)
     assert "00:00 밤이 지나면" in meta["description"]
     assert "03:30 늦은 대답" in meta["chapters_section"]

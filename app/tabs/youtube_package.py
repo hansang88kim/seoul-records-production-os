@@ -118,15 +118,16 @@ def render_youtube_package():
             rc1, rc2, rc3 = st.columns(3)
             with rc1:
                 if st.button("🔄 제목", use_container_width=True, key="yt_regen_title"):
-                    meta["title"] = MG.generate_title(playlist_title, country, int(volume),
-                                                      int(duration_min), mood)
+                    # DJ HANA fixed title frame (alpha.59).
+                    meta["title"] = MG.DJHANA_DEFAULT_TITLE
                     st.session_state["yt_meta"] = meta
                     st.rerun()
             with rc2:
                 if st.button("🔄 설명", use_container_width=True, key="yt_regen_desc"):
-                    meta["description"] = MG.generate_description(
-                        playlist_title, country, int(volume), mood,
-                        meta.get("chapters", []), int(duration_min))
+                    # DJ HANA description: fixed frame, tracklist from the
+                    # real uploaded audio (chapters).
+                    meta["description"] = MG.generate_djhana_description(
+                        meta.get("chapters", []))
                     st.session_state["yt_meta"] = meta
                     st.rerun()
             with rc3:
@@ -234,6 +235,33 @@ def render_youtube_package():
 
     # Live upload progress (background jobs) — outside the columns
     _render_upload_progress_panel()
+
+
+def _render_studio_manual_checklist(state: dict):
+    """
+    v1.0.0-alpha.59: After a successful upload, show the settings that the
+    YouTube Data API CANNOT set and therefore must be done by hand in
+    YouTube Studio. This is not a limitation of this app — YouTube simply
+    does not expose these via the API: monetization on/off, the
+    "video content self-rating" (ad-suitability) submission, the AI/altered-
+    content disclosure, end screens, and cards. Surfacing them as a fixed
+    checklist (with a one-click Studio link) means the user never has to
+    remember what to configure after each upload.
+    """
+    import streamlit as st
+    from services.youtube.metadata_generator import STUDIO_MANUAL_STEPS
+
+    vid = state.get("video_id", "")
+    with st.expander("📋 YouTube Studio에서 직접 설정할 항목 (API 자동화 불가)", expanded=True):
+        st.caption("아래 항목은 YouTube가 API로 열어주지 않아 자동 설정이 "
+                   "불가능합니다. 업로드된 영상을 Studio에서 열어 직접 설정하세요.")
+        for step in STUDIO_MANUAL_STEPS:
+            st.markdown(f"- {step}")
+        if vid:
+            st.markdown(f"[🎬 이 영상을 YouTube Studio에서 열기]"
+                       f"(https://studio.youtube.com/video/{vid}/edit)")
+            st.markdown(f"[💰 수익 창출 설정 열기]"
+                       f"(https://studio.youtube.com/video/{vid}/monetization)")
 
 
 def _render_oauth_and_upload(pkg: dict, privacy: str):
@@ -351,6 +379,7 @@ def _render_upload_progress_panel():
                     "의도한 채널이 맞는지 확인하세요. (다른 채널로 올리려면 "
                     "'토큰 삭제' 후 재인증 시 채널 선택 화면에서 원하는 채널을 "
                     "고르세요.)")
+        _render_studio_manual_checklist(state)
     elif status == "partial_success":
         thumb_err = state.get("thumbnail_error", "")
         ch = state.get("channel_title", "")
@@ -366,6 +395,7 @@ def _render_upload_progress_panel():
             from workers.youtube_upload_worker import run_thumbnail_retry
             run_thumbnail_retry(jid, use_mock=not st.session_state.get("yt_use_real", False))
             st.rerun()
+        _render_studio_manual_checklist(state)
     elif status == "failed":
         st.error(f"❌ 업로드 실패: {state.get('last_message','')}")
         if st.button("🔁 업로드 재시도", key="yt_retry_upload"):
