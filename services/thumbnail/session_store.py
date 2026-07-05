@@ -160,7 +160,7 @@ def image_target_dir(session_id: str) -> Path:
 
 def generate_images(session_id: str, prompts: list[dict],
                     use_real: bool = False, model: str | None = None,
-                    engine: str = "gemini") -> list[dict]:
+                    engine: str = "gemini", progress_callback=None) -> list[dict]:
     """Generate ACTUAL images for each prompt and link them to candidates.
 
     Saves prompt text first (reusing save_prompts), then renders ONE image per
@@ -171,6 +171,12 @@ def generate_images(session_id: str, prompts: list[dict],
     session is project-bound. The image path is stored as ``uploaded_image_path``
     so the existing select/brand pipeline works unchanged. Returns the updated
     candidate list.
+
+    ``progress_callback(index, total, candidate)``, if given, is called after
+    EACH candidate finishes (success or failure) — used by
+    workers/thumbnail_generation_worker.py (v1.0.0-alpha.38) to report
+    per-image progress into job_store for the background-queue UI. The
+    synchronous (non-queued) call path simply omits it.
 
     v1.0.0-alpha.36: the 1:1 deliverable is now derived by center-cropping the
     16:9 result (derive_aspect_crop) instead of a second provider.generate()
@@ -188,6 +194,7 @@ def generate_images(session_id: str, prompts: list[dict],
     provider = get_image_provider(use_real=use_real, model=model, engine=engine)
 
     candidates = load_candidates(session_id)
+    total = len(list(zip(candidates, prompts)))
     for i, (c, p) in enumerate(zip(candidates, prompts)):
         cid = c["candidate_id"]
         path_169 = target / f"{cid}_16x9.png"
@@ -218,6 +225,12 @@ def generate_images(session_id: str, prompts: list[dict],
             c["image_source"] = "generation_failed"
             c["status"] = "generation_failed"
             c["gen_error"] = r169.get("error")
+
+        if progress_callback:
+            try:
+                progress_callback(i, total, c)
+            except Exception:
+                pass  # never let a progress hook break generation
     save_candidates(session_id, candidates)
     return candidates
 

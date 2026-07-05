@@ -8,6 +8,7 @@ routes to the matching page. The old horizontal st.tabs()-based navigation
 individual page's render_* function is unchanged.
 """
 import streamlit as st
+from pathlib import Path
 from app.tabs.project_screen import render_project_screen
 from app.tabs.song_lab import render_song_lab
 
@@ -40,6 +41,12 @@ def render_dashboard(page: str = "dashboard"):
         # UnitedMasters
         from app.tabs.unitedmasters_tab import render_unitedmasters
         render_unitedmasters()
+    elif page == "history":
+        # History
+        render_history()
+    elif page == "library":
+        # Library
+        render_library()
     elif page == "project":
         # 프로젝트 관리
         render_project_screen()
@@ -191,3 +198,150 @@ def render_home():
                 for j in completed[:3]:
                     icon = "✅" if j["status"] == "completed" else "⚠️"
                     st.caption(f"{icon} {j.get('project', '?')} · {j.get('completed_tracks', 0)}/{j.get('total_tracks', 0)}곡")
+
+
+_MODE_LABELS = {
+    "auto_batch": "🎵 곡 생성",
+    "thumbnail_batch": "🖼️ 썸네일 생성",
+}
+_STATUS_LABELS = {
+    "running": "🔵 진행 중",
+    "queued": "⏳ 대기 중",
+    "completed": "✅ 완료",
+    "partially_failed": "⚠️ 일부 실패",
+    "failed": "🔴 실패",
+}
+
+
+def render_history():
+    """
+    All job history (song generation + thumbnail generation) in one place —
+    job_store is generic across modes, so this just lists everything with a
+    status/mode filter. v1.0.0-alpha.38.
+    """
+    st.markdown("# 📜 History")
+    st.caption("곡 생성과 썸네일 생성 작업 이력을 한 곳에서 확인합니다.")
+
+    try:
+        from services.job_store import list_jobs
+        all_jobs = list_jobs(limit=100)
+    except Exception:
+        all_jobs = []
+
+    if not all_jobs:
+        st.info("아직 작업 이력이 없습니다.")
+        return
+
+    col1, col2 = st.columns(2)
+    with col1:
+        status_opt = st.selectbox(
+            "상태", ["전체"] + list(_STATUS_LABELS.values()), key="hist_status_filter",
+        )
+    with col2:
+        mode_opt = st.selectbox(
+            "종류", ["전체"] + list(_MODE_LABELS.values()), key="hist_mode_filter",
+        )
+
+    def _match(j):
+        if status_opt != "전체" and _STATUS_LABELS.get(j.get("status"), j.get("status")) != status_opt:
+            return False
+        if mode_opt != "전체" and _MODE_LABELS.get(j.get("mode"), j.get("mode")) != mode_opt:
+            return False
+        return True
+
+    filtered = [j for j in all_jobs if _match(j)]
+    st.caption(f"{len(filtered)}개 작업 표시 중 (전체 {len(all_jobs)}개)")
+
+    for j in filtered:
+        mode_label = _MODE_LABELS.get(j.get("mode"), j.get("mode", "?"))
+        status_label = _STATUS_LABELS.get(j.get("status"), j.get("status", "?"))
+        with st.container(border=True):
+            c1, c2, c3 = st.columns([3, 2, 2])
+            with c1:
+                st.markdown(f"**{j.get('project', '?')}**")
+                st.caption(f"{mode_label} · job_id: {j.get('job_id', '')}")
+            with c2:
+                st.caption(status_label)
+                total = j.get("total_tracks", 0) or 0
+                if total:
+                    st.progress(min(1.0, (j.get("completed_tracks", 0) or 0) / total))
+                    st.caption(f"{j.get('completed_tracks', 0)}/{total} 완료 · "
+                              f"실패 {j.get('failed_tracks', 0)}")
+            with c3:
+                st.caption(f"생성: {(j.get('created_at') or '')[:19].replace('T', ' ')}")
+                if j.get("completed_at"):
+                    st.caption(f"완료: {j['completed_at'][:19].replace('T', ' ')}")
+            if j.get("last_message"):
+                st.caption(f"💬 {j['last_message']}")
+
+
+def render_library():
+    """
+    Browse all saved generation results — songs (project_manager) and
+    thumbnail images (thumbnail session_store) — in one place.
+    v1.0.0-alpha.38.
+    """
+    st.markdown("# 📚 Library")
+    st.caption("지금까지 생성한 곡과 이미지를 한 곳에서 확인합니다.")
+
+    lib_tab_songs, lib_tab_images = st.tabs(["🎵 곡 라이브러리", "🖼️ 이미지 라이브러리"])
+
+    with lib_tab_songs:
+        try:
+            from app.project_manager import list_song_projects, get_song_project_songs
+            song_projects = list_song_projects()
+        except Exception:
+            song_projects = []
+
+        if not song_projects:
+            st.info("아직 생성된 곡이 없습니다. Song Lab에서 시작하세요.")
+        else:
+            for p in song_projects:
+                with st.expander(f"📁 {p['name']} ({p.get('song_count', 0)}곡)"):
+                    try:
+                        songs = get_song_project_songs(p["name"])
+                    except Exception:
+                        songs = []
+                    if not songs:
+                        st.caption("이 프로젝트에는 아직 곡이 없습니다.")
+                    for s in songs:
+                        dur = s.get("duration")
+                        dur_str = f"{int(dur // 60)}:{int(dur % 60):02d}" if dur else "—"
+                        st.markdown(
+                            "<div style='display:flex;justify-content:space-between;padding:0.3rem 0;"
+                            "border-bottom:1px solid #34353f55'>"
+                            f"<span style='color:#f4f4f6;font-size:0.85rem'>{s.get('title', '제목 없음')}</span>"
+                            f"<span style='color:#6b6c78;font-size:0.78rem'>{dur_str}</span></div>",
+                            unsafe_allow_html=True,
+                        )
+
+    with lib_tab_images:
+        try:
+            from services.thumbnail.session_store import list_sessions, load_candidates
+            sessions = list_sessions(limit=30)
+        except Exception:
+            sessions = []
+
+        if not sessions:
+            st.info("아직 생성된 이미지가 없습니다. Thumbnail Studio에서 시작하세요.")
+        else:
+            for sess in sessions:
+                sid = sess.get("session_id", "")
+                title = sess.get("title") or sess.get("theme") or sid
+                try:
+                    cands = load_candidates(sid)
+                except Exception:
+                    cands = []
+                generated = [c for c in cands if c.get("uploaded_image_path")]
+                with st.expander(f"🖼️ {title} ({len(generated)}/{len(cands)}장 생성됨) · {sid}"):
+                    if not generated:
+                        st.caption("생성된 이미지가 없습니다.")
+                        continue
+                    ncol = min(4, len(generated))
+                    cols = st.columns(ncol)
+                    for idx, c in enumerate(generated):
+                        fp = c.get("uploaded_image_path")
+                        with cols[idx % ncol]:
+                            if fp and Path(fp).exists():
+                                st.image(fp, use_container_width=True,
+                                        caption=c.get("candidate_id", ""))

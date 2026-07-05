@@ -161,3 +161,25 @@ def test_existing_video_renderer_unaffected_v081():
 def test_existing_youtube_package_unaffected_v081():
     from services.youtube.youtube_package_service import create_package
     assert callable(create_package)
+
+
+# ─── History / Library pages (v1.0.0-alpha.38) ───────────────────────────────
+
+def test_nav_items_include_history_and_library():
+    import app.main as main_mod
+    src = inspect.getsource(main_mod)
+    assert '"history"' in src and "History" in src
+    assert '"library"' in src and "Library" in src
+
+
+def test_router_wires_history_and_library():
+    import app.dashboard as dash
+    src = inspect.getsource(dash.render_dashboard)
+    assert "render_history" in src
+    assert "render_library" in src
+
+
+def test_render_history_and_render_library_are_callable():
+    import app.dashboard as dash
+    assert callable(dash.render_history)
+    assert callable(dash.render_library)

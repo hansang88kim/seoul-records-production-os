@@ -355,6 +355,8 @@ NAV_ITEMS = [
     ("youtube", "▶️", "YouTube Package"),
     ("qa", "✅", "Production QA"),
     ("um", "🎶", "UnitedMasters"),
+    ("history", "📜", "History"),
+    ("library", "📚", "Library"),
     ("project", "📁", "프로젝트 관리"),
     ("settings", "⚙️", "Settings"),
 ]

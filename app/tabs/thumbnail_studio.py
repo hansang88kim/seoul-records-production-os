@@ -78,6 +78,16 @@ def _render_prompt_lab():
     with col5:
         subtitle = st.text_input("부제목 (선택)", value="1990s Night Drive", key="thumb_subtitle")
 
+    include_person = st.toggle(
+        "👤 인물(여성) 포함 — 1990 레트로 시티팝 앨범자켓 스타일", value=True,
+        key="thumb_include_person",
+        help="켜면: 국가별 20대 초반 여성이 중앙에 있는 앨범자켓/구독유도형 썸네일. "
+             "끄면: 인물 없는 순수 배경(도시 야경) 컴포지션 — 이전 스타일.",
+    )
+    if not include_person:
+        st.caption("ℹ️ 인물 없이 배경(도시 야경)만 생성됩니다. 타이틀 안전영역은 "
+                   "좌/우/상/하 중 다양하게 배치됩니다.")
+
     # ── Project link + real image generation ──────────────────────────────
     col_p, col_r = st.columns([1, 1])
     with col_p:
@@ -152,13 +162,20 @@ def _render_prompt_lab():
                 st.caption(f"🟢 실제 생성 ON · 모델 {dep['model']} ({dep['backend'].upper()})")
 
     # Optional: explicit new-session button
+    use_queue = st.toggle(
+        "🔄 백그라운드 대기열로 생성", value=(count > 1 and use_real),
+        key="thumb_use_queue",
+        help="켜면: 별도 프로세스에서 생성하며 화면이 즉시 반응합니다 — 여러 장/실제 API 생성 시 추천. "
+             "진행 상태는 Dashboard/Settings의 '작업 상태'에서 실시간 확인 가능합니다. "
+             "끄면: 이 화면에서 완료까지 기다립니다(1장·목업 생성에 적합).",
+    )
     col_gen, col_new = st.columns([3, 1])
     with col_new:
         force_new = st.button("🆕 새 세션", use_container_width=True,
                               help="새 썸네일 세션을 시작합니다 (기존 세션 자산은 보존됨)")
     with col_gen:
-        do_generate = st.button(f"🎨 {count}개 이미지 생성", type="primary",
-                                use_container_width=True)
+        gen_label = f"🔄 {count}개 이미지 생성 (대기열)" if use_queue else f"🎨 {count}개 이미지 생성"
+        do_generate = st.button(gen_label, type="primary", use_container_width=True)
 
     if force_new:
         # Start a fresh session immediately
@@ -188,7 +205,7 @@ def _render_prompt_lab():
             # Clear stale prompt/brand display from the previous session
             st.session_state.pop("brand_results", None)
 
-        prompts = generate_prompt_batch(country_key, theme, count)
+        prompts = generate_prompt_batch(country_key, theme, count, include_person=include_person)
         if not use_real:
             mode_label = "목업"
         elif engine == "apiframe_nanobanana":
@@ -197,22 +214,37 @@ def _render_prompt_lab():
             mode_label = "실제 (GPT Image 2 · OpenAI)"
         else:
             mode_label = "실제 (Gemini)"
-        with st.spinner(f"{count}장 이미지 생성 중… ({mode_label})"):
-            cands = ss.generate_images(sid, prompts, use_real=use_real, engine=engine)
-        st.session_state["thumb_prompts"] = prompts
-        ok = sum(1 for c in cands if c.get("status") == "image_generated")
-        fail = len(cands) - ok
-        where = "프로젝트 thumbnails/ 폴더" if project_folder else "세션 폴더"
-        if fail and ok == 0:
-            first_err = next((c.get("gen_error") for c in cands if c.get("gen_error")), "")
-            st.error(f"❌ 이미지 생성 실패 ({fail}개). 사유: {first_err}")
-        elif fail:
-            st.warning(f"⚠️ 이미지 {ok}개 생성 / {fail}개 실패 → Candidate Gallery에서 확인. (저장: {where})")
-        else:
-            st.success(
-                f"✅ {ok}개 이미지 생성 완료! ({mode_label} · 저장: {where}) "
-                f"→ **Candidate Gallery** 탭에서 선택하세요. (세션: {sid})"
+
+        if use_queue:
+            from services.thumbnail_job_manager import start_thumbnail_job
+            job = start_thumbnail_job(
+                sid, prompts,
+                settings={"use_real": use_real, "model": None, "engine": engine},
             )
+            st.session_state["thumb_prompts"] = prompts
+            if job.get("queued"):
+                st.warning(f"⏳ 대기열에 추가됨 — 다른 작업(job {job['queued_behind']}) 완료 후 "
+                           f"Settings에서 다시 시도하세요.")
+            else:
+                st.success(f"🔄 백그라운드로 {count}장 생성 시작됨 ({mode_label}) · "
+                           f"job_id={job['job_id']} · Dashboard/Settings에서 진행 상태 확인 가능")
+        else:
+            with st.spinner(f"{count}장 이미지 생성 중… ({mode_label})"):
+                cands = ss.generate_images(sid, prompts, use_real=use_real, engine=engine)
+            st.session_state["thumb_prompts"] = prompts
+            ok = sum(1 for c in cands if c.get("status") == "image_generated")
+            fail = len(cands) - ok
+            where = "프로젝트 thumbnails/ 폴더" if project_folder else "세션 폴더"
+            if fail and ok == 0:
+                first_err = next((c.get("gen_error") for c in cands if c.get("gen_error")), "")
+                st.error(f"❌ 이미지 생성 실패 ({fail}개). 사유: {first_err}")
+            elif fail:
+                st.warning(f"⚠️ 이미지 {ok}개 생성 / {fail}개 실패 → Candidate Gallery에서 확인. (저장: {where})")
+            else:
+                st.success(
+                    f"✅ {ok}개 이미지 생성 완료! ({mode_label} · 저장: {where}) "
+                    f"→ **Candidate Gallery** 탭에서 선택하세요. (세션: {sid})"
+                )
 
     # Show generated images (inline preview) FIRST, then the prompts for reference.
     prompts = st.session_state.get("thumb_prompts", [])

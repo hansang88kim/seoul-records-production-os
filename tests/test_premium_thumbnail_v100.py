@@ -237,6 +237,45 @@ def test_image_prompt_uses_selected_country():
     assert get_culture("vietnam") == "Vietnamese"
 
 
+# ─── include_person option (v1.0.0-alpha.38) ────────────────────────────────
+
+def test_include_person_default_true_has_portrait_wording():
+    from services.thumbnail.prompt_generator import generate_flow_prompt
+    p = generate_flow_prompt("korea", "night", 0)  # default include_person=True
+    assert p["include_person"] is True
+    mp = p["main_prompt"].lower()
+    assert "korean woman" in mp
+    assert "album cover" in mp
+
+
+def test_include_person_false_reverts_to_background_only():
+    from services.thumbnail.prompt_generator import generate_flow_prompt
+    p = generate_flow_prompt("korea", "night", 0, include_person=False)
+    assert p["include_person"] is False
+    mp = p["main_prompt"].lower()
+    assert "woman" not in mp
+    assert "no people-facing camera" in mp
+    assert "korean city night" in mp
+
+
+def test_include_person_false_uses_full_title_safe_area_set():
+    from services.thumbnail.prompt_generator import generate_prompt_batch
+    from services.thumbnail.country_presets import TITLE_SAFE_AREAS
+    prompts = generate_prompt_batch("japan", "night", 5, include_person=False)
+    safe_areas = {p["title_safe_area"] for p in prompts}
+    # Background mode has 5 possible areas (left/right/top/bottom/center-left)
+    assert safe_areas.issubset(set(TITLE_SAFE_AREAS))
+    assert len(safe_areas) >= 3
+
+
+def test_include_person_true_uses_portrait_safe_area_set():
+    from services.thumbnail.prompt_generator import generate_prompt_batch
+    from services.thumbnail.country_presets import PORTRAIT_SAFE_AREAS
+    prompts = generate_prompt_batch("japan", "night", 5, include_person=True)
+    safe_areas = {p["title_safe_area"] for p in prompts}
+    assert safe_areas.issubset(set(PORTRAIT_SAFE_AREAS))
+
+
 def test_dual_ratio_native_generation_and_trim():
     import services.thumbnail.session_store as ss2
     from services.thumbnail.prompt_generator import generate_prompt_batch
