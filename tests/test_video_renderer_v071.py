@@ -270,11 +270,53 @@ def test_ascale_log_also_needed_not_just_fscale():
     assert "ascale=lin" not in flt
 
 
-def test_default_width_percent_is_25():
-    """User settled on a narrower 25% band after testing full-width (100%)."""
+def test_default_width_percent_is_30():
+    """User settled on a narrower 30% band after further testing."""
     from services.video.visualizer import visualizer_config
     cfg = visualizer_config()
-    assert cfg["width_percent"] == 25
+    assert cfg["width_percent"] == 30
+
+
+def test_defaults_match_user_settled_values():
+    """v1.0.0-alpha.42: height=60, opacity=0.20, bottom_margin=0,
+    width_percent=30, glow_strength=0.0 — the settings the user landed on
+    after visual testing, locked in as the new defaults."""
+    from services.video.visualizer import visualizer_config
+    cfg = visualizer_config()
+    assert cfg["height"] == 60
+    assert cfg["opacity"] == 0.20
+    assert cfg["bottom_margin"] == 0
+    assert cfg["width_percent"] == 30
+    assert cfg["glow_strength"] == 0.0
+
+
+def test_averaging_default_is_6_and_configurable():
+    from services.video.visualizer import visualizer_config
+    assert visualizer_config()["averaging"] == 6
+    assert visualizer_config(averaging=0)["averaging"] == 0
+    assert visualizer_config(averaging=15)["averaging"] == 15
+    assert visualizer_config(averaging=-3)["averaging"] == 0  # never negative
+
+
+def test_averaging_present_in_generated_filter():
+    """averaging smooths bar motion over time (calmer per user request)."""
+    from services.video.visualizer import visualizer_config, build_visualizer_filter
+    import warnings
+    cfg = visualizer_config(averaging=9)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        flt = build_visualizer_filter(cfg)
+    assert "averaging=9" in flt
+
+
+def test_real_renderer_averaging_present():
+    from services.video.filter_complex_builder import add_visualizer_layer
+    from services.video.visualizer import visualizer_config
+    parts = []
+    cfg = visualizer_config(averaging=12)
+    add_visualizer_layer(parts, "[bg]", {"config": cfg})
+    joined = ";".join(parts)
+    assert "averaging=12" in joined
 
 
 def test_visualizer_config_defaults_to_classic_bars():

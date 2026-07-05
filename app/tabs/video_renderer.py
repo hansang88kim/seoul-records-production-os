@@ -25,6 +25,37 @@ from services.thumbnail import session_store as ss
 from services.thumbnail.video_renderer_rules import select_video_background
 
 
+def _linked_slider(label: str, min_v, max_v, default, step, key: str,
+                   help: str | None = None, is_float: bool = False):
+    """
+    Slider + directly-typed number input, kept in sync (v1.0.0-alpha.42) —
+    dragging the mouse across a wide slider range is fiddly, so every
+    visualizer position/size control also gets a typeable field next to it.
+    Both widgets share underlying state via on_change callbacks; whichever
+    was touched last wins and updates the other.
+    """
+    slider_key = f"{key}_slider"
+    num_key = f"{key}_num"
+    if slider_key not in st.session_state and num_key not in st.session_state:
+        st.session_state[slider_key] = default
+        st.session_state[num_key] = default
+
+    def _from_slider():
+        st.session_state[num_key] = st.session_state[slider_key]
+
+    def _from_num():
+        st.session_state[slider_key] = st.session_state[num_key]
+
+    c1, c2 = st.columns([3, 1])
+    with c1:
+        st.slider(label, min_v, max_v, step=step, key=slider_key,
+                 on_change=_from_slider, help=help)
+    with c2:
+        st.number_input("직접 입력", min_v, max_v, step=step, key=num_key,
+                        on_change=_from_num, label_visibility="collapsed")
+    return st.session_state[slider_key]
+
+
 def render_video_renderer():
     """MP3-first Video Renderer entry point."""
     st.markdown("## 🎬 Video Renderer")
@@ -157,9 +188,11 @@ def render_video_renderer():
             viz_style = "classic_bars"
             st.text_input("스타일", "Classic Bars", disabled=True, key="vr_viz_style_display")
         with vcol2:
+            theme_names = list(COLOR_THEMES.keys())
+            default_theme_idx = 1 + theme_names.index("매혹 마젠타")  # "직접 선택" is index 0
             theme_label = st.selectbox(
-                "컬러 테마", ["직접 선택"] + list(COLOR_THEMES.keys()),
-                key="vr_viz_theme",
+                "컬러 테마", ["직접 선택"] + theme_names,
+                index=default_theme_idx, key="vr_viz_theme",
                 help="빠른 프리셋. '직접 선택'이면 아래 색상 피커 값을 씁니다.",
             )
             if theme_label != "직접 선택":
@@ -168,27 +201,34 @@ def render_video_renderer():
             else:
                 viz_color = st.color_picker("색상 (직접 선택)", "#ffffff", key="vr_viz_color")
         with vcol3:
-            viz_opacity = st.slider("투명도", 0.0, 1.0, 0.55, key="vr_viz_op")
+            viz_opacity = _linked_slider("투명도", 0.0, 1.0, 0.20, 0.01, "vr_viz_op", is_float=True)
 
         # Position / size controls
-        st.markdown("**위치 / 크기 조정**")
+        st.markdown("**위치 / 크기 조정** (마우스 드래그 또는 우측 칸에 직접 입력)")
         pcol1, pcol2, pcol3 = st.columns(3)
         with pcol1:
-            viz_height = st.slider("높이 (px)", 60, 400, 160, key="vr_viz_h")
-            viz_bottom = st.slider("하단 여백 (px)", 0, 400, 40, key="vr_viz_bm")
+            viz_height = _linked_slider("높이 (px)", 20, 400, 60, 5, "vr_viz_h")
+            viz_bottom = _linked_slider("하단 여백 (px)", 0, 400, 0, 5, "vr_viz_bm")
         with pcol2:
-            viz_width = st.slider("너비 (%)", 10, 100, 25, key="vr_viz_w")
-            viz_glow = st.slider("글로우 강도", 0.0, 10.0, 3.0, key="vr_viz_glow")
+            viz_width = _linked_slider("너비 (%)", 10, 100, 30, 1, "vr_viz_w")
+            viz_averaging = _linked_slider(
+                "모션 부드러움 (평활화)", 0, 20, 6, 1, "vr_viz_avg",
+                help="0 = 매 순간 그대로 반응(가장 잔잔하지 않음/기민함). "
+                     "높을수록 이전 프레임과 부드럽게 섞여 잔잔하고 느긋한 모션이 됩니다.",
+            )
         with pcol3:
             use_custom_y = st.checkbox("Y 위치 직접 지정", value=False, key="vr_viz_use_y")
             viz_y = st.slider("Y 위치 (px)", 0, 1080, 880, key="vr_viz_y",
                               disabled=not use_custom_y)
+        # glow_strength is unused by classic_bars (kept in the config shape
+        # for stability) — no UI control needed for it anymore.
+        viz_glow = 0.0
 
         viz_cfg = visualizer_config(
             viz_style, viz_color, viz_height, viz_opacity, "bottom",
             y_position=(viz_y if use_custom_y else None),
             bottom_margin=viz_bottom, width_percent=viz_width,
-            glow_strength=viz_glow,
+            glow_strength=viz_glow, averaging=viz_averaging,
         )
 
     else:

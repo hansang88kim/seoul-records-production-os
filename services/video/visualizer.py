@@ -32,6 +32,16 @@ width_percent from 100 to 25 (narrower bar band, matching what real
 equalizer overlays typically look like and what the user settled on after
 testing).
 
+v1.0.0-alpha.42: locked in the settings the user settled on after further
+visual testing as the new defaults (height=60, opacity=0.20,
+bottom_margin=0, width_percent=30, glow_strength=0.0 — unused by
+classic_bars but kept in the config shape for stability). Also added
+``averaging`` — FFmpeg showfreqs' own time-averaging option (0 = only the
+current frame's peaks, jitteriest; higher = smooths in historic frames,
+calmer/gentler motion). Default raised from FFmpeg's own default of 1 to 6
+for visibly calmer bar motion, per user request ("좀 더 잔잔한 형태로"),
+still tunable in the UI.
+
 Position/size/opacity/glow are fully configurable and are reflected in the
 real filter_complex (see filter_complex_builder.add_visualizer_layer).
 
@@ -74,13 +84,14 @@ CANVAS_H = 1080
 def visualizer_config(
     style: str = "classic_bars",
     color: str = "#ff4d6d",
-    height: int = 160,
-    opacity: float = 0.85,
+    height: int = 60,
+    opacity: float = 0.20,
     position: str = "bottom",
     y_position: int | None = None,
-    bottom_margin: int = 40,
-    width_percent: int = 25,
-    glow_strength: float = 3.0,
+    bottom_margin: int = 0,
+    width_percent: int = 30,
+    glow_strength: float = 0.0,
+    averaging: int = 6,
 ) -> dict:
     """
     Build a visualizer config (validated) with full position/size controls.
@@ -92,6 +103,8 @@ def visualizer_config(
     height: visualizer band height in px.
     opacity: 0..1.
     glow_strength: unused by classic_bars; kept for config-shape stability.
+    averaging: FFmpeg showfreqs time-averaging (0 = jitteriest current-frame
+               peaks only; higher = calmer, smoother motion across frames).
     """
     if style not in VISUALIZER_STYLES:
         style = "classic_bars"
@@ -112,6 +125,7 @@ def visualizer_config(
         "bottom_margin": int(bottom_margin),
         "width_percent": width_percent,
         "glow_strength": float(glow_strength),
+        "averaging": max(0, int(averaging)),
         "audio_reactive": True,  # always driven by the real MP3 audio
     }
 
@@ -141,13 +155,16 @@ def build_visualizer_filter(cfg: dict, width: int = 1920,
         "filter_complex_builder.add_visualizer_layer (correct audio input).",
         DeprecationWarning, stacklevel=2,
     )
-    h = cfg.get("height", 160)
+    h = cfg.get("height", 60)
     color = cfg.get("color", "#ff4d6d").lstrip("#")
+    averaging = cfg.get("averaging", 6)
     a = f"[{audio_input_index}:a]"
     # fscale=log balances bass-vs-treble screen space (frequency axis);
     # ascale=log balances bass-vs-treble bar HEIGHT (amplitude) — both are
-    # needed for an evenly-populated look (see module docstring).
-    return f"{a}showfreqs=s={width}x{h}:mode=bar:ascale=log:fscale=log:colors=0x{color}[viz]"
+    # needed for an evenly-populated look. averaging smooths bar motion
+    # over time for a calmer look (see module docstring).
+    return (f"{a}showfreqs=s={width}x{h}:mode=bar:ascale=log:fscale=log:"
+            f"averaging={averaging}:colors=0x{color}[viz]")
 
 
 def save_visualizer_config(cfg: dict) -> dict:

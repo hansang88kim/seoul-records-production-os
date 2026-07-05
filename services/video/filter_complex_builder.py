@@ -219,14 +219,21 @@ def add_visualizer_layer(parts: list[str], current: str, viz: dict) -> str:
         music, so even with fscale=log alone the bass bars dwarf the
         (quieter-but-present) treble bars and the right side still looks
         empty (v1.0.0-alpha.41 fix — fscale=log alone wasn't enough).
+    ``averaging`` (v1.0.0-alpha.42) smooths bar motion over time — default
+    raised from FFmpeg's own default of 1 to 6 for a calmer, gentler look
+    per user request, still tunable in the UI.
     """
     cfg = viz.get("config", {})
-    opacity = cfg.get("opacity", 0.55)
+    opacity = cfg.get("opacity", 0.20)
     color = _hex_to_ffmpeg(cfg.get("color", "#ffffff"))
+    averaging = cfg.get("averaging", 6)
     g = _viz_geometry(cfg)
     w, h, x, y = g["w"], g["h"], g["x"], g["y"]
 
-    parts.append(f"[{AUDIO_INPUT}:a]showfreqs=s={w}x{h}:mode=bar:ascale=log:fscale=log:colors={color}[vizraw]")
+    parts.append(
+        f"[{AUDIO_INPUT}:a]showfreqs=s={w}x{h}:mode=bar:ascale=log:fscale=log:"
+        f"averaging={averaging}:colors={color}[vizraw]"
+    )
     parts.append(f"[vizraw]format=rgba,colorchannelmixer=aa={opacity}[viz_alpha]")
     parts.append(f"{current}[viz_alpha]overlay=x={x}:y={y}[v_viz]")
     return "[v_viz]"
