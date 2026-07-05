@@ -94,6 +94,7 @@ def test_nb_happy_path_submits_polls_downloads(tmp_path):
     assert submit["headers"]["X-API-Key"] == _FAKE_KEY
     assert submit["json"]["model"] == "nano-banana-2"
     assert submit["json"]["nanoBananaParams"]["aspect_ratio"] == "16:9"
+    assert submit["json"]["nanoBananaParams"]["resolution"] == "1K"
     # Negative prompt folded as "Avoid: ..." (Gemini has no dedicated field)
     assert "Avoid: text, watermark" in submit["json"]["prompt"]
     assert "--no" not in submit["json"]["prompt"]  # that's Midjourney syntax, not this

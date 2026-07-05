@@ -163,15 +163,24 @@ def generate_images(session_id: str, prompts: list[dict],
                     engine: str = "gemini") -> list[dict]:
     """Generate ACTUAL images for each prompt and link them to candidates.
 
-    Saves prompt text first (reusing save_prompts), then renders one image per
-    prompt via the image provider (mock by default; real Gemini/Nano Banana or
-    Midjourney-via-Apiframe when use_real and the matching API key are present —
-    select with ``engine`` = "gemini" | "midjourney"). Generated files land in
-    the project's image folder when the session is project-bound. The image path
-    is stored as ``uploaded_image_path`` so the existing select/brand pipeline
-    works unchanged. Returns the updated candidate list.
+    Saves prompt text first (reusing save_prompts), then renders ONE image per
+    prompt via the image provider (mock by default; real Gemini/Nano Banana 2/
+    GPT Image 2/Midjourney when use_real and the matching API key are present —
+    select with ``engine`` = "gemini" | "apiframe_nanobanana" | "gpt_image" |
+    "midjourney"). Generated files land in the project's image folder when the
+    session is project-bound. The image path is stored as ``uploaded_image_path``
+    so the existing select/brand pipeline works unchanged. Returns the updated
+    candidate list.
+
+    v1.0.0-alpha.36: the 1:1 deliverable is now derived by center-cropping the
+    16:9 result (derive_aspect_crop) instead of a second provider.generate()
+    call. The old two-call approach relied on ref_image_path for
+    scene-consistency, but none of the current real engines (Nano Banana 2/
+    Apiframe, GPT Image 2, Midjourney) support image-to-image reference here —
+    so it was silently generating two UNRELATED images per candidate. Cropping
+    guarantees "same image, two sizes" (as intended) and halves the API calls.
     """
-    from services.thumbnail.image_provider import get_image_provider
+    from services.thumbnail.image_provider import get_image_provider, derive_aspect_crop
 
     # Base candidates + prompt files.
     save_prompts(session_id, prompts)
@@ -188,25 +197,23 @@ def generate_images(session_id: str, prompts: list[dict],
         main = p.get("main_prompt", "")
         neg = p.get("negative_prompt", "")
 
-        # 16:9 (primary, used for the YouTube thumbnail + gallery).
+        # Single generation at 16:9 (native for the YouTube thumbnail).
         r169 = provider.generate(main, str(path_169), negative_prompt=neg,
                                  index=i, meta=meta, aspect="16:9")
         c["gen_provider"] = r169.get("provider")
         c["gen_model"] = r169.get("model")
         if r169.get("ok"):
-            # 1:1 of the SAME scene, generated natively. For real providers we pass
-            # the 16:9 as a reference (image-to-image) so the square matches the wide
-            # version instead of being a stretched/cropped copy.
-            ref = r169["path"] if getattr(provider, "is_real", False) else None
-            r11 = provider.generate(main, str(path_11), negative_prompt=neg,
-                                    index=i, meta=meta, aspect="1:1", ref_image_path=ref)
+            # 1:1 = center-crop of the SAME image (no second API call). The
+            # subject is composed centered by prompt design, so this keeps it
+            # well-framed while trimming side background only.
+            crop_ok = derive_aspect_crop(r169["path"], str(path_11), "1:1")
             c["image_16x9"] = r169["path"]
-            c["image_1x1"] = r11.get("path") if r11.get("ok") else None
+            c["image_1x1"] = str(path_11) if crop_ok else None
             c["uploaded_image_path"] = r169["path"]   # default shown = 16:9
             c["generated_image_path"] = r169["path"]
             c["image_source"] = "generated"
             c["status"] = "image_generated"
-            c["gen_error"] = None if r11.get("ok") else f"1:1 failed: {r11.get('error')}"
+            c["gen_error"] = None if crop_ok else "1:1 crop failed"
         else:
             c["image_source"] = "generation_failed"
             c["status"] = "generation_failed"

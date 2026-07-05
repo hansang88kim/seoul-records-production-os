@@ -88,7 +88,7 @@ class ApiframeNanoBananaProvider(ImageGenProvider):
                 json={
                     "model": "nano-banana-2",
                     "prompt": prompt,
-                    "nanoBananaParams": {"aspect_ratio": aspect},
+                    "nanoBananaParams": {"aspect_ratio": aspect, "resolution": "1K"},
                 },
                 timeout=60,
             )

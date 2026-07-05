@@ -145,13 +145,21 @@ SCENE_VARIATIONS = [
     "hotel room window view of the skyline",
 ]
 
-# Title-safe area options (where to leave negative space)
+# Title-safe area options (where to leave negative space) — background-only mode
 TITLE_SAFE_AREAS = [
     "left third clean for title overlay",
     "right third clean for title overlay",
     "top third clean for title overlay",
     "lower third clean for title overlay",
     "center-left clean band for title overlay",
+]
+
+# Title-safe areas for the portrait/album-cover composition (v1.0.0-alpha.36):
+# the subject is centered, so the only sensible clean bands are top/bottom —
+# left/right/center-left don't apply once a person owns the middle of frame.
+PORTRAIT_SAFE_AREAS = [
+    "top band clean for title overlay",
+    "bottom band clean for title overlay",
 ]
 
 

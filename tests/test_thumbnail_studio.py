@@ -23,8 +23,8 @@ def test_citypop_country_theme_prompt_generated():
     from services.thumbnail.prompt_generator import generate_flow_prompt
     p = generate_flow_prompt("korea", "rainy night", 0)
     mp = p["main_prompt"].lower()
-    assert "city-pop" in mp or "city night" in mp
-    assert "korean city night" in mp  # image prompt reflects the selected country
+    assert "city-pop" in mp
+    assert "korean city-pop" in mp  # image prompt reflects the selected country
     assert "Seoul" in p["main_prompt"]
     assert "rainy night" in p["main_prompt"]
 
@@ -63,9 +63,11 @@ def test_generate_ten_prompts_varied():
     assert len(prompts) == 10
     scenes = [p["scene"] for p in prompts]
     assert len(set(scenes)) >= 8  # mostly different
-    # Title safe areas vary too
+    # Title safe areas vary too (v1.0.0-alpha.36: centered-portrait composition
+    # only has top/bottom clean bands available — left/right no longer apply
+    # once a person owns the middle of frame).
     safe_areas = [p["title_safe_area"] for p in prompts]
-    assert len(set(safe_areas)) >= 3
+    assert len(set(safe_areas)) >= 2
 
 
 def test_country_preset_changes_visual_details():

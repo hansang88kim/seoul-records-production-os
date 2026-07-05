@@ -130,6 +130,34 @@ def test_generate_images_creates_files_and_candidates():
         assert _png_magic(c["uploaded_image_path"])
 
 
+def test_generate_images_calls_provider_once_per_candidate(monkeypatch):
+    """
+    v1.0.0-alpha.36 regression guard: the 1:1 deliverable must be derived by
+    cropping the 16:9 result (derive_aspect_crop), NOT a second
+    provider.generate() call — the old two-call approach produced two
+    UNRELATED images for engines without image-to-image reference support
+    (all three real engines as of alpha.35). generate() must be called
+    exactly once per candidate.
+    """
+    calls = []
+    real_generate = ip.MockImageGenProvider.generate
+
+    def counting_generate(self, *args, **kwargs):
+        calls.append(kwargs.get("aspect", args[4] if len(args) > 4 else "16:9"))
+        return real_generate(self, *args, **kwargs)
+
+    monkeypatch.setattr(ip.MockImageGenProvider, "generate", counting_generate)
+
+    sess = ss.create_session("korea", "night", "T", 1)
+    prompts = generate_prompt_batch("korea", "night", count=3)
+    cands = ss.generate_images(sess["session_id"], prompts, use_real=False)
+
+    assert len(calls) == 3  # once per candidate, not 6 (3 x 16:9 + 3 x 1:1)
+    for c in cands:
+        assert Path(c["image_1x1"]).exists()
+        assert Path(c["image_16x9"]).exists()
+
+
 def test_generate_images_standalone_saves_in_session():
     sess = ss.create_session("korea", "neon", "Seoul Vol.1")
     prompts = generate_prompt_batch("korea", "neon", count=2)

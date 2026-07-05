@@ -1,9 +1,22 @@
 """
 services/thumbnail/prompt_generator.py — Google Flow / Nano Banana prompt generation.
 
-Generates background-image prompts for citypop YouTube thumbnails.
-The image is BACKGROUND ONLY — no text/logos/watermarks (the Canva layer
-adds all title text). Batch mode produces varied prompts.
+v1.0.0-alpha.36: switched from a background-only composition to a centered-
+portrait "1990s retro city-pop album cover" look, per fixed spec:
+  1. Both 16:9 (YouTube thumbnail) and 1:1 (album-cover-style streaming cover)
+     are the SAME generated image, just cropped to each ratio downstream
+     (see session_store.generate_images / image_provider.derive_aspect_crop)
+     — this module only ever produces ONE prompt per candidate.
+  2. Resolution: 1K (set on the provider side, not in the prompt text).
+  3. Must read as "subscribe-worthy" YouTube-thumbnail energy AND a genuine
+     city-pop album cover.
+  4. 1990s retro city-pop aesthetic, both as album art and thumbnail.
+  5. A glamorous, stylish young woman (early 20s), centered, matching the
+     selected country's look — described via tasteful fashion/glamour-
+     photography language (the same register real 1980s-90s city-pop covers
+     use), not explicit content.
+The image is otherwise still background/logo/text-free — the Canva layer
+adds all title text into the top or bottom clean band left in the prompt.
 """
 from __future__ import annotations
 
@@ -11,7 +24,7 @@ from services.thumbnail.country_presets import (
     get_country_preset,
     get_culture,
     SCENE_VARIATIONS,
-    TITLE_SAFE_AREAS,
+    PORTRAIT_SAFE_AREAS,
 )
 
 
@@ -22,18 +35,19 @@ NEGATIVE_PROMPT = (
     "no unreadable signs as main focus, no overcrowded composition, no clutter, "
     "no distorted faces, no extra limbs, no tourism-poster look, no landmark focus, "
     "no VHS effect, no film grain, no noise, no low resolution, no blurry, "
-    "no pixelated, no retro filter, no vintage filter, no scan lines, no analog artifacts"
+    "no pixelated, no retro filter, no vintage filter, no scan lines, no analog artifacts, "
+    "no nudity, no explicit content, no swimwear, no underwear"
 )
 
 
 def _camera_for(track_no: int) -> str:
     cameras = [
-        "cinematic wide shot",
-        "low-angle cinematic framing",
-        "over-the-shoulder perspective",
+        "cinematic medium shot",
+        "low-angle glamour framing",
+        "waist-up portrait framing",
         "medium shot with shallow depth of field",
-        "high-angle establishing shot",
-        "eye-level street-level framing",
+        "three-quarter angle portrait",
+        "eye-level fashion-editorial framing",
     ]
     return cameras[track_no % len(cameras)]
 
@@ -52,7 +66,9 @@ def generate_flow_prompt(
     track_no: int = 0,
 ) -> dict:
     """
-    Generate a single Google Flow prompt for a citypop thumbnail background.
+    Generate a single Google Flow prompt for a citypop album-cover-style
+    thumbnail: a centered fashion/glamour portrait over the country's night
+    cityscape, styled as a 1990s retro city-pop record sleeve.
 
     Returns a dict with the main prompt, negative prompt, composition note,
     title-safe area, color palette, and suggested Canva accent color.
@@ -60,39 +76,50 @@ def generate_flow_prompt(
     preset = get_country_preset(country)
     culture = get_culture(country)
     scene_var = SCENE_VARIATIONS[track_no % len(SCENE_VARIATIONS)]
-    safe_area = TITLE_SAFE_AREAS[track_no % len(TITLE_SAFE_AREAS)]
+    safe_area = PORTRAIT_SAFE_AREAS[track_no % len(PORTRAIT_SAFE_AREAS)]
     camera = _camera_for(track_no)
     time_of_day = _time_for(track_no)
 
     theme_phrase = f", {theme}" if theme else ""
 
     main_prompt = (
-        f"A cinematic {culture} city night background for a premium music playlist "
-        f"thumbnail, evoking a wistful 1980s-1990s city-pop atmosphere. "
-        f"Setting: {preset['city']} — {preset['scene']}. "
-        f"Featured scene: {scene_var}{theme_phrase}, {time_of_day}. "
-        f"Lighting: {preset['lighting']}. {preset['signage']}. "
+        f"A premium 1990s retro city-pop album cover AND a subscribe-worthy YouTube "
+        f"playlist thumbnail, evoking a wistful 1980s-1990s {culture} city-pop record "
+        f"sleeve. Foreground subject, centered in frame: a glamorous, stylish "
+        f"{culture} woman in her early twenties, confident sultry expression, "
+        f"retro-glam fashion styling (bold lip color, soft voluminous hair, era-"
+        f"appropriate chic outfit), fashion-magazine-cover presence, eye-catching "
+        f"and click-worthy — the kind of striking central portrait a viewer stops "
+        f"scrolling for. "
+        f"Background setting: {preset['city']} — {preset['scene']}. "
+        f"Featured scene: {scene_var}{theme_phrase}, {time_of_day}, softly out of "
+        f"focus behind her. "
+        f"Lighting: {preset['lighting']}, warm rim light on her silhouette. "
+        f"{preset['signage']}. "
         f"Color tone: {preset['color_tone']}. "
-        f"Composition: {camera}, cinematic 16:9 widescreen framing, rich atmospheric "
-        f"depth, layered foreground and background, leading lines, balanced negative "
-        f"space near the center for a title overlay. "
-        f"Mood: bittersweet, dreamy, slightly melancholic city night, premium playlist visual. "
-        f"Style: modern cinematic photography, clean high-resolution rendering, "
-        f"shallow depth of field, soft volumetric light, gentle neon reflections on "
-        f"wet surfaces, subtle lens bloom, moody low-key lighting with high contrast, "
-        f"elegant muted sophisticated palette — NOT gaudy, NOT oversaturated. "
-        f"Quality: ultra-detailed, photorealistic, 4K resolution, sharp focus, "
-        f"high dynamic range, professional cinematography, award-winning. "
-        f"IMPORTANT: background image only — absolutely no text, no letters, no logos, "
-        f"no watermarks, no people-facing camera anywhere in the image."
+        f"Composition: {camera}, cinematic framing, subject centered and dominant, "
+        f"clean {safe_area}, balanced negative space only in that band for a title "
+        f"overlay — never over her face or body. "
+        f"Mood: bittersweet, dreamy, glamorous city night, premium record-sleeve "
+        f"visual. "
+        f"Style: 1990s retro city-pop album cover illustration/photography hybrid, "
+        f"glossy analog-film aesthetic, soft volumetric light, gentle neon "
+        f"reflections, subtle lens bloom, moody low-key lighting with high "
+        f"contrast, elegant sophisticated palette — NOT gaudy, NOT oversaturated. "
+        f"Quality: ultra-detailed, photorealistic portrait, 4K resolution, sharp "
+        f"focus on the subject, high dynamic range, professional fashion "
+        f"photography, award-winning album art. "
+        f"IMPORTANT: tasteful glamour/fashion styling only, fully clothed, no "
+        f"nudity — absolutely no text, no letters, no logos, no watermarks "
+        f"anywhere in the image."
     )
 
     return {
         "main_prompt": main_prompt,
         "negative_prompt": NEGATIVE_PROMPT,
         "composition_note": (
-            f"{camera}, leave {safe_area} for the title overlay. "
-            f"Avoid placing key faces/objects under the title area. "
+            f"{camera}, leave {safe_area}. "
+            f"Never place the title over the subject's face or body. "
             f"High contrast for legible text overlay."
         ),
         "title_safe_area": safe_area,

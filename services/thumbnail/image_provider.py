@@ -115,6 +115,34 @@ def _finalize_image(path: str, aspect: str):
         pass  # never fail generation over post-processing
 
 
+def derive_aspect_crop(src_path: str, dst_path: str, aspect: str) -> bool:
+    """
+    Derive a same-scene deliverable at a different aspect ratio by center-
+    cropping the ALREADY-GENERATED image at ``src_path`` — no second API call.
+
+    v1.0.0-alpha.36: replaces the old approach of generating 16:9 and 1:1 as
+    two independent API requests (which, for engines that don't support
+    image-to-image reference, produced two UNRELATED images rather than the
+    same scene at two sizes). Since the subject is composed centered in the
+    prompt by design, a center-crop cover to 1:1 keeps it well-framed while
+    only losing side background — exactly "resize the same image", not
+    "generate a second image".
+
+    Returns True on success (dst_path written), False on any failure (caller
+    should treat this the same as a failed generation for that deliverable).
+    """
+    try:
+        from PIL import Image
+        tw, th = _aspect_dims(aspect)
+        img = Image.open(src_path).convert("RGB")
+        img = _cover_to(img, tw, th)
+        Path(dst_path).parent.mkdir(parents=True, exist_ok=True)
+        img.save(dst_path, format="PNG")
+        return True
+    except Exception:
+        return False
+
+
 class ImageGenProvider:
     """Abstract image-generation provider."""
 
