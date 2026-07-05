@@ -64,13 +64,16 @@ def render_youtube_package():
         st.markdown("### 📤 업로드 모드")
         upload_mode_label = st.radio(
             "모드",
-            ["수동 패키지만 (기본)", "API 비공개 업로드", "API 미등록(unlisted) 업로드"],
+            ["수동 패키지만", "API 비공개 업로드 (기본)", "API 미등록(unlisted) 업로드"],
+            index=1,  # v1.0.0-alpha.58: default to API private upload
             key="yt_mode",
-            help="기본은 수동 패키지입니다. API 업로드는 OAuth가 필요하며 기본 비공개입니다.",
+            help="기본은 API 비공개 업로드입니다. API 업로드는 OAuth가 필요하며 "
+                 "업로드는 항상 private로 진행됩니다. 로컬 패키지만 원하면 "
+                 "'수동 패키지만'을 선택하세요.",
         )
         mode_map = {
-            "수동 패키지만 (기본)": YPS.UPLOAD_MODE_MANUAL,
-            "API 비공개 업로드": YPS.UPLOAD_MODE_API_PRIVATE,
+            "수동 패키지만": YPS.UPLOAD_MODE_MANUAL,
+            "API 비공개 업로드 (기본)": YPS.UPLOAD_MODE_API_PRIVATE,
             "API 미등록(unlisted) 업로드": YPS.UPLOAD_MODE_API_UNLISTED,
         }
         upload_mode = mode_map[upload_mode_label]
@@ -340,10 +343,20 @@ def _render_upload_progress_panel():
             st.rerun()
     elif status == "completed":
         st.success(f"✅ 업로드 완료 (private): {state.get('youtube_url','')}")
-        st.caption(f"video_id: {state.get('video_id')} · 썸네일: {state.get('thumbnail_set_status')}")
+        ch = state.get("channel_title", "")
+        ch_line = f" · 채널: **{ch}**" if ch else ""
+        st.caption(f"video_id: {state.get('video_id')} · 썸네일: {state.get('thumbnail_set_status')}{ch_line}")
+        if ch:
+            st.info(f"이 영상은 **{ch}** 채널에 업로드되었습니다. "
+                    "의도한 채널이 맞는지 확인하세요. (다른 채널로 올리려면 "
+                    "'토큰 삭제' 후 재인증 시 채널 선택 화면에서 원하는 채널을 "
+                    "고르세요.)")
     elif status == "partial_success":
         thumb_err = state.get("thumbnail_error", "")
+        ch = state.get("channel_title", "")
+        ch_line = f"\n\n**채널:** {ch}" if ch else ""
         st.warning(f"⚠️ 업로드됨(private) · 썸네일 실패: {state.get('youtube_url','')}"
+                   + ch_line
                    + (f"\n\n**사유:** {thumb_err}" if thumb_err else ""))
         vid = state.get("video_id", "")
         if vid:

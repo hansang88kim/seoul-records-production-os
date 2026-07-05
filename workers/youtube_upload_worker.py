@@ -156,10 +156,15 @@ def run_upload_job(upload_job_id: str, use_mock: bool = True,
     video_id = result["video_id"]
     youtube_url = result.get("youtube_url", f"https://youtu.be/{video_id}")
     privacy = result.get("privacy_status", "private")
+    channel_title = result.get("channel_title", "")
+    channel_id = result.get("channel_id", "")
     update_upload_state(upload_job_id, video_id=video_id, youtube_url=youtube_url,
                         privacy_status=privacy, progress_percent=100.0,
+                        channel_title=channel_title, channel_id=channel_id,
                         status="thumbnail_setting", last_message="썸네일 설정 중")
-    append_upload_log(upload_job_id, f"영상 업로드 완료 (private) — video_id 확보")
+    ch_note = f" → 채널: {channel_title}" if channel_title else ""
+    append_upload_log(upload_job_id,
+                      f"영상 업로드 완료 (private) — video_id 확보{ch_note}")
 
     # ── Thumbnail ────────────────────────────────────────────────────────
     thumb_status = "skipped"

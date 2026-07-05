@@ -184,9 +184,22 @@ class RealYouTubeApiClient:
                 })
         vid = response.get("id")
         privacy = payload.get("status", {}).get("privacyStatus", "private")
+        # v1.0.0-alpha.58: surface WHICH channel the video actually landed
+        # on. OAuth uploads always go to the Gmail account's DEFAULT
+        # channel and the API gives no way to target a Brand Account
+        # channel — so a user with multiple channels (e.g. a personal
+        # channel + a Brand channel) can have every upload silently go to
+        # the wrong one. Returning the channel title/id lets the UI show
+        # "→ uploaded to <channel>" so this is caught immediately instead
+        # of only being discovered later when the intended channel's
+        # Studio looks empty.
+        snip = response.get("snippet", {}) if isinstance(response, dict) else {}
         return {"status": "uploaded", "video_id": vid,
                 "youtube_url": f"https://youtu.be/{vid}",
-                "privacy_status": privacy, "mock": False}
+                "privacy_status": privacy,
+                "channel_id": snip.get("channelId", ""),
+                "channel_title": snip.get("channelTitle", ""),
+                "mock": False}
 
     def set_thumbnail(self, video_id: str, thumbnail_path: str) -> dict:
         from googleapiclient.http import MediaFileUpload  # type: ignore

@@ -66,6 +66,8 @@ class MockYouTubeApiClient:
             "video_id": fake_id,
             "youtube_url": f"https://youtu.be/{fake_id}",
             "privacy_status": privacy,
+            "channel_title": getattr(self, "mock_channel_title", "Mock Channel"),
+            "channel_id": getattr(self, "mock_channel_id", "UC_MOCK"),
             "mock": True,
         }
 
