@@ -71,7 +71,11 @@ def test_real_upload_disabled_when_google_libs_missing():
     src = Path("app/tabs/youtube_package.py").read_text(encoding="utf-8")
     assert "check_youtube_api_dependencies" in src
     assert "disabled=not libs_ok" in src
-    assert "pip install -r requirements.txt" in src
+    # v1.0.0-alpha.51: the dependency-missing install instructions now live
+    # in the shared app/ui/youtube_oauth_panel.py (used by both Settings
+    # and this tab) rather than being duplicated inline here.
+    panel_src = Path("app/ui/youtube_oauth_panel.py").read_text(encoding="utf-8")
+    assert "pip install -r requirements.txt" in panel_src
 
 
 def test_oauth_button_warns_when_google_auth_oauthlib_missing():
@@ -83,8 +87,10 @@ def test_oauth_button_warns_when_google_auth_oauthlib_missing():
     with mock.patch.object(dep.importlib.util, "find_spec", side_effect=fake_find_spec):
         hint = dep.oauth_install_hint()
         assert "google-auth-oauthlib" in hint
-    src = Path("app/tabs/youtube_package.py").read_text(encoding="utf-8")
-    assert "disabled=bool(oauth_hint)" in src
+    panel_src = Path("app/ui/youtube_oauth_panel.py").read_text(encoding="utf-8")
+    assert "disabled=bool(oauth_hint)" in panel_src
+    pkg_src = Path("app/tabs/youtube_package.py").read_text(encoding="utf-8")
+    assert "render_oauth_account_panel" in pkg_src
 
 
 # ─── Worker-stage guard ──────────────────────────────────────────────────────

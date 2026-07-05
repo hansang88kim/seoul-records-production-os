@@ -21,6 +21,16 @@ STATUS_AUTHORIZED = "authorized"
 STATUS_EXPIRED = "token_expired"
 STATUS_FAILED = "authorization_failed"
 
+# Human-readable labels shared by every screen that shows OAuth status
+# (Settings page + YouTube Package tab) so they never drift apart.
+STATUS_LABELS = {
+    STATUS_NOT_CONFIGURED: "⚪ 설정되지 않음",
+    STATUS_CLIENT_LOADED: "🟡 client_secret 로드됨",
+    STATUS_AUTHORIZED: "🟢 인증됨",
+    STATUS_EXPIRED: "🟠 토큰 만료 — 재인증 필요",
+    STATUS_FAILED: "🔴 인증 실패",
+}
+
 
 def _auth_dir() -> Path:
     d = Path(__file__).resolve().parent.parent.parent / "outputs" / "youtube_auth"

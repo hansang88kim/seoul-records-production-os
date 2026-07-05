@@ -235,64 +235,18 @@ def render_youtube_package():
 
 def _render_oauth_and_upload(pkg: dict, privacy: str):
     """OAuth account section + checklist-gated background Private Upload."""
-    from services.youtube import oauth_service as oauth
-    from services.youtube import token_store as ts
-    from services.youtube import youtube_api_client as YAC
     from services.youtube import dependency_check as DEP
 
     st.divider()
     st.markdown("### 🔐 OAuth / 계정")
     st.warning("YouTube API 업로드는 기본적으로 private로 진행됩니다. "
                "공개 전 YouTube Studio에서 직접 확인하세요.")
+    st.caption("client_secret.json 및 인증 토큰은 Settings 페이지와 상태를 공유합니다 — "
+               "한 번 등록하면 여기서도 다시 업로드할 필요가 없습니다.")
 
-    # v0.8.3: real-API dependency status (structured report)
-    dep_report = DEP.check_youtube_api_dependencies()
-    libs_ok = dep_report["available"]
-    if libs_ok:
-        st.success("✅ YouTube API dependencies: Ready — 실제 업로드 가능")
-    else:
-        st.error("❌ YouTube API dependencies: Missing")
-        st.caption("실제 YouTube 업로드를 위해 google-api-python-client / "
-                   "google-auth-oauthlib 설치가 필요합니다. "
-                   "pip install -r requirements.txt 실행 후 다시 시도하세요.")
-        st.caption(f"누락 패키지: {', '.join(dep_report['missing'])}")
-        st.code("pip install -r requirements.txt")
-
-    status = oauth.get_auth_status()
-    status_labels = {
-        ts.STATUS_NOT_CONFIGURED: "⚪ 설정되지 않음",
-        ts.STATUS_CLIENT_LOADED: "🟡 client_secret 로드됨",
-        ts.STATUS_AUTHORIZED: "🟢 인증됨",
-        ts.STATUS_EXPIRED: "🟠 토큰 만료 — 재인증 필요",
-        ts.STATUS_FAILED: "🔴 인증 실패",
-    }
-    st.caption(f"상태: {status_labels.get(status.get('status'), status.get('status'))}")
-
-    client_file = st.file_uploader("client_secret.json 업로드", type=["json"],
-                                   key="yt_client_secret")
-    if client_file is not None:
-        if oauth.load_client_secret_from_bytes(client_file.getvalue()):
-            st.success("client_secret.json 로드됨 (로컬 저장, 화면에 표시되지 않음)")
-        else:
-            st.error("유효한 client_secret.json이 아닙니다")
-
-    ocol1, ocol2, ocol3 = st.columns(3)
-    with ocol1:
-        oauth_hint = DEP.oauth_install_hint()
-        if st.button("🔑 YouTube 인증", key="yt_authorize",
-                     use_container_width=True, disabled=bool(oauth_hint)):
-            res = oauth.authorize()
-            st.caption(res.get("message", ""))
-        if oauth_hint:
-            st.caption(f"⚠️ {oauth_hint}")
-    with ocol2:
-        if st.button("🔌 연결 테스트", key="yt_test_conn", use_container_width=True):
-            r = oauth.test_connection()
-            (st.success if r["ok"] else st.warning)(r["message"])
-    with ocol3:
-        if st.button("🗑️ 토큰 삭제", key="yt_revoke", use_container_width=True):
-            oauth.revoke()
-            st.caption("로컬 토큰이 삭제되었습니다")
+    from app.ui.youtube_oauth_panel import render_oauth_account_panel
+    status = render_oauth_account_panel(key_ns="yt_pkg")
+    libs_ok = DEP.check_youtube_api_dependencies()["available"]
 
     # Checklist gate
     st.divider()

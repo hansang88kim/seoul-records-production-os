@@ -84,10 +84,16 @@ def test_oauth_button_warns_when_google_auth_oauthlib_missing():
         hint = dep.oauth_install_hint()
         assert hint != ""
         assert "google-auth-oauthlib" in hint
-    # And the UI shows the oauth hint + disables the button
-    src = Path("app/tabs/youtube_package.py").read_text(encoding="utf-8")
+    # And the UI shows the oauth hint + disables the button.
+    # v1.0.0-alpha.51: this logic now lives in the shared, persisted-aware
+    # app/ui/youtube_oauth_panel.py (used by BOTH Settings and YouTube
+    # Package), rather than being duplicated inline in youtube_package.py.
+    src = Path("app/ui/youtube_oauth_panel.py").read_text(encoding="utf-8")
     assert "oauth_install_hint" in src
     assert "disabled=bool(oauth_hint)" in src
+    # youtube_package.py still wires the panel in for this tab
+    pkg_src = Path("app/tabs/youtube_package.py").read_text(encoding="utf-8")
+    assert "render_oauth_account_panel" in pkg_src
 
 
 # ─── Authorize gives a clear message when libs missing (no silent fail) ──────

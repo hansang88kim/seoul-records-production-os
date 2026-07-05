@@ -448,6 +448,13 @@ def render_settings_page():
         st.markdown("##### 🎨 Image Gen")
         _credential_field("Midjourney (Apiframe)", "APIFRAME_API_KEY", "afk_...", verify_fn=_verify_apiframe, persist_env=True)
 
+        st.write("")
+        st.markdown("##### ▶️ YouTube")
+        st.caption("client_secret.json과 인증 토큰은 여기서 한 번만 등록하면 됩니다 — "
+                   "YouTube Package 탭에서도 같은 상태를 그대로 사용합니다.")
+        from app.ui.youtube_oauth_panel import render_oauth_account_panel
+        render_oauth_account_panel(key_ns="settings_yt")
+
     st.divider()
 
     # ── Job Status Panel ──────────────────────────────────────────────────
