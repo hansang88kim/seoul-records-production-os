@@ -338,6 +338,76 @@ def get_song_project_songs(project_name: str) -> list[dict]:
     return load_song_manifest(project_name).get("songs", [])
 
 
+def find_song_file(project_name: str, song: dict) -> str:
+    """
+    Resolve a song's playable audio file (v1.0.0-alpha.48).
+
+    1. song["file_path"] when it exists on disk.
+    2. Else scan the project's songs/ folder for an mp3/wav whose cleaned
+       filename stem starts with the song title (Suno downloads are named
+       '{title}-{id}.mp3', so submitted-then-manually-downloaded songs
+       resolve too). Returns "" when nothing matches.
+    """
+    fp = song.get("file_path") or ""
+    if fp and Path(fp).exists():
+        return fp
+
+    title = (song.get("title") or "").strip()
+    if not title or not project_name:
+        return ""
+    try:
+        from services.library_labels import clean_track_stem
+    except Exception:
+        clean_track_stem = lambda s: s  # noqa: E731
+
+    songs_dir = _song_projects_root() / _song_slug(project_name) / "songs"
+    if not songs_dir.exists():
+        return ""
+    for f in sorted(songs_dir.iterdir()):
+        if f.suffix.lower() not in (".mp3", ".wav"):
+            continue
+        stem = clean_track_stem(f.stem)
+        if stem == title or f.stem.startswith(title):
+            return str(f)
+    return ""
+
+
+def remove_song_from_project(project_name: str, song: dict,
+                             delete_file: bool = True) -> bool:
+    """
+    Remove one song from a project's manifest (and optionally its audio
+    file on disk). Matches by title + created_at when available, else by
+    title alone (first match). Returns True when an entry was removed.
+    """
+    manifest = load_song_manifest(project_name)
+    songs = manifest.get("songs", [])
+    target_title = (song.get("title") or "").strip()
+    target_created = song.get("created_at", "")
+
+    idx = None
+    for i, s in enumerate(songs):
+        if (s.get("title") or "").strip() != target_title:
+            continue
+        if target_created and s.get("created_at") != target_created:
+            continue
+        idx = i
+        break
+    if idx is None:
+        return False
+
+    removed = songs.pop(idx)
+    save_song_manifest(project_name, manifest)
+
+    if delete_file:
+        fp = removed.get("file_path") or find_song_file(project_name, removed)
+        if fp:
+            try:
+                Path(fp).unlink(missing_ok=True)
+            except Exception:
+                pass
+    return True
+
+
 def copy_song_to_project(target_project: str, song: dict) -> dict | None:
     """
     Copy a Library song into another project (v1.0.0-alpha.43).

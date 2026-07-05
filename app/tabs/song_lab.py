@@ -793,10 +793,11 @@ def _render_auto_batch():
     if project:
         st.markdown(f"<h3>🎵 '{project}' 곡</h3>", unsafe_allow_html=True)
         from app.project_manager import get_song_project_songs
-        render_song_list(get_song_project_songs(project))
+        render_song_list(get_song_project_songs(project),
+                         project_name=project, key_ns="qs_proj")
     else:
         st.markdown("<h3>🎵 생성된 곡</h3>", unsafe_allow_html=True)
-        render_song_list(_load_generated_songs())
+        render_song_list(_load_generated_songs(), key_ns="qs_session")
 
 
 def _render_quick_single():
@@ -831,7 +832,7 @@ def _render_quick_single():
         else:
             st.markdown("<h2 style='margin-bottom:0.5rem'>📋 생성 결과</h2>", unsafe_allow_html=True)
             songs = _load_generated_songs()
-        render_song_list(songs)
+        render_song_list(songs, project_name=project or None, key_ns="batch")
 
 
 def _render_project_album():
@@ -919,7 +920,8 @@ def _render_project_album():
 
             songs = get_song_project_songs(name)
             if songs:
-                render_song_list(songs)
+                render_song_list(songs, project_name=name,
+                                 key_ns=f"proj_{proj['slug']}")
             else:
                 st.caption("이 프로젝트에 곡이 없습니다.")
 
@@ -963,4 +965,4 @@ def _render_manual_import():
             _save_generated_song(song)
 
     songs = _load_generated_songs()
-    render_song_list(songs)
+    render_song_list(songs, key_ns="manual")
