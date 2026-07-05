@@ -99,12 +99,45 @@ def run_upload_job(upload_job_id: str, use_mock: bool = True,
     try:
         result = client.upload_video_private(payload, video_path, progress_callback=on_progress)
     except Exception as e:
+        # v1.0.0-alpha.57 fix: this was the LAST remaining instance of the
+        # same silent-swallow anti-pattern already fixed in authorize()
+        # (alpha.51/54) and set_thumbnail() (alpha.55) — the real upload
+        # exception was discarded and replaced with the constant string
+        # "upload exception", so upload_result.json / upload_state.json
+        # showed only that opaque token with zero diagnostic value (which
+        # is exactly what the user saw: a failed job whose only error was
+        # "upload exception"). Now we surface the real (redacted)
+        # exception type + message. The single most likely cause in
+        # practice — and the one matching this session, right after the
+        # user swapped in a brand-new client_secret.json and re-authed —
+        # is a stale/invalid OAuth token (google.auth RefreshError /
+        # invalid_grant), so we add a targeted hint for that.
+        from services.security.redaction import redact_text
+        detail = redact_text(f"{type(e).__name__}: {e}").strip()[:400]
+
+        low = detail.lower()
+        hint = ""
+        if any(k in low for k in ("invalid_grant", "refresherror",
+                                  "token has been expired", "revoked",
+                                  "invalid credentials", "unauthorized",
+                                  "invalid_client")):
+            hint = (" — OAuth 토큰이 만료·무효화된 것으로 보입니다. "
+                    "client_secret.json을 새로 교체하셨다면 기존 토큰과 "
+                    "맞지 않을 수 있으니, OAuth/계정 섹션에서 '토큰 삭제' 후 "
+                    "'YouTube 인증'을 다시 실행해 새 토큰을 발급받으세요.")
+
+        err_msg = f"업로드 예외 — {detail}{hint}"
         update_upload_state(upload_job_id, status="failed",
                             completed_at=datetime.now(timezone.utc).isoformat(),
-                            errors=state.get("errors", []) + ["upload exception"],
-                            last_message="업로드 실패")
-        append_upload_log(upload_job_id, "업로드 예외 발생", "error")
-        save_upload_result(upload_job_id, {"status": "failed", "errors": ["upload exception"]})
+                            errors=state.get("errors", []) + [err_msg],
+                            last_message=err_msg)
+        append_upload_log(upload_job_id, err_msg, "error")
+        save_upload_result(upload_job_id, {
+            "upload_job_id": upload_job_id,
+            "package_id": state.get("package_id"),
+            "status": "failed", "video_id": None,
+            "errors": [err_msg], "warnings": [],
+        })
         return
 
     if result.get("status") != "uploaded" or not result.get("video_id"):

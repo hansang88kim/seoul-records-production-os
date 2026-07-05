@@ -17,10 +17,12 @@ from datetime import datetime, timezone
 class MockYouTubeApiClient:
     def __init__(self, credentials: dict | None = None,
                  fail_thumbnail: bool = False,
-                 fail_upload: bool = False):
+                 fail_upload: bool = False,
+                 raise_upload: Exception | None = None):
         self._credentials = credentials or {}
         self.fail_thumbnail = fail_thumbnail
         self.fail_upload = fail_upload
+        self.raise_upload = raise_upload
         self.calls = []  # sanitized record (never secrets)
 
     def authenticate(self) -> dict:
@@ -41,6 +43,11 @@ class MockYouTubeApiClient:
             "privacy_status": payload.get("status", {}).get("privacyStatus", "private"),
             "title": payload.get("snippet", {}).get("title", ""),
         }))
+
+        if getattr(self, "raise_upload", None):
+            # Simulate a real thrown exception (e.g. an OAuth RefreshError
+            # / invalid_grant) so the worker's except-branch is exercised.
+            raise self.raise_upload
 
         if self.fail_upload:
             return {"status": "failed", "video_id": None,
