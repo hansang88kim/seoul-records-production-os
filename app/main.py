@@ -19,40 +19,41 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# ─── Global CSS — "심야 스튜디오" design system (v1.0.0-alpha.44) ────────────
-# Deep indigo Seoul-night surface, glass rack-panel cards, and ONE signature:
-# the neon tape-stripe — a rose→aqua→gold hairline across the top of the app,
-# under the sidebar wordmark, and as the active-nav left rail. Everything else
-# stays quiet. Native widget tints (radio/checkbox/slider/toggle) come from
-# .streamlit/config.toml. Legacy var names (--cyan/--magenta/--amber/--fg …)
-# are kept as aliases so existing inline snippets keep working.
+# ─── Global CSS — "Studio Flat" design system (v1.0.0-alpha.45) ──────────────
+# Benchmarked against Apiframe Studio's console look: flat neutral near-black,
+# generous type scale (17px root), grouped sidebar with section eyebrows,
+# accent-tinted active nav, quiet rounded cards with footer-style metadata.
+# Single accent = aqua (brand); rose/gold kept as secondary tokens. The only
+# ornament left is the thin tape rule under the sidebar wordmark.
+# Native widget tints come from .streamlit/config.toml. Legacy var names
+# (--cyan/--magenta/--amber/--fg …) remain as aliases.
 st.markdown("""
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Noto+Sans+KR:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+KR:wght@300;400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
     :root {
-        /* Surfaces */
-        --bg:        #0b0d14;
-        --bg-2:      #10131d;
-        --panel:     #12151f;
-        --well:      #141a28;
-        --card:      rgba(148, 163, 255, 0.045);
-        --card-2:    #151a26;
-        --border:    rgba(148, 163, 255, 0.13);
-        --border-2:  rgba(148, 163, 255, 0.22);
+        /* Surfaces — flat neutral console */
+        --bg:        #0e0f12;
+        --bg-2:      #131418;
+        --panel:     #16171c;
+        --well:      #1a1b21;
+        --card:      #16171c;
+        --card-2:    #1b1c22;
+        --border:    rgba(255, 255, 255, 0.07);
+        --border-2:  rgba(255, 255, 255, 0.13);
 
         /* Ink */
-        --ink:       #eef1f8;
-        --fg:        #eef1f8;
-        --muted:     #9aa3b8;
-        --muted-2:   #5d647a;
+        --ink:       #f2f3f5;
+        --fg:        #f2f3f5;
+        --muted:     #a6aab5;
+        --muted-2:   #6b7080;
 
-        /* Neon duo + highlight (city-pop signage) */
+        /* Accent (single) + secondary tokens */
         --aqua:      #67e0f0;
-        --aqua-dim:  rgba(103, 224, 240, 0.12);
+        --aqua-dim:  rgba(103, 224, 240, 0.10);
         --rose:      #ff6ea0;
-        --rose-dim:  rgba(255, 110, 160, 0.12);
+        --rose-dim:  rgba(255, 110, 160, 0.10);
         --gold:      #eecf8a;
-        --gold-dim:  rgba(238, 207, 138, 0.12);
+        --gold-dim:  rgba(238, 207, 138, 0.10);
         --success:   #5fd39a;
         --danger:    #f07860;
 
@@ -65,254 +66,240 @@ st.markdown("""
         --amber-dim:   var(--gold-dim);
 
         --tape: linear-gradient(90deg, var(--rose), var(--aqua) 55%, var(--gold));
-        --font-display: 'Space Grotesk', 'Noto Sans KR', system-ui, sans-serif;
-        --font-body:    'Noto Sans KR', 'Space Grotesk', system-ui, sans-serif;
+        --font-body:    'Inter', 'Noto Sans KR', system-ui, sans-serif;
+        --font-display: 'Space Grotesk', 'Inter', 'Noto Sans KR', system-ui, sans-serif;
         --font-mono:    'JetBrains Mono', ui-monospace, 'Cascadia Mono', monospace;
         --radius: 14px;
-        --shadow: 0 10px 30px rgba(3, 5, 12, 0.45);
     }
 
-    /* ── Base canvas: indigo night with faint neon wash ── */
-    .stApp {
-        font-family: var(--font-body);
-        background:
-            radial-gradient(900px 420px at 12% -8%, rgba(255,110,160,0.055), transparent 60%),
-            radial-gradient(1000px 480px at 92% -10%, rgba(103,224,240,0.05), transparent 60%),
-            var(--bg);
-        background-attachment: fixed;
-    }
-    /* Signature — neon tape-stripe across the very top */
-    .stApp::before {
-        content: ""; position: fixed; top: 0; left: 0; right: 0; height: 2px;
-        background: var(--tape); z-index: 999; opacity: 0.9; pointer-events: none;
-    }
+    /* ── Generous type scale: everything keys off a 17px root ── */
+    html { font-size: 17px; }
+
+    .stApp { font-family: var(--font-body); background: var(--bg); }
     [data-testid="stHeader"] { background: transparent; }
-    .block-container { padding: 2.4rem 2.2rem 4.5rem; max-width: 1280px; }
+    .block-container { padding: 2.6rem 2.6rem 5rem; max-width: 1320px; }
 
     @media (prefers-reduced-motion: no-preference) {
-        .block-container { animation: srx-fade 0.35s ease-out; }
+        .block-container { animation: srx-fade 0.3s ease-out; }
         @keyframes srx-fade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
     }
 
-    /* ── Typography ── */
-    h1, h2, h3, h4 { font-family: var(--font-display); color: var(--ink); }
-    h1 { font-weight: 700; font-size: 1.65rem; letter-spacing: -0.02em; margin-bottom: 0.2rem; }
-    h1::after {
-        content: ""; display: block; width: 34px; height: 2px; margin-top: 0.55rem;
-        background: var(--tape); border-radius: 2px;
-    }
-    h2 { font-weight: 600; font-size: 1.18rem; letter-spacing: -0.015em; }
-    h3 { font-weight: 600; font-size: 1.0rem; }
-    h4 { font-weight: 600; font-size: 0.93rem; letter-spacing: -0.01em; margin: 0.55rem 0 0.35rem; }
-    h5 { color: var(--muted-2); font-weight: 600; font-size: 0.7rem;
-         text-transform: uppercase; letter-spacing: 0.14em; margin-bottom: 0.5rem; }
-    p, span, label, .stMarkdown { color: var(--muted); font-size: 0.88rem; line-height: 1.6; }
-    .stCaption, small, [data-testid="stCaptionContainer"] { color: var(--muted-2) !important; font-size: 0.77rem; }
+    /* ── Typography (`.stApp`-scoped to outrank Streamlit's heading CSS) ── */
+    .stApp h1, .stApp h2, .stApp h3, .stApp h4 { color: var(--ink); font-family: var(--font-body); }
+    .stApp h1 { font-weight: 800; font-size: 2.0rem; letter-spacing: -0.025em; margin-bottom: 0.25rem; padding-bottom: 0; }
+    .stApp h2 { font-weight: 700; font-size: 1.38rem; letter-spacing: -0.02em; }
+    .stApp h3 { font-weight: 650; font-size: 1.12rem; letter-spacing: -0.01em; }
+    .stApp h4 { font-weight: 650; font-size: 1.02rem; letter-spacing: -0.01em; margin: 0.7rem 0 0.4rem; }
+    .stApp h5 { color: var(--muted-2); font-weight: 600; font-size: 0.74rem;
+         text-transform: uppercase; letter-spacing: 0.13em; margin-bottom: 0.55rem; }
+    p, span, label, .stMarkdown { color: var(--muted); font-size: 0.95rem; line-height: 1.65; }
+    .stCaption, small, [data-testid="stCaptionContainer"] { color: var(--muted-2) !important; font-size: 0.84rem; }
     a { color: var(--aqua); }
     code {
-        font-family: var(--font-mono); font-size: 0.78em;
+        font-family: var(--font-mono); font-size: 0.8em;
         background: var(--well); border: 1px solid var(--border);
-        border-radius: 6px; padding: 0.08em 0.4em; color: var(--gold);
+        border-radius: 6px; padding: 0.1em 0.42em; color: var(--gold);
     }
     [data-testid="stCode"] pre, .stCode pre {
         background: var(--bg-2) !important; border: 1px solid var(--border);
-        border-radius: 10px; font-family: var(--font-mono);
+        border-radius: 12px; font-family: var(--font-mono); font-size: 0.86rem;
     }
 
-    /* ── Glass rack-panel cards (bordered containers / metric panels) ── */
+    /* ── Cards: quiet, rounded, flat (Apiframe-style tiles) ── */
     div[data-testid="stVerticalBlockBorderWrapper"] {
-        background: linear-gradient(180deg, rgba(255,255,255,0.028), rgba(255,255,255,0.008)), var(--panel);
+        background: var(--panel);
         border: 1px solid var(--border);
-        border-top-color: rgba(200, 210, 255, 0.16);
         border-radius: var(--radius);
-        box-shadow: var(--shadow);
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
     }
 
-    /* ── In-page tabs → segmented control ── */
+    /* ── In-page tabs → large segmented control ── */
     .stTabs [data-baseweb="tab-list"] {
-        gap: 2px; background: var(--bg-2); border-radius: 11px;
-        padding: 3px; border: 1px solid var(--border); width: fit-content;
+        gap: 3px; background: var(--bg-2); border-radius: 12px;
+        padding: 4px; border: 1px solid var(--border); width: fit-content;
     }
     .stTabs [data-baseweb="tab"] {
-        color: var(--muted-2); font-size: 0.82rem; font-weight: 500;
-        padding: 0.45rem 1.1rem; border-radius: 8px; border: none; background: transparent;
+        color: var(--muted-2); font-size: 0.92rem; font-weight: 550;
+        padding: 0.5rem 1.25rem; border-radius: 9px; border: none; background: transparent;
     }
     .stTabs [data-baseweb="tab"]:hover { color: var(--ink); }
     .stTabs [aria-selected="true"] {
-        color: var(--ink) !important; background: var(--well);
+        color: var(--ink) !important; background: var(--card-2);
         box-shadow: inset 0 0 0 1px var(--border-2);
     }
     .stTabs [data-baseweb="tab-highlight"], .stTabs [data-baseweb="tab-border"] { display: none; }
 
-    /* ── Sidebar: rack rail + wordmark ── */
+    /* ── Sidebar: flat console rail, grouped sections, accent-tinted active ── */
     [data-testid="stSidebar"] {
-        background: linear-gradient(180deg, #0c0f18 0%, #0a0c13 100%);
+        background: #101114;
         border-right: 1px solid var(--border);
+        min-width: 268px;
     }
     [data-testid="stSidebar"] .stButton > button {
         text-align: left; justify-content: flex-start; width: 100%;
-        font-family: var(--font-body); font-size: 0.85rem;
-        border-radius: 10px; padding: 0.5rem 0.85rem;
+        font-family: var(--font-body); font-size: 0.93rem;
+        border-radius: 10px; padding: 0.56rem 0.95rem;
     }
     [data-testid="stSidebar"] .stButton > button[kind="secondary"] {
         background: transparent; color: var(--muted);
         border: 1px solid transparent; font-weight: 500; box-shadow: none;
     }
     [data-testid="stSidebar"] .stButton > button[kind="secondary"]:hover {
-        background: rgba(148, 163, 255, 0.06); color: var(--ink);
+        background: rgba(255, 255, 255, 0.045); color: var(--ink);
         border-color: transparent; transform: none;
     }
-    /* Active nav item — quiet plate + tape left-rail */
     [data-testid="stSidebar"] .stButton > button[kind="primary"] {
-        background: linear-gradient(90deg, rgba(103,224,240,0.10), rgba(103,224,240,0.02));
-        color: var(--ink); font-weight: 600;
-        border: 1px solid var(--border); border-left: 2px solid var(--aqua);
-        box-shadow: none;
+        background: var(--aqua-dim); color: var(--aqua); font-weight: 600;
+        border: 1px solid transparent; box-shadow: none;
     }
     [data-testid="stSidebar"] .stButton > button[kind="primary"]:hover {
-        background: linear-gradient(90deg, rgba(103,224,240,0.14), rgba(103,224,240,0.03));
-        transform: none; box-shadow: none;
+        background: rgba(103, 224, 240, 0.15); transform: none; box-shadow: none;
+    }
+    .srx-nav-section {
+        color: var(--muted-2); font-size: 0.7rem; font-weight: 600;
+        text-transform: uppercase; letter-spacing: 0.14em;
+        padding: 1.05rem 0.95rem 0.35rem;
     }
 
-    /* ── Inputs / wells ── */
+    /* ── Inputs / wells: taller, calmer ── */
     .stTextInput input, .stTextArea textarea, .stNumberInput input,
     .stSelectbox [data-baseweb="select"] > div,
     .stMultiSelect [data-baseweb="select"] > div {
         background: var(--well) !important; border: 1px solid var(--border) !important;
-        border-radius: 10px !important; color: var(--ink) !important;
-        font-size: 0.85rem; font-family: var(--font-body);
+        border-radius: 11px !important; color: var(--ink) !important;
+        font-size: 0.93rem; font-family: var(--font-body);
     }
+    .stTextInput input, .stNumberInput input { padding-top: 0.55rem; padding-bottom: 0.55rem; }
     .stTextInput input:focus, .stTextArea textarea:focus {
         border-color: var(--aqua) !important;
         box-shadow: 0 0 0 1px rgba(103, 224, 240, 0.35) !important;
     }
-    [data-testid="stWidgetLabel"] p { color: var(--muted); font-size: 0.79rem; font-weight: 500; }
+    [data-testid="stWidgetLabel"] p { color: var(--muted); font-size: 0.86rem; font-weight: 500; }
     [data-testid="stNumberInput"] button {
         background: var(--card-2); border-color: var(--border); color: var(--muted);
     }
-    /* Dropdown menus */
     div[data-baseweb="popover"] ul, div[data-baseweb="menu"] {
         background: var(--card-2) !important; border: 1px solid var(--border-2);
-        border-radius: 10px; box-shadow: var(--shadow);
+        border-radius: 12px; box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
     }
-    div[data-baseweb="popover"] li { color: var(--muted); font-size: 0.84rem; }
+    div[data-baseweb="popover"] li { color: var(--muted); font-size: 0.92rem; padding-top: 0.5rem; padding-bottom: 0.5rem; }
     div[data-baseweb="popover"] li:hover,
     div[data-baseweb="popover"] li[aria-selected="true"] {
         background: var(--aqua-dim) !important; color: var(--ink) !important;
     }
 
-    /* ── Multiselect chips — neon-edge, not alarm-red ── */
+    /* ── Multiselect chips ── */
     .stMultiSelect [data-baseweb="tag"] {
         background: var(--aqua-dim) !important;
-        border: 1px solid rgba(103, 224, 240, 0.35) !important;
+        border: 1px solid rgba(103, 224, 240, 0.3) !important;
         border-radius: 999px !important; color: var(--aqua) !important;
+        font-size: 0.85rem;
     }
     .stMultiSelect [data-baseweb="tag"] span,
     .stMultiSelect [data-baseweb="tag"] svg { color: var(--aqua) !important; fill: var(--aqua); }
 
-    /* ── Buttons ── */
+    /* ── Buttons: flat solid accent primary, ghost secondary ── */
     .stButton > button, [data-testid="stFileUploader"] button {
-        font-family: var(--font-body); font-size: 0.82rem; font-weight: 500;
-        border-radius: 10px; padding: 0.46rem 1.05rem; transition: all 0.16s ease;
+        font-family: var(--font-body); font-size: 0.92rem; font-weight: 550;
+        border-radius: 11px; padding: 0.56rem 1.25rem; transition: all 0.15s ease;
         white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
     .stButton > button[kind="primary"] {
-        background: linear-gradient(135deg, #79e7f4 0%, #4cc4de 100%);
-        color: #07222b; font-weight: 700; border: none;
-        box-shadow: 0 3px 14px rgba(103, 224, 240, 0.22);
+        background: var(--aqua); color: #07222b; font-weight: 700; border: none;
+        box-shadow: none;
     }
     .stButton > button[kind="primary"]:hover {
-        filter: brightness(1.06);
-        box-shadow: 0 6px 20px rgba(103, 224, 240, 0.32);
-        transform: translateY(-1px);
+        background: #85e9f5; box-shadow: 0 4px 16px rgba(103, 224, 240, 0.25);
     }
     .stButton > button[kind="secondary"], [data-testid="stFileUploader"] button {
-        background: rgba(148, 163, 255, 0.05); color: var(--muted);
+        background: rgba(255, 255, 255, 0.045); color: var(--muted);
         border: 1px solid var(--border);
     }
     .stButton > button[kind="secondary"]:hover {
-        background: rgba(148, 163, 255, 0.09); color: var(--ink);
+        background: rgba(255, 255, 255, 0.08); color: var(--ink);
         border-color: var(--border-2);
     }
     .stButton > button:disabled { opacity: 0.45; filter: none; transform: none; }
 
     /* ── Expander ── */
     [data-testid="stExpander"] {
-        background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
+        background: var(--panel); border: 1px solid var(--border); border-radius: 13px;
     }
     [data-testid="stExpander"] summary {
-        color: var(--muted); font-size: 0.85rem; border-radius: 12px;
+        color: var(--muted); font-size: 0.93rem; border-radius: 13px;
+        padding-top: 0.7rem; padding-bottom: 0.7rem;
     }
-    [data-testid="stExpander"] summary:hover { color: var(--ink); background: rgba(148,163,255,0.04); }
+    [data-testid="stExpander"] summary:hover { color: var(--ink); background: rgba(255,255,255,0.03); }
 
     /* ── Metrics ── */
     [data-testid="stMetricValue"] {
         color: var(--ink); font-family: var(--font-display);
-        font-size: 1.55rem; font-weight: 700; letter-spacing: -0.01em;
+        font-size: 1.8rem; font-weight: 700; letter-spacing: -0.01em;
     }
     [data-testid="stMetricLabel"] {
-        color: var(--muted-2); font-size: 0.7rem;
+        color: var(--muted-2); font-size: 0.76rem;
         text-transform: uppercase; letter-spacing: 0.1em;
     }
 
-    /* ── Slider / radio / checkbox / toggle labels ── */
-    .stSlider label, .stRadio > label, .stCheckbox label { color: var(--muted); font-size: 0.8rem; }
-    .stRadio [role="radiogroup"] { gap: 0.35rem; }
+    /* ── Slider / radio / checkbox labels ── */
+    .stSlider label, .stRadio > label, .stCheckbox label { color: var(--muted); font-size: 0.88rem; }
+    .stRadio [role="radiogroup"] { gap: 0.4rem; }
     .stRadio [role="radiogroup"] label {
-        padding: 0.18rem 0.55rem; border-radius: 8px; transition: background 0.15s ease;
+        padding: 0.24rem 0.65rem; border-radius: 9px; transition: background 0.15s ease;
+        font-size: 0.92rem;
     }
-    .stRadio [role="radiogroup"] label:hover { background: rgba(148, 163, 255, 0.05); }
-    .stCheckbox label { color: var(--muted-2); font-size: 0.79rem; }
+    .stRadio [role="radiogroup"] label:hover { background: rgba(255, 255, 255, 0.045); }
+    .stCheckbox label { color: var(--muted); font-size: 0.87rem; }
 
-    /* ── Progress: tape gradient ── */
-    .stProgress > div > div { background: var(--tape); border-radius: 4px; }
-    .stProgress > div { background: var(--well); border-radius: 4px; }
+    /* ── Progress ── */
+    .stProgress > div > div { background: var(--aqua); border-radius: 5px; }
+    .stProgress > div { background: var(--well); border-radius: 5px; }
 
-    /* ── Alerts: tinted glass ── */
+    /* ── Alerts: tinted flat panels ── */
     div[data-testid="stAlert"] {
-        border-radius: 12px; font-size: 0.83rem;
+        border-radius: 13px; font-size: 0.92rem;
         background: var(--panel); border: 1px solid var(--border);
     }
     div[data-testid="stAlert"]:has([data-testid="stAlertContentSuccess"]) {
-        background: rgba(95, 211, 154, 0.07); border-color: rgba(95, 211, 154, 0.28);
+        background: rgba(95, 211, 154, 0.07); border-color: rgba(95, 211, 154, 0.25);
     }
     div[data-testid="stAlert"]:has([data-testid="stAlertContentInfo"]) {
-        background: rgba(103, 224, 240, 0.06); border-color: rgba(103, 224, 240, 0.25);
+        background: rgba(103, 224, 240, 0.06); border-color: rgba(103, 224, 240, 0.22);
     }
     div[data-testid="stAlert"]:has([data-testid="stAlertContentWarning"]) {
-        background: rgba(238, 207, 138, 0.07); border-color: rgba(238, 207, 138, 0.28);
+        background: rgba(238, 207, 138, 0.07); border-color: rgba(238, 207, 138, 0.25);
     }
     div[data-testid="stAlert"]:has([data-testid="stAlertContentError"]) {
-        background: rgba(240, 120, 96, 0.07); border-color: rgba(240, 120, 96, 0.3);
+        background: rgba(240, 120, 96, 0.07); border-color: rgba(240, 120, 96, 0.27);
     }
 
     /* ── File uploader ── */
     [data-testid="stFileUploader"] section {
         background: var(--bg-2); border: 1px dashed var(--border-2);
-        border-radius: 12px;
+        border-radius: 13px;
     }
-    [data-testid="stFileUploader"] section:hover { border-color: rgba(103, 224, 240, 0.45); }
+    [data-testid="stFileUploader"] section:hover { border-color: rgba(103, 224, 240, 0.4); }
 
     /* ── Divider / misc ── */
-    hr { border-color: var(--border) !important; margin: 0.8rem 0; }
-    [data-testid="stJson"] { background: var(--bg-2); border-radius: 10px; }
+    hr { border-color: var(--border) !important; margin: 1rem 0; }
+    [data-testid="stJson"] { background: var(--bg-2); border-radius: 12px; }
     [data-testid="stTooltipIcon"] svg { color: var(--muted-2); }
 
     /* ── Status pills ── */
     .srx-pill {
-        display: inline-block; padding: 0.16rem 0.62rem; border-radius: 999px;
-        font-size: 0.71rem; font-weight: 600; letter-spacing: 0.02em;
+        display: inline-block; padding: 0.2rem 0.7rem; border-radius: 999px;
+        font-size: 0.78rem; font-weight: 600; letter-spacing: 0.01em;
         border: 1px solid transparent;
     }
-    .srx-pill-cyan    { background: var(--aqua-dim); color: var(--aqua); border-color: rgba(103,224,240,0.3); }
-    .srx-pill-magenta { background: var(--rose-dim); color: var(--rose); border-color: rgba(255,110,160,0.3); }
-    .srx-pill-amber   { background: var(--gold-dim); color: var(--gold); border-color: rgba(238,207,138,0.3); }
+    .srx-pill-cyan    { background: var(--aqua-dim); color: var(--aqua); border-color: rgba(103,224,240,0.28); }
+    .srx-pill-magenta { background: var(--rose-dim); color: var(--rose); border-color: rgba(255,110,160,0.28); }
+    .srx-pill-amber   { background: var(--gold-dim); color: var(--gold); border-color: rgba(238,207,138,0.28); }
 
     /* ── Scrollbar ── */
-    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar { width: 7px; height: 7px; }
     ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: rgba(148, 163, 255, 0.16); border-radius: 3px; }
-    ::-webkit-scrollbar-thumb:hover { background: rgba(148, 163, 255, 0.3); }
+    ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.12); border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.22); }
 </style>
 """, unsafe_allow_html=True)
 
@@ -521,6 +508,17 @@ NAV_ITEMS = [
     ("settings", "⚙️", "Settings"),
 ]
 
+# Apiframe-style grouped rendering (v1.0.0-alpha.45) — presentation only:
+# same keys, same routing, just section eyebrows between the buttons.
+NAV_SECTIONS = [
+    ("", ["dashboard"]),
+    ("제작 · Create", ["song_lab", "thumbnail", "video"]),
+    ("게시 · Publish", ["youtube", "qa", "um"]),
+    ("보관 · Browse", ["history", "library", "project"]),
+    ("시스템", ["settings"]),
+]
+_NAV_BY_KEY = {k: (icon, label) for k, icon, label in NAV_ITEMS}
+
 if "nav_page" not in st.session_state:
     st.session_state.nav_page = "dashboard"
 
@@ -542,12 +540,17 @@ with st.sidebar:
     </div>
     """, unsafe_allow_html=True)
 
-    for key, icon, label in NAV_ITEMS:
-        active = st.session_state.nav_page == key
-        if st.button(f"{icon}  {label}", key=f"nav_{key}", use_container_width=True,
-                     type="primary" if active else "secondary"):
-            st.session_state.nav_page = key
-            st.rerun()
+    for section_label, keys in NAV_SECTIONS:
+        if section_label:
+            st.markdown(f"<div class='srx-nav-section'>{section_label}</div>",
+                        unsafe_allow_html=True)
+        for key in keys:
+            icon, label = _NAV_BY_KEY[key]
+            active = st.session_state.nav_page == key
+            if st.button(f"{icon}  {label}", key=f"nav_{key}", use_container_width=True,
+                         type="primary" if active else "secondary"):
+                st.session_state.nav_page = key
+                st.rerun()
 
 # ─── Route ────────────────────────────────────────────────────────────────────
 _page = st.session_state.nav_page
