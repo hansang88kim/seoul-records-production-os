@@ -90,7 +90,10 @@ def render_oauth_account_panel(key_ns: str = "yt") -> dict:
         oauth_hint = DEP.oauth_install_hint()
         if st.button("🔑 YouTube 인증", key=f"{key_ns}_authorize",
                      use_container_width=True, disabled=bool(oauth_hint)):
-            res = oauth.authorize()
+            with st.spinner("브라우저에서 Google 로그인 창이 열립니다 — 완료할 때까지 "
+                            "최대 2분 기다립니다. 창이 자동으로 열리지 않으면 이 앱을 "
+                            "실행한 터미널(cmd/PowerShell)에 출력된 링크를 확인하세요."):
+                res = oauth.authorize()
             (st.error if res.get("status") == ts.STATUS_FAILED else st.success)(
                 res.get("message", ""))
         if oauth_hint:

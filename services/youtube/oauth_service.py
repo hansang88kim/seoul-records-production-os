@@ -60,12 +60,44 @@ def load_client_secret_from_bytes(data: bytes) -> bool:
     return ok
 
 
-def authorize(headless_token: dict | None = None) -> dict:
+def _run_local_server_with_timeout(flow, timeout_seconds: float):
+    """
+    Run flow.run_local_server(port=0) with a hard wall-clock timeout.
+
+    v1.0.0-alpha.53 fix: InstalledAppFlow.run_local_server() blocks
+    forever waiting for the OAuth redirect. In a Streamlit app this means
+    that if the browser doesn't auto-open (headless/remote session, no
+    default browser configured, popup blocked) or the person closes the
+    tab without finishing login, clicking "🔑 YouTube 인증" just hangs —
+    no error, no timeout, nothing — which looks EXACTLY like "인증이 안
+    됨" with zero diagnostic signal. This wraps the blocking call in a
+    worker thread and gives up after `timeout_seconds`, raising
+    TimeoutError so authorize() can show a clear, actionable message
+    instead of hanging silently.
+
+    Note: the worker thread itself cannot be forcibly killed (Python has
+    no safe thread-kill); it keeps listening on its OS-assigned port
+    until the browser eventually hits it or the process exits. That's
+    harmless — port=0 means a fresh random port is used on each retry.
+    """
+    import concurrent.futures
+    executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
+    future = executor.submit(flow.run_local_server, port=0)
+    try:
+        return future.result(timeout=timeout_seconds)
+    except concurrent.futures.TimeoutError:
+        raise TimeoutError(
+            f"{int(timeout_seconds)}초 내에 브라우저 인증이 완료되지 않았습니다")
+
+
+def authorize(headless_token: dict | None = None,
+             timeout_seconds: float = 120) -> dict:
     """
     Run (or simulate) the OAuth authorization.
 
     - If headless_token is provided (tests / programmatic), store it directly.
-    - Else, attempt the real installed-app flow via google-auth-oauthlib.
+    - Else, attempt the real installed-app flow via google-auth-oauthlib,
+      bounded by timeout_seconds (see _run_local_server_with_timeout).
     Returns the resulting status dict (no secrets).
     """
     if not ts.has_client_secret():
@@ -87,7 +119,7 @@ def authorize(headless_token: dict | None = None) -> dict:
     try:
         secret = ts.load_client_secret()
         flow = InstalledAppFlow.from_client_config(secret, scopes=[YOUTUBE_UPLOAD_SCOPE])
-        creds = flow.run_local_server(port=0)
+        creds = _run_local_server_with_timeout(flow, timeout_seconds)
         token = {
             "token": creds.token,
             "refresh_token": creds.refresh_token,
@@ -99,8 +131,15 @@ def authorize(headless_token: dict | None = None) -> dict:
         }
         ts.save_token(token)
         return ts.set_status(ts.STATUS_AUTHORIZED, "인증 완료")
+    except TimeoutError as e:
+        return ts.set_status(
+            ts.STATUS_FAILED,
+            f"인증 실패 — {e}. 클릭 시 자동으로 열리는 브라우저 창에서 Google 로그인을 "
+            "완료해야 합니다. 브라우저가 자동으로 열리지 않았다면, 이 앱을 실행한 "
+            "터미널(cmd/PowerShell) 창에 출력된 인증 URL을 복사해 브라우저 주소창에 "
+            "직접 붙여넣고 로그인을 완료한 뒤 다시 시도하세요.")
     except Exception as e:
-        # v1.0.0-alpha.50 fix: the previous version discarded the real
+        # v1.0.0-alpha.51 fix: the previous version discarded the real
         # exception and always showed a generic "인증 실패", leaving no way
         # to tell apart a closed browser, a Testing-mode Gmail not added,
         # a wrong client type (web vs. installed), a blocked local port,
