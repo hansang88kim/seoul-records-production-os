@@ -19,140 +19,300 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# ─── Global CSS ──────────────────────────────────────────────────────────────
-# Palette mirrors frontend/styles/globals.css (Studio Console design tokens):
-# near-black slate background, soft cyan primary, magenta + amber accents.
+# ─── Global CSS — "심야 스튜디오" design system (v1.0.0-alpha.44) ────────────
+# Deep indigo Seoul-night surface, glass rack-panel cards, and ONE signature:
+# the neon tape-stripe — a rose→aqua→gold hairline across the top of the app,
+# under the sidebar wordmark, and as the active-nav left rail. Everything else
+# stays quiet. Native widget tints (radio/checkbox/slider/toggle) come from
+# .streamlit/config.toml. Legacy var names (--cyan/--magenta/--amber/--fg …)
+# are kept as aliases so existing inline snippets keep working.
 st.markdown("""
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Noto+Sans+KR:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Noto+Sans+KR:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
     :root {
-        --bg:        #16171d;
-        --card:      #1e1f27;
-        --card-2:    #22232c;
-        --border:    #34353f99;
-        --fg:        #f4f4f6;
-        --muted:     #9a9ba6;
-        --muted-2:   #6b6c78;
-        --cyan:      #7fd4e8;
-        --cyan-dim:  rgba(127, 212, 232, 0.14);
-        --magenta:   #e8639f;
-        --magenta-dim: rgba(232, 99, 159, 0.14);
-        --amber:     #e8c37c;
-        --amber-dim: rgba(232, 195, 124, 0.14);
-        --success:   #74d9a0;
-        --danger:    #e06a52;
+        /* Surfaces */
+        --bg:        #0b0d14;
+        --bg-2:      #10131d;
+        --panel:     #12151f;
+        --well:      #141a28;
+        --card:      rgba(148, 163, 255, 0.045);
+        --card-2:    #151a26;
+        --border:    rgba(148, 163, 255, 0.13);
+        --border-2:  rgba(148, 163, 255, 0.22);
+
+        /* Ink */
+        --ink:       #eef1f8;
+        --fg:        #eef1f8;
+        --muted:     #9aa3b8;
+        --muted-2:   #5d647a;
+
+        /* Neon duo + highlight (city-pop signage) */
+        --aqua:      #67e0f0;
+        --aqua-dim:  rgba(103, 224, 240, 0.12);
+        --rose:      #ff6ea0;
+        --rose-dim:  rgba(255, 110, 160, 0.12);
+        --gold:      #eecf8a;
+        --gold-dim:  rgba(238, 207, 138, 0.12);
+        --success:   #5fd39a;
+        --danger:    #f07860;
+
+        /* Legacy aliases (pre-alpha.44 inline snippets) */
+        --cyan:        var(--aqua);
+        --cyan-dim:    var(--aqua-dim);
+        --magenta:     var(--rose);
+        --magenta-dim: var(--rose-dim);
+        --amber:       var(--gold);
+        --amber-dim:   var(--gold-dim);
+
+        --tape: linear-gradient(90deg, var(--rose), var(--aqua) 55%, var(--gold));
+        --font-display: 'Space Grotesk', 'Noto Sans KR', system-ui, sans-serif;
+        --font-body:    'Noto Sans KR', 'Space Grotesk', system-ui, sans-serif;
+        --font-mono:    'JetBrains Mono', ui-monospace, 'Cascadia Mono', monospace;
+        --radius: 14px;
+        --shadow: 0 10px 30px rgba(3, 5, 12, 0.45);
     }
 
-    /* -- Base -- */
-    .stApp { background: var(--bg); font-family: 'Inter', 'Noto Sans KR', -apple-system, sans-serif; }
-    .block-container { padding: 3rem 2rem 4rem; max-width: 1320px; }
+    /* ── Base canvas: indigo night with faint neon wash ── */
+    .stApp {
+        font-family: var(--font-body);
+        background:
+            radial-gradient(900px 420px at 12% -8%, rgba(255,110,160,0.055), transparent 60%),
+            radial-gradient(1000px 480px at 92% -10%, rgba(103,224,240,0.05), transparent 60%),
+            var(--bg);
+        background-attachment: fixed;
+    }
+    /* Signature — neon tape-stripe across the very top */
+    .stApp::before {
+        content: ""; position: fixed; top: 0; left: 0; right: 0; height: 2px;
+        background: var(--tape); z-index: 999; opacity: 0.9; pointer-events: none;
+    }
+    [data-testid="stHeader"] { background: transparent; }
+    .block-container { padding: 2.4rem 2.2rem 4.5rem; max-width: 1280px; }
 
-    /* -- Typography -- */
-    h1 { color: var(--fg); font-weight: 700; font-size: 1.7rem; letter-spacing: -0.5px; margin-bottom: 0.25rem; }
-    h2 { color: var(--fg); font-weight: 600; font-size: 1.2rem; letter-spacing: -0.3px; }
-    h3 { color: var(--fg); font-weight: 600; font-size: 1.02rem; }
-    h4 { color: var(--fg); font-weight: 600; font-size: 0.95rem; letter-spacing: -0.2px; margin: 0.5rem 0; }
-    h5 { color: var(--muted); font-weight: 600; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 1.2px; margin-bottom: 0.5rem; }
-    p, span, label, .stMarkdown { color: var(--muted); font-size: 0.88rem; line-height: 1.55; }
-    .stCaption, small { color: var(--muted-2) !important; font-size: 0.78rem; }
+    @media (prefers-reduced-motion: no-preference) {
+        .block-container { animation: srx-fade 0.35s ease-out; }
+        @keyframes srx-fade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+    }
 
-    /* -- Cards (bordered containers used as dashboard/metric panels) -- */
-    div[data-testid="column"] > div[data-testid="stVerticalBlockBorderWrapper"] {
-        background: var(--card);
+    /* ── Typography ── */
+    h1, h2, h3, h4 { font-family: var(--font-display); color: var(--ink); }
+    h1 { font-weight: 700; font-size: 1.65rem; letter-spacing: -0.02em; margin-bottom: 0.2rem; }
+    h1::after {
+        content: ""; display: block; width: 34px; height: 2px; margin-top: 0.55rem;
+        background: var(--tape); border-radius: 2px;
+    }
+    h2 { font-weight: 600; font-size: 1.18rem; letter-spacing: -0.015em; }
+    h3 { font-weight: 600; font-size: 1.0rem; }
+    h4 { font-weight: 600; font-size: 0.93rem; letter-spacing: -0.01em; margin: 0.55rem 0 0.35rem; }
+    h5 { color: var(--muted-2); font-weight: 600; font-size: 0.7rem;
+         text-transform: uppercase; letter-spacing: 0.14em; margin-bottom: 0.5rem; }
+    p, span, label, .stMarkdown { color: var(--muted); font-size: 0.88rem; line-height: 1.6; }
+    .stCaption, small, [data-testid="stCaptionContainer"] { color: var(--muted-2) !important; font-size: 0.77rem; }
+    a { color: var(--aqua); }
+    code {
+        font-family: var(--font-mono); font-size: 0.78em;
+        background: var(--well); border: 1px solid var(--border);
+        border-radius: 6px; padding: 0.08em 0.4em; color: var(--gold);
+    }
+    [data-testid="stCode"] pre, .stCode pre {
+        background: var(--bg-2) !important; border: 1px solid var(--border);
+        border-radius: 10px; font-family: var(--font-mono);
+    }
+
+    /* ── Glass rack-panel cards (bordered containers / metric panels) ── */
+    div[data-testid="stVerticalBlockBorderWrapper"] {
+        background: linear-gradient(180deg, rgba(255,255,255,0.028), rgba(255,255,255,0.008)), var(--panel);
         border: 1px solid var(--border);
-        border-radius: 14px;
-    }
-    div[data-testid="stVerticalBlockBorderWrapper"]:has(> div > [data-testid="stVerticalBlock"]) {
-        border-radius: 14px;
+        border-top-color: rgba(200, 210, 255, 0.16);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
     }
 
-    /* -- Tabs (still used inside individual pages) -- */
-    .stTabs [data-baseweb="tab-list"] { gap: 0; background: var(--card-2); border-radius: 10px; padding: 3px; border: 1px solid var(--border); }
-    .stTabs [data-baseweb="tab"] { color: var(--muted-2); font-size: 0.82rem; font-weight: 500; padding: 0.5rem 1.2rem; border-radius: 8px; border: none; }
-    .stTabs [aria-selected="true"] { color: var(--fg); background: var(--cyan-dim); border: 1px solid rgba(127, 212, 232, 0.25); }
-
-    /* -- Sidebar -- */
-    [data-testid="stSidebar"] { background: #1a1b21; border-right: 1px solid var(--border); }
-    [data-testid="stSidebar"] h2 { font-size: 1.1rem; color: var(--fg); }
-    [data-testid="stSidebar"] h5 { font-size: 0.72rem; color: var(--muted); }
-    [data-testid="stSidebar"] .stButton > button { text-align: left; justify-content: flex-start; width: 100%; }
-    [data-testid="stSidebar"] .stButton > button[kind="secondary"] { background: transparent; color: var(--muted); border: 1px solid transparent; font-weight: 500; }
-    [data-testid="stSidebar"] .stButton > button[kind="secondary"]:hover { background: var(--card-2); color: var(--fg); border-color: var(--border); }
-    [data-testid="stSidebar"] .stButton > button[kind="primary"] { background: var(--cyan-dim); color: var(--cyan); border: 1px solid rgba(127, 212, 232, 0.3); font-weight: 600; box-shadow: none; }
-    [data-testid="stSidebar"] .stButton > button[kind="primary"]:hover { background: var(--cyan-dim); transform: none; box-shadow: none; }
-
-    /* -- Inputs -- */
-    .stTextInput > div > div > input, .stTextArea > div > div > textarea, .stSelectbox > div > div {
-        background: var(--card-2); border: 1px solid var(--border); border-radius: 8px; color: var(--fg);
-        font-size: 0.85rem; font-family: 'Inter', 'Noto Sans KR', sans-serif;
+    /* ── In-page tabs → segmented control ── */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 2px; background: var(--bg-2); border-radius: 11px;
+        padding: 3px; border: 1px solid var(--border); width: fit-content;
     }
-    .stTextInput > div > div > input:focus, .stTextArea > div > div > textarea:focus {
-        border-color: var(--cyan); box-shadow: 0 0 0 1px rgba(127, 212, 232, 0.35);
+    .stTabs [data-baseweb="tab"] {
+        color: var(--muted-2); font-size: 0.82rem; font-weight: 500;
+        padding: 0.45rem 1.1rem; border-radius: 8px; border: none; background: transparent;
     }
-    .stTextInput > label, .stTextArea > label, .stSelectbox > label { color: var(--muted); font-size: 0.8rem; font-weight: 500; }
+    .stTabs [data-baseweb="tab"]:hover { color: var(--ink); }
+    .stTabs [aria-selected="true"] {
+        color: var(--ink) !important; background: var(--well);
+        box-shadow: inset 0 0 0 1px var(--border-2);
+    }
+    .stTabs [data-baseweb="tab-highlight"], .stTabs [data-baseweb="tab-border"] { display: none; }
 
-    /* -- Buttons (main content area) -- */
-    .stButton > button {
-        font-family: 'Inter', 'Noto Sans KR', sans-serif; font-size: 0.82rem; font-weight: 500;
-        border-radius: 8px; padding: 0.45rem 1rem; transition: all 0.15s ease;
+    /* ── Sidebar: rack rail + wordmark ── */
+    [data-testid="stSidebar"] {
+        background: linear-gradient(180deg, #0c0f18 0%, #0a0c13 100%);
+        border-right: 1px solid var(--border);
+    }
+    [data-testid="stSidebar"] .stButton > button {
+        text-align: left; justify-content: flex-start; width: 100%;
+        font-family: var(--font-body); font-size: 0.85rem;
+        border-radius: 10px; padding: 0.5rem 0.85rem;
+    }
+    [data-testid="stSidebar"] .stButton > button[kind="secondary"] {
+        background: transparent; color: var(--muted);
+        border: 1px solid transparent; font-weight: 500; box-shadow: none;
+    }
+    [data-testid="stSidebar"] .stButton > button[kind="secondary"]:hover {
+        background: rgba(148, 163, 255, 0.06); color: var(--ink);
+        border-color: transparent; transform: none;
+    }
+    /* Active nav item — quiet plate + tape left-rail */
+    [data-testid="stSidebar"] .stButton > button[kind="primary"] {
+        background: linear-gradient(90deg, rgba(103,224,240,0.10), rgba(103,224,240,0.02));
+        color: var(--ink); font-weight: 600;
+        border: 1px solid var(--border); border-left: 2px solid var(--aqua);
+        box-shadow: none;
+    }
+    [data-testid="stSidebar"] .stButton > button[kind="primary"]:hover {
+        background: linear-gradient(90deg, rgba(103,224,240,0.14), rgba(103,224,240,0.03));
+        transform: none; box-shadow: none;
+    }
+
+    /* ── Inputs / wells ── */
+    .stTextInput input, .stTextArea textarea, .stNumberInput input,
+    .stSelectbox [data-baseweb="select"] > div,
+    .stMultiSelect [data-baseweb="select"] > div {
+        background: var(--well) !important; border: 1px solid var(--border) !important;
+        border-radius: 10px !important; color: var(--ink) !important;
+        font-size: 0.85rem; font-family: var(--font-body);
+    }
+    .stTextInput input:focus, .stTextArea textarea:focus {
+        border-color: var(--aqua) !important;
+        box-shadow: 0 0 0 1px rgba(103, 224, 240, 0.35) !important;
+    }
+    [data-testid="stWidgetLabel"] p { color: var(--muted); font-size: 0.79rem; font-weight: 500; }
+    [data-testid="stNumberInput"] button {
+        background: var(--card-2); border-color: var(--border); color: var(--muted);
+    }
+    /* Dropdown menus */
+    div[data-baseweb="popover"] ul, div[data-baseweb="menu"] {
+        background: var(--card-2) !important; border: 1px solid var(--border-2);
+        border-radius: 10px; box-shadow: var(--shadow);
+    }
+    div[data-baseweb="popover"] li { color: var(--muted); font-size: 0.84rem; }
+    div[data-baseweb="popover"] li:hover,
+    div[data-baseweb="popover"] li[aria-selected="true"] {
+        background: var(--aqua-dim) !important; color: var(--ink) !important;
+    }
+
+    /* ── Multiselect chips — neon-edge, not alarm-red ── */
+    .stMultiSelect [data-baseweb="tag"] {
+        background: var(--aqua-dim) !important;
+        border: 1px solid rgba(103, 224, 240, 0.35) !important;
+        border-radius: 999px !important; color: var(--aqua) !important;
+    }
+    .stMultiSelect [data-baseweb="tag"] span,
+    .stMultiSelect [data-baseweb="tag"] svg { color: var(--aqua) !important; fill: var(--aqua); }
+
+    /* ── Buttons ── */
+    .stButton > button, [data-testid="stFileUploader"] button {
+        font-family: var(--font-body); font-size: 0.82rem; font-weight: 500;
+        border-radius: 10px; padding: 0.46rem 1.05rem; transition: all 0.16s ease;
         white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
     .stButton > button[kind="primary"] {
-        background: var(--cyan); color: #0e2a30; font-weight: 600; border: none;
-        box-shadow: 0 2px 8px rgba(127, 212, 232, 0.18);
+        background: linear-gradient(135deg, #79e7f4 0%, #4cc4de 100%);
+        color: #07222b; font-weight: 700; border: none;
+        box-shadow: 0 3px 14px rgba(103, 224, 240, 0.22);
     }
     .stButton > button[kind="primary"]:hover {
-        background: #9adfef; box-shadow: 0 4px 16px rgba(127, 212, 232, 0.28); transform: translateY(-1px);
+        filter: brightness(1.06);
+        box-shadow: 0 6px 20px rgba(103, 224, 240, 0.32);
+        transform: translateY(-1px);
     }
-    .stButton > button[kind="secondary"] { background: var(--card-2); color: var(--muted); border: 1px solid var(--border); }
-    .stButton > button[kind="secondary"]:hover { background: #2a2b34; color: var(--fg); border-color: #454652; }
+    .stButton > button[kind="secondary"], [data-testid="stFileUploader"] button {
+        background: rgba(148, 163, 255, 0.05); color: var(--muted);
+        border: 1px solid var(--border);
+    }
+    .stButton > button[kind="secondary"]:hover {
+        background: rgba(148, 163, 255, 0.09); color: var(--ink);
+        border-color: var(--border-2);
+    }
+    .stButton > button:disabled { opacity: 0.45; filter: none; transform: none; }
 
-    /* -- Expander -- */
-    [data-testid="stExpander"] { background: var(--card-2); border: 1px solid var(--border); border-radius: 10px; }
-    [data-testid="stExpander"] summary { color: var(--muted); font-size: 0.85rem; }
+    /* ── Expander ── */
+    [data-testid="stExpander"] {
+        background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
+    }
+    [data-testid="stExpander"] summary {
+        color: var(--muted); font-size: 0.85rem; border-radius: 12px;
+    }
+    [data-testid="stExpander"] summary:hover { color: var(--ink); background: rgba(148,163,255,0.04); }
 
-    /* -- Metrics -- */
-    [data-testid="stMetricValue"] { color: var(--fg); font-size: 1.5rem; font-weight: 700; }
-    [data-testid="stMetricLabel"] { color: var(--muted-2); font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.5px; }
+    /* ── Metrics ── */
+    [data-testid="stMetricValue"] {
+        color: var(--ink); font-family: var(--font-display);
+        font-size: 1.55rem; font-weight: 700; letter-spacing: -0.01em;
+    }
+    [data-testid="stMetricLabel"] {
+        color: var(--muted-2); font-size: 0.7rem;
+        text-transform: uppercase; letter-spacing: 0.1em;
+    }
 
-    /* -- Slider -- */
-    .stSlider > div > div > div > div { background: var(--cyan); }
-    .stSlider label { color: var(--muted); font-size: 0.8rem; }
+    /* ── Slider / radio / checkbox / toggle labels ── */
+    .stSlider label, .stRadio > label, .stCheckbox label { color: var(--muted); font-size: 0.8rem; }
+    .stRadio [role="radiogroup"] { gap: 0.35rem; }
+    .stRadio [role="radiogroup"] label {
+        padding: 0.18rem 0.55rem; border-radius: 8px; transition: background 0.15s ease;
+    }
+    .stRadio [role="radiogroup"] label:hover { background: rgba(148, 163, 255, 0.05); }
+    .stCheckbox label { color: var(--muted-2); font-size: 0.79rem; }
 
-    /* -- Radio -- */
-    .stRadio > label { color: var(--muted); font-size: 0.82rem; }
-    .stRadio > div { gap: 0.3rem; }
+    /* ── Progress: tape gradient ── */
+    .stProgress > div > div { background: var(--tape); border-radius: 4px; }
+    .stProgress > div { background: var(--well); border-radius: 4px; }
 
-    /* -- Progress -- */
-    .stProgress > div > div { background: linear-gradient(90deg, var(--cyan), #4fb8d0); border-radius: 4px; }
-    .stProgress > div { background: var(--card-2); }
+    /* ── Alerts: tinted glass ── */
+    div[data-testid="stAlert"] {
+        border-radius: 12px; font-size: 0.83rem;
+        background: var(--panel); border: 1px solid var(--border);
+    }
+    div[data-testid="stAlert"]:has([data-testid="stAlertContentSuccess"]) {
+        background: rgba(95, 211, 154, 0.07); border-color: rgba(95, 211, 154, 0.28);
+    }
+    div[data-testid="stAlert"]:has([data-testid="stAlertContentInfo"]) {
+        background: rgba(103, 224, 240, 0.06); border-color: rgba(103, 224, 240, 0.25);
+    }
+    div[data-testid="stAlert"]:has([data-testid="stAlertContentWarning"]) {
+        background: rgba(238, 207, 138, 0.07); border-color: rgba(238, 207, 138, 0.28);
+    }
+    div[data-testid="stAlert"]:has([data-testid="stAlertContentError"]) {
+        background: rgba(240, 120, 96, 0.07); border-color: rgba(240, 120, 96, 0.3);
+    }
 
-    /* -- Divider -- */
-    hr { border-color: var(--border) !important; margin: 0.75rem 0; }
+    /* ── File uploader ── */
+    [data-testid="stFileUploader"] section {
+        background: var(--bg-2); border: 1px dashed var(--border-2);
+        border-radius: 12px;
+    }
+    [data-testid="stFileUploader"] section:hover { border-color: rgba(103, 224, 240, 0.45); }
 
-    /* -- Alert boxes -- */
-    .stAlert { border-radius: 8px; font-size: 0.83rem; }
+    /* ── Divider / misc ── */
+    hr { border-color: var(--border) !important; margin: 0.8rem 0; }
+    [data-testid="stJson"] { background: var(--bg-2); border-radius: 10px; }
+    [data-testid="stTooltipIcon"] svg { color: var(--muted-2); }
 
-    /* -- File uploader -- */
-    [data-testid="stFileUploader"] { border: 1px dashed var(--border); border-radius: 10px; padding: 1rem; }
+    /* ── Status pills ── */
+    .srx-pill {
+        display: inline-block; padding: 0.16rem 0.62rem; border-radius: 999px;
+        font-size: 0.71rem; font-weight: 600; letter-spacing: 0.02em;
+        border: 1px solid transparent;
+    }
+    .srx-pill-cyan    { background: var(--aqua-dim); color: var(--aqua); border-color: rgba(103,224,240,0.3); }
+    .srx-pill-magenta { background: var(--rose-dim); color: var(--rose); border-color: rgba(255,110,160,0.3); }
+    .srx-pill-amber   { background: var(--gold-dim); color: var(--gold); border-color: rgba(238,207,138,0.3); }
 
-    /* -- Checkbox inline -- */
-    .stCheckbox label { color: var(--muted-2); font-size: 0.78rem; }
-
-    /* -- Selectbox -- */
-    .stSelectbox label { font-size: 0.78rem; color: var(--muted-2); }
-
-    /* -- Badges / status pills (used via st.markdown snippets) -- */
-    .srx-pill { display: inline-block; padding: 0.15rem 0.6rem; border-radius: 999px; font-size: 0.72rem; font-weight: 600; }
-    .srx-pill-cyan    { background: var(--cyan-dim);    color: var(--cyan); }
-    .srx-pill-magenta { background: var(--magenta-dim); color: var(--magenta); }
-    .srx-pill-amber   { background: var(--amber-dim);   color: var(--amber); }
-
-    /* -- Scrollbar -- */
-    ::-webkit-scrollbar { width: 6px; }
-    ::-webkit-scrollbar-track { background: var(--bg); }
-    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
-    ::-webkit-scrollbar-thumb:hover { background: #454652; }
+    /* ── Scrollbar ── */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(148, 163, 255, 0.16); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(148, 163, 255, 0.3); }
 </style>
 """, unsafe_allow_html=True)
 
@@ -171,7 +331,7 @@ def _credential_field(label, env_var, placeholder, verify_fn=None, persist_env=F
         # Connected — show status + edit button
         col_status, col_edit = st.columns([3, 1])
         with col_status:
-            st.markdown(f"<div style='color:#5ec27a;font-size:0.78rem;padding-top:6px'>🟢 {label} 연결됨</div>", unsafe_allow_html=True)
+            st.markdown(f"<div style='color:var(--success);font-size:0.78rem;padding-top:6px'>● {label} 연결됨</div>", unsafe_allow_html=True)
         with col_edit:
             if st.button("편집", key=f"edit_{env_var}", use_container_width=True):
                 st.session_state[state_key] = True
@@ -179,7 +339,7 @@ def _credential_field(label, env_var, placeholder, verify_fn=None, persist_env=F
         return
 
     # Editing mode — show input + connect button
-    st.markdown(f"<div style='color:#c08070;font-size:0.78rem'>🔴 {label}</div>", unsafe_allow_html=True)
+    st.markdown(f"<div style='color:var(--danger);font-size:0.78rem'>○ {label} 연결 필요</div>", unsafe_allow_html=True)
     new_val = st.text_input(
         label, type="password", placeholder=placeholder,
         key=f"input_{env_var}", label_visibility="collapsed",
@@ -321,7 +481,7 @@ def render_settings_page():
 
         running = [j for j in active if j.get("status") == "running"]
         if running:
-            st.markdown("<div style='color:#9a9ba6;font-size:0.7rem;font-weight:600;text-transform:uppercase;letter-spacing:1.5px;margin:0.3rem 0'>진행 중</div>", unsafe_allow_html=True)
+            st.markdown("<div style='color:var(--muted-2);font-size:0.68rem;font-weight:600;text-transform:uppercase;letter-spacing:0.14em;margin:0.3rem 0'>진행 중</div>", unsafe_allow_html=True)
             for j in running:
                 pct = j.get("progress_percent", 0) or 0
                 title = j.get("current_track_title", "")
@@ -329,13 +489,13 @@ def render_settings_page():
                 st.caption(f"🎵 {title} · {j.get('completed_tracks',0)}/{j.get('total_tracks',0)}곡")
 
         if queued:
-            st.markdown("<div style='color:#9a9ba6;font-size:0.7rem;font-weight:600;text-transform:uppercase;letter-spacing:1.5px;margin:0.3rem 0'>대기열</div>", unsafe_allow_html=True)
+            st.markdown("<div style='color:var(--muted-2);font-size:0.68rem;font-weight:600;text-transform:uppercase;letter-spacing:0.14em;margin:0.3rem 0'>대기열</div>", unsafe_allow_html=True)
             for qi, j in enumerate(queued):
                 st.caption(f"⏳ {qi+1}. {j.get('project','?')} · {j.get('total_tracks',0)}곡 대기 중")
 
         completed = [j for j in recent if j.get("status") in ("completed", "partially_failed")]
         if completed:
-            st.markdown("<div style='color:#9a9ba6;font-size:0.7rem;font-weight:600;text-transform:uppercase;letter-spacing:1.5px;margin:0.3rem 0'>최근 작업</div>", unsafe_allow_html=True)
+            st.markdown("<div style='color:var(--muted-2);font-size:0.68rem;font-weight:600;text-transform:uppercase;letter-spacing:0.14em;margin:0.3rem 0'>최근 작업</div>", unsafe_allow_html=True)
             for j in completed[:3]:
                 status_icon = "✅" if j["status"] == "completed" else "⚠️"
                 st.caption(f"{status_icon} {j.get('project','?')} · {j.get('completed_tracks',0)}/{j.get('total_tracks',0)}곡")
@@ -366,9 +526,19 @@ if "nav_page" not in st.session_state:
 
 with st.sidebar:
     st.markdown(f"""
-    <div style="text-align:center;padding:0.5rem 0 1rem">
-        <div style="font-size:1.3rem;font-weight:700;color:#f4f4f6;letter-spacing:-0.5px">🎵 Seoul Records</div>
-        <div style="font-size:0.65rem;color:#6b6c78;letter-spacing:2px;text-transform:uppercase;margin-top:2px">Production OS v{APP_VERSION}</div>
+    <div style="padding:0.7rem 0.2rem 1.1rem">
+        <div style="font-family:'Space Grotesk','Noto Sans KR',sans-serif;font-size:1.02rem;
+                    font-weight:700;color:var(--ink);letter-spacing:0.16em;text-transform:uppercase">
+            Seoul&nbsp;Records
+        </div>
+        <div style="height:2px;width:100%;margin:0.55rem 0 0.5rem;border-radius:2px;
+                    background:linear-gradient(90deg,var(--rose),var(--aqua) 55%,var(--gold))"></div>
+        <div style="display:flex;justify-content:space-between;align-items:baseline">
+            <span style="font-size:0.62rem;color:var(--muted-2);letter-spacing:0.22em;
+                         text-transform:uppercase">Production&nbsp;OS</span>
+            <span style="font-family:'JetBrains Mono',monospace;font-size:0.62rem;
+                         color:var(--muted-2)">v{APP_VERSION}</span>
+        </div>
     </div>
     """, unsafe_allow_html=True)
 

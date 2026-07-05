@@ -109,7 +109,7 @@ def render_composer_panel() -> dict | None:
         from providers.ai.languages import get_language
         _lg = get_language(selected_language)
         st.markdown(
-            f"<div style='font-size:0.78rem;color:#7a8aa0;padding-top:6px'>"
+            f"<div style='font-size:0.78rem;color:var(--muted);padding-top:6px'>"
             f"🌏 가사: {_lg['lyric_language']} · 도시 감성: {_lg['city']} "
             f"(스타일은 동일한 Japanese citypop)</div>",
             unsafe_allow_html=True,
@@ -237,7 +237,7 @@ def render_composer_panel() -> dict | None:
     # Style
     col_slabel, col_spreset, col_sregen = st.columns([3, 1, 1])
     with col_slabel:
-        st.markdown("<div style='font-size:0.85rem;color:#9aa5b8;padding-top:4px'>🎨 스타일 태그</div>", unsafe_allow_html=True)
+        st.markdown("<div style='font-size:0.85rem;color:var(--muted);padding-top:4px'>🎨 스타일 태그</div>", unsafe_allow_html=True)
     with col_spreset:
         if st.button("프리셋 적용", key="apply_preset", use_container_width=True,
                      help="고정 시티팝 스타일로 되돌리기"):
@@ -274,7 +274,7 @@ def render_composer_panel() -> dict | None:
         st.caption(f"{style_len}/1000 · {lock_note} · 제외 스타일 자동 -prefix")
 
     # Exclude (→ Suno's More Options → Exclude styles box)
-    st.markdown("<div style='font-size:0.85rem;color:#9aa5b8;padding-top:4px'>🚫 제외 스타일 (Suno Exclude styles)</div>", unsafe_allow_html=True)
+    st.markdown("<div style='font-size:0.85rem;color:var(--muted);padding-top:4px'>🚫 제외 스타일 (Suno Exclude styles)</div>", unsafe_allow_html=True)
     exclude = st.text_input(
         "제외 스타일", value=DEFAULT_EXCLUDE, key="form_exclude",
         label_visibility="collapsed",

@@ -464,7 +464,7 @@ def _render_auto_batch():
     st.caption("① AI가 N곡의 제목/스타일/가사를 먼저 만듭니다 → ② 확인/편집 후 Suno로 순차 생성")
 
     # Project selector — all songs in this batch go to one project folder
-    st.markdown("<div style='font-size:0.8rem;color:#9aa5b8;margin-bottom:4px'>📁 프로젝트 (이 배치의 곡들이 모일 폴더)</div>", unsafe_allow_html=True)
+    st.markdown("<div style='font-size:0.8rem;color:var(--muted);margin-bottom:4px'>📁 프로젝트 (이 배치의 곡들이 모일 폴더)</div>", unsafe_allow_html=True)
     project = _project_selector("auto")
 
     # ── Style preset ─────────────────────────────────────────────────────
@@ -477,7 +477,7 @@ def _render_auto_batch():
 
     col_slabel, col_spreset, col_sregen = st.columns([3, 1, 1])
     with col_slabel:
-        st.markdown("<div style='font-size:0.85rem;color:#9aa5b8;padding-top:4px'>🎨 스타일 프리셋 (전 곡 공통)</div>", unsafe_allow_html=True)
+        st.markdown("<div style='font-size:0.85rem;color:var(--muted);padding-top:4px'>🎨 스타일 프리셋 (전 곡 공통)</div>", unsafe_allow_html=True)
     with col_spreset:
         if st.button("프리셋 적용", key="auto_apply_preset", use_container_width=True):
             st.session_state["auto_style"] = CITYPOP_STYLE_PRESET
@@ -543,7 +543,7 @@ def _render_auto_batch():
     with col_langnote:
         _lg = get_language(auto_language)
         st.markdown(
-            f"<div style='font-size:0.78rem;color:#7a8aa0;padding-top:30px'>"
+            f"<div style='font-size:0.78rem;color:var(--muted);padding-top:30px'>"
             f"🌏 가사: {_lg['lyric_language']} · 도시 감성: {_lg['city']}</div>",
             unsafe_allow_html=True,
         )
@@ -803,7 +803,7 @@ def _render_quick_single():
     """Quick Single mode — generate 1 song into a project folder."""
 
     # Project selector at the top
-    st.markdown("<div style='font-size:0.8rem;color:#9aa5b8;margin-bottom:4px'>📁 프로젝트 (곡이 저장될 폴더)</div>", unsafe_allow_html=True)
+    st.markdown("<div style='font-size:0.8rem;color:var(--muted);margin-bottom:4px'>📁 프로젝트 (곡이 저장될 폴더)</div>", unsafe_allow_html=True)
     project = _project_selector("qs")
     if not project:
         st.caption("💡 프로젝트 이름을 입력하면 그 폴더에 곡이 모입니다 (유튜브 업로드 시 편리)")
@@ -910,7 +910,7 @@ def _render_project_album():
 
             col_open, col_del = st.columns([3, 1])
             with col_open:
-                st.markdown(f"<div style='font-size:0.8rem;color:#7a8aa0'>songs/ 폴더에 {count}곡 저장됨</div>", unsafe_allow_html=True)
+                st.markdown(f"<div style='font-size:0.8rem;color:var(--muted)'>songs/ 폴더에 {count}곡 저장됨</div>", unsafe_allow_html=True)
             with col_del:
                 if st.button("🗑️ 삭제", key=f"delproj_{proj['slug']}", use_container_width=True):
                     if delete_song_project(name):

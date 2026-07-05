@@ -58,9 +58,9 @@ def _card_metric(col, label: str, value, color: str):
     with col:
         with st.container(border=True):
             st.markdown(
-                f"<div style='color:#6b6c78;font-size:0.72rem;text-transform:uppercase;"
+                f"<div style='color:var(--muted-2);font-size:0.7rem;letter-spacing:0.1em;text-transform:uppercase;"
                 f"letter-spacing:0.5px'>{label}</div>"
-                f"<div style='font-size:1.6rem;font-weight:700;color:{color};margin-top:2px'>{value}</div>",
+                f"<div style='font-family:'Space Grotesk','Noto Sans KR',sans-serif;font-size:1.6rem;font-weight:700;color:{color};margin-top:2px'>{value}</div>",
                 unsafe_allow_html=True,
             )
 
@@ -112,10 +112,10 @@ def render_home():
         active_jobs, queued_jobs, recent_jobs = [], [], []
 
     col1, col2, col3, col4 = st.columns(4)
-    _card_metric(col1, "프로젝트", len(song_projects), "#7fd4e8")
-    _card_metric(col2, "생성된 곡", total_songs, "#e8c37c")
-    _card_metric(col3, "진행 중 작업", len(active_jobs), "#e8639f")
-    _card_metric(col4, "대기열", len(queued_jobs), "#74d9a0")
+    _card_metric(col1, "프로젝트", len(song_projects), "var(--aqua)")
+    _card_metric(col2, "생성된 곡", total_songs, "var(--gold)")
+    _card_metric(col3, "진행 중 작업", len(active_jobs), "var(--rose)")
+    _card_metric(col4, "대기열", len(queued_jobs), "var(--success)")
 
     st.write("")
 
@@ -164,9 +164,9 @@ def render_home():
                     dur_str = f"{int(dur // 60)}:{int(dur % 60):02d}" if dur else "—"
                     st.markdown(
                         "<div style='display:flex;justify-content:space-between;padding:0.35rem 0;"
-                        "border-bottom:1px solid #34353f55'>"
-                        f"<span style='color:#f4f4f6;font-size:0.85rem'>{s.get('title', '제목 없음')}</span>"
-                        f"<span style='color:#6b6c78;font-size:0.78rem'>{dur_str}</span></div>",
+                        "border-bottom:1px solid var(--border)'>"
+                        f"<span style='color:var(--ink);font-size:0.85rem'>{s.get('title', '제목 없음')}</span>"
+                        f"<span style='color:var(--muted-2);font-size:0.78rem'>{dur_str}</span></div>",
                         unsafe_allow_html=True,
                     )
             else:
@@ -309,9 +309,9 @@ def render_library():
                         dur_str = format_duration(s.get("duration"))
                         st.markdown(
                             "<div style='display:flex;justify-content:space-between;padding:0.3rem 0;"
-                            "border-bottom:1px solid #34353f55'>"
-                            f"<span style='color:#f4f4f6;font-size:0.85rem'>{s.get('title', '제목 없음')}</span>"
-                            f"<span style='color:#6b6c78;font-size:0.78rem'>{dur_str}</span></div>",
+                            "border-bottom:1px solid var(--border)'>"
+                            f"<span style='color:var(--ink);font-size:0.85rem'>{s.get('title', '제목 없음')}</span>"
+                            f"<span style='color:var(--muted-2);font-size:0.78rem'>{dur_str}</span></div>",
                             unsafe_allow_html=True,
                         )
 

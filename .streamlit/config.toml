@@ -1,0 +1,14 @@
+# Seoul Records Production OS — Streamlit theme (v1.0.0-alpha.44)
+# Native widget colors (radio dots, checkboxes, sliders, toggles, focus rings)
+# come from here; the layered look lives in app/main.py's CSS.
+
+[theme]
+base = "dark"
+primaryColor = "#67e0f0"
+backgroundColor = "#0b0d14"
+secondaryBackgroundColor = "#141a28"
+textColor = "#eef1f8"
+font = "sans serif"
+
+[server]
+headless = true
