@@ -922,6 +922,56 @@ def _render_project_album():
             if songs:
                 render_song_list(songs, project_name=name,
                                  key_ns=f"proj_{proj['slug']}")
+
+                # ── 🧹 Suno 정리: 미선택 버전 삭제 (v1.0.0-alpha.49) ──
+                # Suno는 곡당 2개 버전을 만듭니다. 다운로드한 버전은 파일명의
+                # 클립 ID로 확정되므로, 나머지 버전만 안전하게 휴지통으로
+                # 보냅니다 (드라이런 → 명시적 확인 → 실행 2단계).
+                with st.expander("🧹 Suno 정리 — 다운로드하지 않은 나머지 버전 삭제"):
+                    st.caption("Suno 워크스페이스에는 곡당 2개 버전이 남습니다. "
+                               "로컬에 다운로드한 버전(파일명의 클립 ID로 식별)만 남기고 "
+                               "나머지 버전을 Suno 휴지통으로 보냅니다. "
+                               "식별이 불확실한 곡은 절대 삭제하지 않습니다.")
+                    plan_key = f"suno_cleanup_plan_{proj['slug']}"
+                    if st.button("🔍 정리 대상 확인 (드라이런)",
+                                 key=f"cleanup_scan_{proj['slug']}",
+                                 use_container_width=True):
+                        from services.suno_cleanup import plan_suno_cleanup
+                        st.session_state[plan_key] = plan_suno_cleanup(name)
+
+                    plan = st.session_state.get(plan_key)
+                    if plan is not None:
+                        deletable = [e for e in plan if e["action"] == "delete"]
+                        for e in plan:
+                            if e["action"] == "delete":
+                                st.markdown(
+                                    f"🗑 **{e['title']}** — 유지: `{e['keep_id']}` · "
+                                    f"삭제 예정: `{', '.join(e['delete_ids'])}`")
+                            else:
+                                st.caption(f"⏭ {e['title']} — {e['reason']}")
+                        if not deletable:
+                            st.info("삭제할 수 있는 미선택 버전이 없습니다.")
+                        else:
+                            st.warning(f"⚠️ Suno에서 {sum(len(e['delete_ids']) for e in deletable)}개 "
+                                       f"버전이 휴지통으로 이동됩니다. 되돌리려면 suno.com 휴지통에서 복원하세요.")
+                            confirm = st.checkbox(
+                                "위 삭제 목록을 확인했습니다",
+                                key=f"cleanup_confirm_{proj['slug']}")
+                            if st.button("🗑 Suno에서 미선택 버전 삭제 실행",
+                                         key=f"cleanup_go_{proj['slug']}",
+                                         type="primary", use_container_width=True,
+                                         disabled=not confirm):
+                                from services.suno_cleanup import execute_suno_cleanup
+                                with st.spinner("Suno에서 삭제 중..."):
+                                    res = execute_suno_cleanup(deletable)
+                                if res["deleted"]:
+                                    st.success(f"✅ {len(res['deleted'])}개 버전 삭제됨: "
+                                               + ", ".join(d['title'] for d in res['deleted']))
+                                if res["failed"]:
+                                    st.error(f"❌ {len(res['failed'])}개 실패 — "
+                                             + "; ".join(f"{f['title']}({f['error']})"
+                                                          for f in res['failed']))
+                                st.session_state.pop(plan_key, None)
             else:
                 st.caption("이 프로젝트에 곡이 없습니다.")
 

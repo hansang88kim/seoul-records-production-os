@@ -698,3 +698,35 @@ class SunoCliProvider(ComposerProvider):
 
     def check_auth(self) -> dict:
         return _run_suno_json(["auth"], timeout=15, suno_bin=self._bin)
+
+    # ─── clip management (v1.0.0-alpha.49) ───────────────────────────────
+
+    def get_clip_info(self, clip_id: str) -> dict:
+        """
+        Full details for one clip (`suno info <id>`). Accepts an 8-char id
+        prefix (the same form our task_ids store) — the CLI resolves it.
+        Returns the clip data dict ({} on failure).
+        """
+        try:
+            data = _run_suno_json(["info", clip_id], timeout=30, suno_bin=self._bin)
+            d = data.get("data", {})
+            if isinstance(d, list):
+                d = d[0] if d else {}
+            return d or {}
+        except ProviderError:
+            return {}
+
+    def delete_clips(self, clip_ids: list[str]) -> dict:
+        """
+        Delete/trash clips on Suno (`suno delete <ids>`). Destructive —
+        callers must confirm with the user first. Returns
+        {"ok": bool, "deleted": [...], "error": str|None}.
+        """
+        ids = [c for c in (clip_ids or []) if c]
+        if not ids:
+            return {"ok": False, "deleted": [], "error": "no clip ids"}
+        try:
+            _run_suno_json(["delete"] + ids, timeout=60, suno_bin=self._bin)
+            return {"ok": True, "deleted": ids, "error": None}
+        except ProviderError as e:
+            return {"ok": False, "deleted": [], "error": f"{e.status}: {e}"}
