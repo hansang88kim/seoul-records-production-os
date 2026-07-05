@@ -96,16 +96,18 @@ def _render_prompt_lab():
     with col_r:
         engine_label = st.selectbox(
             "이미지 엔진",
-            ["Gemini (Nano Banana)", "Midjourney (내 계정 · Apiframe)"],
+            ["Gemini (Nano Banana)", "Nano Banana 2 (Apiframe · 기존 연결 재사용)"],
             key="thumb_engine",
-            help=("Gemini: Google API 키로 즉시 생성 (REST). "
-                  "Midjourney: 본인 Midjourney 계정을 Apiframe API로 연동해 생성 — "
-                  "사이드바 🎨 Image Gen에 Apiframe 키 입력 필요."),
+            help=("Gemini: Google API 키로 직접 생성 (REST). "
+                  "Nano Banana 2 (Apiframe): 이미 연결한 Apiframe 키로 Google 공식 "
+                  "Nano Banana 2 모델을 생성 — 별도 Gemini 키 불필요. "
+                  "(Midjourney/Apiframe 조합은 계정 풀 불안정으로 제외했습니다 — "
+                  "필요시 다음 세션에서 다시 켤 수 있습니다.)"),
         )
-        engine = "midjourney" if engine_label.startswith("Midjourney") else "gemini"
-        if engine == "midjourney":
-            dep = igd.check_midjourney_dependencies()
-            toggle_label = "실제 이미지 생성 (Midjourney)"
+        engine = "apiframe_nanobanana" if engine_label.startswith("Nano Banana 2") else "gemini"
+        if engine == "apiframe_nanobanana":
+            dep = igd.check_apiframe_nanobanana_dependencies()
+            toggle_label = "실제 이미지 생성 (Nano Banana 2 · Apiframe)"
         else:
             dep = igd.check_image_gen_dependencies()
             toggle_label = "실제 이미지 생성 (Gemini · Nano Banana)"
@@ -118,10 +120,10 @@ def _render_prompt_lab():
                   else f"준비 안 됨 → {dep['key_hint']}"),
         )
         if not dep["ready"]:
-            if engine == "midjourney":
+            if engine == "apiframe_nanobanana":
                 st.caption(
                     "⚠️ 실제 생성 비활성 → 목업으로 진행. "
-                    "좌측 사이드바 🎨 Image Gen → Midjourney(Apiframe) 칸에 API 키를 입력하면 켜집니다."
+                    "좌측 사이드바 🎨 Image Gen 칸에 Apiframe API 키를 입력하면 켜집니다."
                 )
             else:
                 st.caption(
@@ -129,9 +131,9 @@ def _render_prompt_lab():
                     "좌측 사이드바 🤖 AI Composer → Gemini 칸에 API 키를 입력하면 켜집니다."
                 )
         elif use_real:
-            if engine == "midjourney":
-                st.caption("🟢 실제 생성 ON · Midjourney (Apiframe · 본인 계정) "
-                           "· 1장당 약 1~3분 소요 (일시적 용량 부족 시 자동 재시도)")
+            if engine == "apiframe_nanobanana":
+                st.caption("🟢 실제 생성 ON · Nano Banana 2 (Apiframe · 기존 연결 재사용) "
+                           "· 1장당 약 30초~2분 소요 (일시적 용량 부족 시 자동 재시도)")
             else:
                 st.caption(f"🟢 실제 생성 ON · 모델 {dep['model']} ({dep['backend'].upper()})")
 
@@ -175,8 +177,8 @@ def _render_prompt_lab():
         prompts = generate_prompt_batch(country_key, theme, count)
         if not use_real:
             mode_label = "목업"
-        elif engine == "midjourney":
-            mode_label = "실제 (Midjourney · Apiframe)"
+        elif engine == "apiframe_nanobanana":
+            mode_label = "실제 (Nano Banana 2 · Apiframe)"
         else:
             mode_label = "실제 (Gemini)"
         with st.spinner(f"{count}장 이미지 생성 중… ({mode_label})"):
@@ -219,7 +221,7 @@ def _render_prompt_lab():
                         st.warning(f"{c['candidate_id']}: 파일을 찾을 수 없음")
             if gen[0].get("gen_provider") == "mock":
                 st.caption("ℹ️ 목업(placeholder) 이미지입니다. 실제 생성: 사이드바에서 API 키 입력 "
-                           "(Gemini → 🤖 AI Composer / Midjourney → 🎨 Image Gen) → "
+                           "(Gemini → 🤖 AI Composer / Nano Banana 2 → 🎨 Image Gen) → "
                            "위의 '실제 이미지 생성' 토글 ON.")
             st.caption("→ **🖼️ Candidate Gallery** 탭에서 이미지를 선택하면 Brand Thumbnail(Canva)로 넘어갑니다.")
         if failed:

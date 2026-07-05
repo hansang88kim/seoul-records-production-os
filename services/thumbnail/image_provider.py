@@ -396,9 +396,16 @@ def get_image_provider(use_real: bool = False, model: str | None = None,
     """Return the appropriate provider.
 
     ``engine`` selects the real backend family:
-      * "gemini" (default) — Google Gemini image models (Nano Banana / Imagen).
-      * "midjourney"       — the user's Midjourney account via Apiframe
-                             (APIFRAME_API_KEY required).
+      * "gemini" (default)      — Google Gemini image models (Nano Banana / Imagen),
+                                  called directly with GOOGLE_GEMINI_API_KEY.
+      * "apiframe_nanobanana"   — Nano Banana 2 via the already-connected Apiframe
+                                  account (APIFRAME_API_KEY required) — no separate
+                                  Gemini key needed.
+      * "midjourney"            — the user's Midjourney account via Apiframe
+                                  (APIFRAME_API_KEY required). Kept for reference;
+                                  not currently surfaced in the UI (see v1.0.0-alpha.34
+                                  changelog — Apiframe's Midjourney pool was
+                                  unreliable, replaced by apiframe_nanobanana).
 
     Real provider only when use_real AND the matching API key is set; otherwise
     the mock — so tests/default runs never call out. For Gemini the real backend
@@ -408,7 +415,9 @@ def get_image_provider(use_real: bool = False, model: str | None = None,
     if not use_real:
         return MockImageGenProvider()
 
-    if (engine or "gemini").strip().lower() == "midjourney":
+    eng = (engine or "gemini").strip().lower()
+
+    if eng == "midjourney":
         # Lazy import: keeps this module dependency-free of the MJ provider.
         from services.thumbnail.midjourney_provider import (
             MidjourneyApiframeProvider, get_apiframe_key,
@@ -416,6 +425,14 @@ def get_image_provider(use_real: bool = False, model: str | None = None,
         if not get_apiframe_key():
             return MockImageGenProvider()
         return MidjourneyApiframeProvider()
+
+    if eng == "apiframe_nanobanana":
+        from services.thumbnail.apiframe_nanobanana_provider import (
+            ApiframeNanoBananaProvider, get_apiframe_key,
+        )
+        if not get_apiframe_key():
+            return MockImageGenProvider()
+        return ApiframeNanoBananaProvider()
 
     if not get_api_key():
         return MockImageGenProvider()

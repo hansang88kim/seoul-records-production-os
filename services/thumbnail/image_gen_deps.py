@@ -71,3 +71,26 @@ def check_midjourney_dependencies() -> dict:
         ),
         "key_env_vars": ["APIFRAME_API_KEY"],
     }
+
+
+def check_apiframe_nanobanana_dependencies() -> dict:
+    """
+    Structured readiness report for Nano Banana 2 via Apiframe (v1.0.0-alpha.34).
+    Reuses the same APIFRAME_API_KEY already connected for Midjourney — no
+    separate credential. Readiness == key presence; the key VALUE is never
+    included.
+    """
+    from services.thumbnail.midjourney_provider import get_apiframe_key
+    key = get_apiframe_key() is not None
+    return {
+        "api_key_present": key,
+        "ready": key,
+        "model": "nano-banana-2 (Apiframe)",
+        "key_hint": (
+            "Enter your Apiframe API key in the left sidebar (🎨 Image Gen), "
+            "or set APIFRAME_API_KEY. Same key used for Midjourney — no "
+            "separate credential needed. Key (v2, starts with afk_): "
+            "https://apiframe.ai dashboard"
+        ),
+        "key_env_vars": ["APIFRAME_API_KEY"],
+    }
