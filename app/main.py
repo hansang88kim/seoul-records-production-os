@@ -48,8 +48,8 @@ st.markdown("""
         --muted-2:   #6b7080;
 
         /* Accent (single) + secondary tokens */
-        --aqua:      #67e0f0;
-        --aqua-dim:  rgba(103, 224, 240, 0.10);
+        --aqua:      #ff8a3d;   /* accent = orange (alpha.46) — token name kept for compatibility */
+        --aqua-dim:  rgba(255, 138, 61, 0.10);
         --rose:      #ff6ea0;
         --rose-dim:  rgba(255, 110, 160, 0.10);
         --gold:      #eecf8a;
@@ -73,7 +73,7 @@ st.markdown("""
     }
 
     /* ── Generous type scale: everything keys off a 17px root ── */
-    html { font-size: 17px; }
+    html { font-size: 18px; }
 
     .stApp { font-family: var(--font-body); background: var(--bg); }
     [data-testid="stHeader"] { background: transparent; }
@@ -153,7 +153,7 @@ st.markdown("""
         border: 1px solid transparent; box-shadow: none;
     }
     [data-testid="stSidebar"] .stButton > button[kind="primary"]:hover {
-        background: rgba(103, 224, 240, 0.15); transform: none; box-shadow: none;
+        background: rgba(255, 138, 61, 0.15); transform: none; box-shadow: none;
     }
     .srx-nav-section {
         color: var(--muted-2); font-size: 0.7rem; font-weight: 600;
@@ -172,7 +172,7 @@ st.markdown("""
     .stTextInput input, .stNumberInput input { padding-top: 0.55rem; padding-bottom: 0.55rem; }
     .stTextInput input:focus, .stTextArea textarea:focus {
         border-color: var(--aqua) !important;
-        box-shadow: 0 0 0 1px rgba(103, 224, 240, 0.35) !important;
+        box-shadow: 0 0 0 1px rgba(255, 138, 61, 0.35) !important;
     }
     [data-testid="stWidgetLabel"] p { color: var(--muted); font-size: 0.86rem; font-weight: 500; }
     [data-testid="stNumberInput"] button {
@@ -191,7 +191,7 @@ st.markdown("""
     /* ── Multiselect chips ── */
     .stMultiSelect [data-baseweb="tag"] {
         background: var(--aqua-dim) !important;
-        border: 1px solid rgba(103, 224, 240, 0.3) !important;
+        border: 1px solid rgba(255, 138, 61, 0.3) !important;
         border-radius: 999px !important; color: var(--aqua) !important;
         font-size: 0.85rem;
     }
@@ -205,11 +205,11 @@ st.markdown("""
         white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
     .stButton > button[kind="primary"] {
-        background: var(--aqua); color: #07222b; font-weight: 700; border: none;
+        background: var(--aqua); color: #221004; font-weight: 700; border: none;
         box-shadow: none;
     }
     .stButton > button[kind="primary"]:hover {
-        background: #85e9f5; box-shadow: 0 4px 16px rgba(103, 224, 240, 0.25);
+        background: #ffa268; box-shadow: 0 4px 16px rgba(255, 138, 61, 0.28);
     }
     .stButton > button[kind="secondary"], [data-testid="stFileUploader"] button {
         background: rgba(255, 255, 255, 0.045); color: var(--muted);
@@ -264,7 +264,7 @@ st.markdown("""
         background: rgba(95, 211, 154, 0.07); border-color: rgba(95, 211, 154, 0.25);
     }
     div[data-testid="stAlert"]:has([data-testid="stAlertContentInfo"]) {
-        background: rgba(103, 224, 240, 0.06); border-color: rgba(103, 224, 240, 0.22);
+        background: rgba(255, 138, 61, 0.06); border-color: rgba(255, 138, 61, 0.22);
     }
     div[data-testid="stAlert"]:has([data-testid="stAlertContentWarning"]) {
         background: rgba(238, 207, 138, 0.07); border-color: rgba(238, 207, 138, 0.25);
@@ -278,7 +278,7 @@ st.markdown("""
         background: var(--bg-2); border: 1px dashed var(--border-2);
         border-radius: 13px;
     }
-    [data-testid="stFileUploader"] section:hover { border-color: rgba(103, 224, 240, 0.4); }
+    [data-testid="stFileUploader"] section:hover { border-color: rgba(255, 138, 61, 0.4); }
 
     /* ── Divider / misc ── */
     hr { border-color: var(--border) !important; margin: 1rem 0; }
@@ -291,7 +291,7 @@ st.markdown("""
         font-size: 0.78rem; font-weight: 600; letter-spacing: 0.01em;
         border: 1px solid transparent;
     }
-    .srx-pill-cyan    { background: var(--aqua-dim); color: var(--aqua); border-color: rgba(103,224,240,0.28); }
+    .srx-pill-cyan    { background: var(--aqua-dim); color: var(--aqua); border-color: rgba(255,138,61,0.28); }
     .srx-pill-magenta { background: var(--rose-dim); color: var(--rose); border-color: rgba(255,110,160,0.28); }
     .srx-pill-amber   { background: var(--gold-dim); color: var(--gold); border-color: rgba(238,207,138,0.28); }
 
