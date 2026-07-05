@@ -372,6 +372,26 @@ def find_song_file(project_name: str, song: dict) -> str:
     return ""
 
 
+def update_song_in_project(project_name: str, song: dict, patch: dict) -> bool:
+    """
+    Merge `patch` into one manifest song entry (matched by title +
+    created_at when available, else first title match). v1.0.0-alpha.50.
+    """
+    manifest = load_song_manifest(project_name)
+    songs = manifest.get("songs", [])
+    target_title = (song.get("title") or "").strip()
+    target_created = song.get("created_at", "")
+    for s in songs:
+        if (s.get("title") or "").strip() != target_title:
+            continue
+        if target_created and s.get("created_at") != target_created:
+            continue
+        s.update(patch)
+        save_song_manifest(project_name, manifest)
+        return True
+    return False
+
+
 def remove_song_from_project(project_name: str, song: dict,
                              delete_file: bool = True) -> bool:
     """

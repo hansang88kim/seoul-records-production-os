@@ -43,10 +43,17 @@ def _file_matches_clip(file_path: str, clip_id8: str) -> bool:
     return stem.lower().endswith(clip_id8.lower())
 
 
-def plan_suno_cleanup(project_name: str) -> list[dict]:
+def plan_suno_cleanup(project_name: str, provider=None) -> list[dict]:
     """
     Dry-run: for each song in the project, decide whether a Suno-side
     sibling can be safely deleted.
+
+    Matching order (v1.0.0-alpha.50):
+      1. 파일명 클립 ID 매칭 — suno-cli 다운로드('{title}-{clipid8}.mp3')는
+         확정적으로 식별.
+      2. 길이 규칙 폴백 (provider 지정 시) — 파일명에 ID가 없는 웹 다운로드는
+         "긴 버전 = 최종본" 규칙으로 두 클립의 duration을 조회해 짧은 쪽을
+         삭제 대상으로 표시. 길이가 같거나 조회 실패면 건너뜀.
 
     Returns one entry per song:
       {title, task_id, action: "delete"|"skip", keep_id, delete_ids,
@@ -72,22 +79,46 @@ def plan_suno_cleanup(project_name: str) -> list[dict]:
         local = find_song_file(project_name, song)
         entry["local_file"] = local
         if not local:
-            entry["reason"] = "로컬 파일 없음 — 어떤 버전을 선택했는지 알 수 없어 건너뜀"
+            entry["reason"] = "로컬 파일 없음 — ⬇️ 최종본 자동 다운로드를 먼저 실행하세요"
             plan.append(entry)
             continue
 
         matched = [cid for cid in clip_ids if _file_matches_clip(local, cid)]
-        if len(matched) != 1:
-            entry["reason"] = ("파일명에서 클립 ID를 식별할 수 없어 건너뜀"
-                               if not matched else
-                               "두 버전 모두 로컬에 있어 건너뜀")
+        if len(matched) == 1:
+            entry["action"] = "delete"
+            entry["keep_id"] = matched[0]
+            entry["delete_ids"] = [c for c in clip_ids if c != matched[0]]
+            entry["reason"] = "다운로드한 버전 확인됨(파일명 ID) — 나머지 버전 삭제 가능"
+            plan.append(entry)
+            continue
+        if matched:
+            entry["reason"] = "두 버전 모두 로컬에 있어 건너뜀"
             plan.append(entry)
             continue
 
-        entry["action"] = "delete"
-        entry["keep_id"] = matched[0]
-        entry["delete_ids"] = [c for c in clip_ids if c != matched[0]]
-        entry["reason"] = "다운로드한 버전 확인됨 — 나머지 버전 삭제 가능"
+        # ── 길이 규칙 폴백: 긴 버전 = 최종본 ─────────────────────────
+        if provider is not None:
+            durs = []
+            for cid in clip_ids:
+                info = provider.get_clip_info(cid) or {}
+                d = info.get("duration")
+                if d is None:
+                    d = (info.get("metadata") or {}).get("duration")
+                try:
+                    durs.append((cid, float(d or 0.0)))
+                except (TypeError, ValueError):
+                    durs.append((cid, 0.0))
+            durs.sort(key=lambda t: t[1], reverse=True)
+            if durs[0][1] > 0 and durs[0][1] > durs[1][1]:
+                entry["action"] = "delete"
+                entry["keep_id"] = durs[0][0]
+                entry["delete_ids"] = [c for c, _ in durs[1:]]
+                entry["reason"] = (f"길이 규칙 적용 — 긴 버전({durs[0][1]:.0f}s) 유지, "
+                                   f"짧은 버전({durs[1][1]:.0f}s) 삭제")
+            else:
+                entry["reason"] = "두 버전 길이 동일/조회 실패 — 건너뜀"
+        else:
+            entry["reason"] = "파일명에서 클립 ID를 식별할 수 없어 건너뜀"
         plan.append(entry)
     return plan
 

@@ -210,6 +210,21 @@ def run_job(job_id: str):
             except Exception:
                 pass
 
+            # ── ⬇️ 자동 파이프라인 (v1.0.0-alpha.50): 생성 완료 즉시 ──
+            # 길이 규칙(긴 버전 = 최종본)으로 자동 다운로드(프로젝트 폴더
+            # FLAT, 곡별 폴더 없음) + 짧은 버전 Suno 휴지통 이동.
+            # 실패해도 생성 결과에는 영향 없음.
+            try:
+                from services.suno_auto_download import auto_download_longest
+                rep = auto_download_longest(project)
+                for d in rep.get("downloaded", []):
+                    _log(job_id, f"⬇️ 최종본 저장: {d['title']} "
+                                 f"({d.get('duration', 0):.0f}s) → songs/", "info")
+                for dd in rep.get("deleted", []):
+                    _log(job_id, f"🗑 Suno 짧은 버전 삭제: {dd['title']}", "info")
+            except Exception:
+                pass
+
         except Exception as e:
             draft["status"] = "failed"
             draft["error"] = f"{type(e).__name__}: {e}"

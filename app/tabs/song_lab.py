@@ -191,6 +191,20 @@ def _run_generation(params: dict, project: str = ""):
         except Exception:
             pass
 
+        # ⬇️ 자동 파이프라인 (v1.0.0-alpha.50): 긴 버전 자동 다운로드(FLAT)
+        # + 짧은 버전 Suno 휴지통 — 선택 불필요. 실패해도 생성엔 영향 없음.
+        try:
+            from services.suno_auto_download import auto_download_longest
+            _adl = auto_download_longest(proj)
+            if _adl.get("downloaded"):
+                st.success("⬇️ 최종본 자동 저장: " + ", ".join(
+                    f"{d['title']} ({d.get('duration', 0):.0f}s)"
+                    for d in _adl["downloaded"]))
+            if _adl.get("deleted"):
+                st.info(f"🗑 Suno에서 짧은 버전 {len(_adl['deleted'])}개 삭제됨")
+        except Exception:
+            pass
+
         # Save report
         report = {
             "title": title,
@@ -371,6 +385,20 @@ def _generate_one_from_draft(draft: dict, base_params: dict, project: str = "기
         try:
             from app.project_manager import add_song_to_project
             add_song_to_project(project, song)
+        except Exception:
+            pass
+
+        # ⬇️ 자동 파이프라인 (v1.0.0-alpha.50): 긴 버전 자동 다운로드(FLAT)
+        # + 짧은 버전 Suno 휴지통 — 선택 불필요. 실패해도 생성엔 영향 없음.
+        try:
+            from services.suno_auto_download import auto_download_longest
+            _adl = auto_download_longest(project)
+            if _adl.get("downloaded"):
+                st.success("⬇️ 최종본 자동 저장: " + ", ".join(
+                    f"{d['title']} ({d.get('duration', 0):.0f}s)"
+                    for d in _adl["downloaded"]))
+            if _adl.get("deleted"):
+                st.info(f"🗑 Suno에서 짧은 버전 {len(_adl['deleted'])}개 삭제됨")
         except Exception:
             pass
     except Exception as e:
@@ -923,6 +951,46 @@ def _render_project_album():
                 render_song_list(songs, project_name=name,
                                  key_ns=f"proj_{proj['slug']}")
 
+                # ── ⬇️ 최종본 자동 다운로드 (v1.0.0-alpha.50) ──────────
+                # 길이 규칙: 두 버전 중 긴 쪽이 최종본 — 선택 없이 자동으로
+                # 긴 버전을 프로젝트 폴더에 FLAT 저장하고(곡별 폴더 없음),
+                # 짧은 버전은 Suno 휴지통으로 보낸다.
+                from services.suno_cleanup import _task_clip_ids
+                pending = [s for s in songs
+                           if len(_task_clip_ids(s.get("task_id") or "")) >= 2
+                           and not (s.get("file_path")
+                                    and Path(s["file_path"]).exists())]
+                dcol1, dcol2 = st.columns([3, 2])
+                with dcol2:
+                    del_shorter = st.toggle(
+                        "짧은 버전 Suno에서 삭제", value=True,
+                        key=f"autodl_del_{proj['slug']}",
+                        help="긴 버전 다운로드 후 짧은 버전을 Suno 휴지통으로 이동합니다 "
+                             "(suno.com 휴지통에서 복원 가능).")
+                with dcol1:
+                    if st.button(f"⬇️ 최종본 자동 다운로드 — 긴 버전 저장"
+                                 + (" + 짧은 버전 삭제" if del_shorter else ""),
+                                 key=f"autodl_{proj['slug']}", type="primary",
+                                 use_container_width=True):
+                        from services.suno_auto_download import auto_download_longest
+                        with st.spinner("Suno에서 길이 비교 → 긴 버전 다운로드 중..."):
+                            rep = auto_download_longest(name,
+                                                        delete_shorter=del_shorter)
+                        if rep["downloaded"]:
+                            st.success("✅ 다운로드: " + ", ".join(
+                                f"{d['title']} ({d['duration']:.0f}s)"
+                                for d in rep["downloaded"]))
+                        if rep["deleted"]:
+                            st.info(f"🗑 Suno에서 짧은 버전 {len(rep['deleted'])}개 삭제됨")
+                        for sk in rep["skipped"]:
+                            st.caption(f"⏭ {sk['title']} — {sk['reason']}")
+                        for fl in rep["failed"]:
+                            st.error(f"❌ {fl['title']} — {fl.get('reason','')}")
+                        if rep["downloaded"]:
+                            st.rerun()
+                st.caption(f"자동 다운로드 대상: {len(pending)}곡 · 저장 위치: "
+                           f"`song_projects/{proj['slug']}/songs/` (곡별 폴더 없음, MP3 파일만)")
+
                 # ── 🧹 Suno 정리: 미선택 버전 삭제 (v1.0.0-alpha.49) ──
                 # Suno는 곡당 2개 버전을 만듭니다. 다운로드한 버전은 파일명의
                 # 클립 ID로 확정되므로, 나머지 버전만 안전하게 휴지통으로
@@ -937,7 +1005,14 @@ def _render_project_album():
                                  key=f"cleanup_scan_{proj['slug']}",
                                  use_container_width=True):
                         from services.suno_cleanup import plan_suno_cleanup
-                        st.session_state[plan_key] = plan_suno_cleanup(name)
+                        # 길이 규칙 폴백용 provider (실패 시 오프라인 매칭만)
+                        _prov = None
+                        try:
+                            from providers.suno.suno_cli_provider import SunoCliProvider
+                            _prov = SunoCliProvider()
+                        except Exception:
+                            _prov = None
+                        st.session_state[plan_key] = plan_suno_cleanup(name, provider=_prov)
 
                     plan = st.session_state.get(plan_key)
                     if plan is not None:
