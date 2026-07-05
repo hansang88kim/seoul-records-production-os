@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import json
 import os
-import time
 import subprocess
 from pathlib import Path
 from datetime import datetime, timezone
@@ -93,183 +92,71 @@ def _project_selector(key_prefix: str) -> str:
     return project.strip() if project else ""
 
 
-def _run_generation(params: dict, project: str = ""):
+def _start_quick_single_job(params: dict, project: str = "") -> str | None:
     """
-    Run song generation via SunoCliProvider.
-    Songs download into the project's folder (or a default folder).
+    Launch Quick Single generation as a background worker job — the SAME
+    architecture Auto Batch uses (workers/suno_generation_worker.py via
+    subprocess.Popen + job_state.json polling, see
+    services/generation_job_manager.start_generation_job).
+
+    v1.0.0-alpha.65: this used to call provider.create_song() directly
+    inside the Streamlit script run, blocking until Suno finished. Any tab
+    switch / refresh / other interaction during that block killed the
+    script mid-run, leaving the job stuck at "생성 진행 중" forever — even
+    though the actual Suno generation (its own CREATE_NEW_PROCESS_GROUP
+    subprocess) kept running independently and completed on Suno's side.
+    The app just never found out (no PID was even recorded). Routing
+    through the same background worker Auto Batch already uses fixes
+    this: the worker survives Streamlit interruption, and the UI polls
+    job_state.json for progress (see app/ui/live_console.py).
+
+    Returns the job_id, or None if the job could not be started
+    (e.g. missing SUNO_COOKIE) — caller should only st.rerun() on a job_id.
     """
-    from providers.suno.suno_cli_provider import SunoCliProvider
-    from app.project_manager import song_project_download_dir
+    from services.generation_job_manager import start_generation_job
 
-    provider = SunoCliProvider()
-    title = params["title"]
+    cookie = os.getenv("SUNO_COOKIE", "").strip()
+    if not cookie:
+        st.error("❌ SUNO_COOKIE가 설정되지 않았습니다.")
+        st.warning("사이드바 🔑 Suno에서 쿠키를 입력하고 연결하세요.")
+        return None
 
-    # Project folder (used only for the generation_report.json below —
-    # v1.0.0-alpha.29: no audio is downloaded here anymore, so this is
-    # NOT passed to the provider as a download destination).
-    proj = project or "기본"
-    dl_dir = song_project_download_dir(proj, title)
-
-    # Build options
-    options = {
-        "exclude_styles": params.get("exclude_styles", []),
+    plan = [{
+        "title": params["title"],
+        "style": params["style"],
+        "lyrics": params["lyrics"],
+        "vocal_gender": params.get("vocal_gender", "Female"),
+        "status": "drafted",
+        "ai_provider": "",
+    }]
+    settings = {
+        "model": params.get("model", "v5.5"),
         "vocal_gender": params.get("vocal_gender", "Female"),
         "instrumental": params.get("instrumental", False),
         "weirdness": params.get("weirdness", 35),
         "style_influence": params.get("style_influence", 70),
-        "model": params.get("model", "v5.5"),
+        # v1.0.0-alpha.65: worker falls back to DEFAULT_EXCLUDE when this
+        # is empty (Auto Batch never sets it), so this only changes
+        # behavior for Quick Single, preserving its per-song exclude edits.
+        "exclude_styles": params.get("exclude_styles", []),
     }
 
-    # Create persistent job for tracking
-    from services.job_store import create_job, update_job, add_log_line, complete_job
-    job = create_job(project=proj, mode="quick_single", total_tracks=1)
-    job_id = job["job_id"]
-    update_job(job_id, status="running", current_track_title=title)
-    add_log_line(job_id, f"Quick Single: {title} 생성 시작")
+    result = start_generation_job(
+        project=project or "기본",
+        plan=plan,
+        settings=settings,
+        mode="quick_single",
+    )
 
-    # Progress display
-    progress_container = st.empty()
-    status_container = st.empty()
-    start_time = time.time()
-
-    # ── Pre-check: cookie present? ───────────────────────────────────────
-    cookie = os.getenv("SUNO_COOKIE", "").strip()
-    if not cookie:
-        status_container.error("❌ SUNO_COOKIE가 설정되지 않았습니다.")
-        st.warning("사이드바 🔑 Suno에서 쿠키를 입력하고 연결하세요.")
-        return
-
-    try:
-        # create_song handles auth (cookie → auth → credits verify) on every call,
-        # then generates. It raises ProviderError('auth_required') if auth fails.
-        status_container.info(
-            "🔐 인증 + 크레딧 확인 → 🚀 생성 중... "
-            "(CAPTCHA 자동 10회 재시도, Chrome 창에서 해결 대기, 최대 10분)"
-        )
-
-        task_id = provider.create_song(
-            title=params["title"],
-            style=params["style"],
-            lyrics=params["lyrics"],
-            options=options,
-        )
-
-        elapsed = int(time.time() - start_time)
-
-        # v1.0.0-alpha.29: no local download. Suno generation itself is
-        # the completion signal — save the task_id and metadata, and let
-        # the user fetch the WAV/MP3 from suno.com directly.
-        status_container.success(
-            f"✅ Suno 생성 완료 ({elapsed}초 소요) · task_id: {task_id}\n\n"
-            f"suno.com에서 '{title}'을(를) 찾아 직접 다운로드하세요."
-        )
-        complete_job(job_id, "completed")
-        add_log_line(job_id, f"완료 (다운로드는 suno.com에서 직접): {title} · task_id={task_id}")
-
-        song = {
-            "title": title,
-            "status": "submitted",  # generated on Suno; not downloaded locally
-            "provider": "suno_cli",
-            "model": params.get("model", "v5.5"),
-            "duration": None,
-            "file_type": None,
-            "file_path": "",
-            "distribution_eligible": False,
-            "created_at": datetime.now(timezone.utc).isoformat(),
-            "task_id": task_id,
-            "style": params["style"],
-            "vocal": params.get("vocal_gender", ""),
-            "weirdness": params.get("weirdness", 35),
-            "style_influence": params.get("style_influence", 70),
-            "project": proj,
-        }
-        _save_generated_song(song)
-        # Record in the project manifest so songs group by project
-        try:
-            from app.project_manager import add_song_to_project
-            add_song_to_project(proj, song)
-        except Exception:
-            pass
-
-        # ⬇️ 자동 파이프라인 (v1.0.0-alpha.52): 180~240s 우선순위로 최종본
-        # 자동 다운로드(FLAT) + 나머지 버전 Suno 휴지통 — 선택 불필요.
-        # 실패해도 생성 자체엔 영향 없지만, 원인은 화면에 보여준다
-        # (예전엔 통째로 삼켜서 "왜 다운로드가 안 되는지" 알 방법이 없었음).
-        try:
-            from services.suno_auto_download import auto_download_final_version
-            _adl = auto_download_final_version(proj)
-            if _adl.get("downloaded"):
-                st.success("⬇️ 최종본 자동 저장: " + ", ".join(
-                    f"{d['title']} ({d.get('duration', 0):.0f}s)"
-                    for d in _adl["downloaded"]))
-            if _adl.get("deleted"):
-                st.info(f"🗑 Suno에서 나머지 버전 {len(_adl['deleted'])}개 삭제됨")
-            if _adl.get("failed"):
-                st.warning("⬇️ 자동 다운로드 실패: " + "; ".join(
-                    f"{f['title']}({f.get('reason', f.get('error',''))})"
-                    for f in _adl["failed"]))
-        except Exception as _e:
-            st.warning(f"⬇️ 자동 다운로드 파이프라인 오류(생성 결과에는 영향 없음): "
-                       f"{type(_e).__name__}: {_e}")
-
-        # Save report
-        report = {
-            "title": title,
-            "task_id": task_id,
-            "songs": [song],
-            "params": {k: v for k, v in params.items() if k != "lyrics"},
-            "elapsed_seconds": elapsed,
-            "download_note": "다운로드 안 함 — suno.com에서 직접 다운로드하세요.",
-            "created_at": datetime.now(timezone.utc).isoformat(),
-        }
-        dl_dir.mkdir(parents=True, exist_ok=True)
-        report_path = dl_dir / "generation_report.json"
-        report_path.write_text(
-            json.dumps(report, indent=2, ensure_ascii=False),
-            encoding="utf-8",
-        )
-
-    except Exception as e:
-        elapsed = int(time.time() - start_time)
-        err_status = getattr(e, "status", "generation_failed")
-        err_msg = str(e)
-
-        # Show detailed error
-        err_details = getattr(e, "details", {})
-        status_container.error(f"❌ 생성 실패 ({elapsed}초): {err_msg}")
-        if err_details:
-            with st.expander("에러 상세"):
-                st.json({k: str(v) for k, v in err_details.items()})
-
-        song = {
-            "title": title,
-            "candidate_id": "—",
-            "status": err_status,
-            "provider": "suno_cli",
-            "model": params.get("model", "v5.5"),
-            "duration": None,
-            "file_type": "—",
-            "file_path": "",
-            "distribution_eligible": False,
-            "created_at": datetime.now(timezone.utc).isoformat(),
-            "error": err_msg,
-        }
-        _save_generated_song(song)
-
-        if err_status == "auth_required":
-            st.error("🔑 Suno 인증 실패 — 쿠키가 만료되었습니다.")
-            st.info("사이드바 🔑 Suno → [편집] → 새 쿠키 입력 → 연결 후 다시 생성하세요.")
-        elif err_status == "captcha_required":
-            st.warning(
-                "🧩 CAPTCHA 로딩 실패 (자동 10회 재시도했으나 실패)\n\n"
-                "Suno 서버의 hCaptcha가 간헐적으로 로딩되지 않는 문제입니다. "
-                "**해결 방법:**\n"
-                "1. Chrome에서 suno.com/create 를 직접 열어 로그인 상태와 CAPTCHA가 뜨는지 확인\n"
-                "2. 다시 Send to Suno 클릭 (보통 잠시 후 풀립니다)\n"
-                "3. 계속 실패하면 쿠키를 새로 발급받아 입력"
-            )
-            # Store params so user can retry easily
-            st.session_state["retry_params"] = params
+    job_id = result.get("job_id", "?")
+    st.session_state["active_job_id"] = job_id
+    if result.get("queued"):
+        st.info(f"📋 대기열에 추가됨! (Job: {job_id})")
+        st.caption("현재 생성 중인 작업이 끝나면 자동으로 이어서 시작됩니다.")
+    else:
+        st.success(f"🚀 백그라운드 생성 시작! (Job: {job_id})")
+        st.caption("탭을 전환하거나 새로고침해도 생성이 계속됩니다. 아래에서 진행 상황을 확인하세요.")
+    return job_id
 
 
 def render_song_lab():
@@ -862,7 +749,7 @@ def _render_auto_batch():
 
 
 def _render_quick_single():
-    """Quick Single mode — generate 1 song into a project folder."""
+    """Quick Single mode — generate 1 song into a project folder (background worker)."""
 
     # Project selector at the top
     st.markdown("<div style='font-size:0.8rem;color:var(--muted);margin-bottom:4px'>📁 프로젝트 (곡이 저장될 폴더)</div>", unsafe_allow_html=True)
@@ -880,8 +767,7 @@ def _render_quick_single():
         if params:
             if not project:
                 st.warning("⚠️ 먼저 프로젝트 이름을 입력하세요 (위쪽).")
-            else:
-                _run_generation(params, project=project)
+            elif _start_quick_single_job(params, project=project):
                 st.rerun()
 
     with col_results:
@@ -894,6 +780,11 @@ def _render_quick_single():
             st.markdown("<h2 style='margin-bottom:0.5rem'>📋 생성 결과</h2>", unsafe_allow_html=True)
             songs = _load_generated_songs()
         render_song_list(songs, project_name=project or None, key_ns="batch")
+
+    # ── Live Generation Console (백그라운드 — 탭 전환/새로고침해도 계속 진행) ──
+    st.divider()
+    from app.ui.live_console import render_active_job_console
+    render_active_job_console()
 
 
 def _render_project_album():

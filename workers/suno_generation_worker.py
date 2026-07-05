@@ -69,7 +69,14 @@ def run_job(job_id: str):
         settings = json.loads(settings_path.read_text(encoding="utf-8"))
 
     project = state.get("project", "기본")
-    exclude_list = [s.strip() for s in DEFAULT_EXCLUDE.split(",") if s.strip()]
+    # v1.0.0-alpha.65: Quick Single passes its Composer-panel-edited
+    # "제외 스타일" through settings.exclude_styles so those edits survive
+    # the move to this shared worker. Auto Batch never sets this key, so
+    # it keeps falling back to DEFAULT_EXCLUDE exactly as before.
+    custom_exclude = settings.get("exclude_styles") or []
+    exclude_list = [s.strip() for s in custom_exclude if s and s.strip()] or [
+        s.strip() for s in DEFAULT_EXCLUDE.split(",") if s.strip()
+    ]
 
     # Mark running
     _update(job_id,
