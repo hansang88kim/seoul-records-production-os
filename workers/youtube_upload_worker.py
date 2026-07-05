@@ -130,6 +130,7 @@ def run_upload_job(upload_job_id: str, use_mock: bool = True,
 
     # ── Thumbnail ────────────────────────────────────────────────────────
     thumb_status = "skipped"
+    thumb_error = ""
     if thumbnail_path and Path(thumbnail_path).exists():
         thumb_result = client.set_thumbnail(video_id, thumbnail_path)
         if thumb_result.get("thumbnail_set"):
@@ -137,7 +138,9 @@ def run_upload_job(upload_job_id: str, use_mock: bool = True,
             append_upload_log(upload_job_id, "썸네일 설정 완료")
         else:
             thumb_status = "failed"
-            append_upload_log(upload_job_id, "썸네일 설정 실패 — partial_success", "warning")
+            thumb_error = thumb_result.get("error", "알 수 없는 오류")
+            append_upload_log(upload_job_id,
+                              f"썸네일 설정 실패 — {thumb_error}", "warning")
     else:
         append_upload_log(upload_job_id, "썸네일 파일 없음 — 설정 건너뜀", "warning")
 
@@ -145,6 +148,7 @@ def run_upload_job(upload_job_id: str, use_mock: bool = True,
     final_status = "completed" if thumb_status in ("completed", "skipped") else "partial_success"
     update_upload_state(
         upload_job_id, status=final_status, thumbnail_set_status=thumb_status,
+        thumbnail_error=thumb_error,
         completed_at=datetime.now(timezone.utc).isoformat(),
         last_message=("업로드 완료 (private)" if final_status == "completed"
                       else "업로드됨 — 썸네일 실패 (partial_success)"),
@@ -161,7 +165,7 @@ def run_upload_job(upload_job_id: str, use_mock: bool = True,
         "thumbnail_set_status": thumb_status,
         "api_response_summary": {"mock": result.get("mock", False)},
         "errors": [],
-        "warnings": ([] if thumb_status != "failed" else ["thumbnail set failed"]),
+        "warnings": ([] if thumb_status != "failed" else [thumb_error or "thumbnail set failed"]),
     })
     append_upload_log(upload_job_id, f"작업 완료: {final_status}")
 
@@ -189,11 +193,13 @@ def run_thumbnail_retry(upload_job_id: str, use_mock: bool = True,
     res = client.set_thumbnail(video_id, thumbnail_path)
     if res.get("thumbnail_set"):
         update_upload_state(upload_job_id, status="completed",
-                            thumbnail_set_status="completed",
+                            thumbnail_set_status="completed", thumbnail_error="",
                             last_message="썸네일 재시도 성공 — 완료")
         append_upload_log(upload_job_id, "썸네일 재시도 성공")
     else:
-        append_upload_log(upload_job_id, "썸네일 재시도 실패", "warning")
+        err = res.get("error", "알 수 없는 오류")
+        update_upload_state(upload_job_id, thumbnail_error=err)
+        append_upload_log(upload_job_id, f"썸네일 재시도 실패 — {err}", "warning")
 
 
 if __name__ == "__main__":

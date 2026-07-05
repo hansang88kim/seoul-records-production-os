@@ -196,9 +196,41 @@ class RealYouTubeApiClient:
                 videoId=video_id,
                 media_body=MediaFileUpload(thumbnail_path)).execute()
             return {"thumbnail_set": True, "video_id": video_id, "mock": False}
-        except Exception:
+        except Exception as e:
+            # v1.0.0-alpha.55 fix: this used to swallow the real exception
+            # entirely and always return the generic "thumbnail set
+            # failed" — giving no way to tell a file-size/format problem
+            # apart from the classic (and very common) real cause: a
+            # YouTube channel that hasn't completed phone/channel
+            # verification cannot set custom thumbnails AT ALL, via the
+            # API or the website, even when the image file itself is
+            # perfectly valid. We now surface the actual HTTP status +
+            # message from YouTube's error body, and add a specific hint
+            # when the message matches that known pattern.
+            from services.security.redaction import redact_text
+            status = None
+            reason = ""
+            try:
+                from googleapiclient.errors import HttpError  # type: ignore
+                if isinstance(e, HttpError):
+                    status = getattr(e.resp, "status", None)
+                    reason = str(e.reason or "")
+            except Exception:
+                pass
+            reason = redact_text(reason or f"{type(e).__name__}: {e}").strip()[:300]
+
+            hint = ""
+            low = reason.lower()
+            if (status == 403 and
+                    any(k in low for k in ("thumbnail", "eligib", "verif"))):
+                hint = (" — YouTube는 채널 인증(전화번호 인증)이 완료되지 않은 "
+                        "채널은 API로도 커스텀 썸네일 설정을 막습니다. YouTube "
+                        "Studio → 설정 → 채널 → 채널 상태 및 기능에서 전화번호 "
+                        "인증을 완료한 뒤 '썸네일만 재시도'를 눌러주세요.")
+
+            detail = f"HTTP {status}: {reason}" if status else reason
             return {"thumbnail_set": False, "video_id": video_id,
-                    "error": "thumbnail set failed", "mock": False}
+                    "error": f"{detail}{hint}", "mock": False}
 
     def get_video_status(self, video_id: str) -> dict:
         service = self._build_service()
