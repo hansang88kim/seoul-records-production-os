@@ -16,7 +16,9 @@ from services.video.playlist_builder import (
     scan_mp3_files, build_playlist_plan, format_chapters_txt,
 )
 from services.video.overlay_assets import build_overlay_asset_library, build_overlay_asset_library_with_uploads
-from services.video.visualizer import visualizer_config, VISUALIZER_STYLES
+from services.video.visualizer import (
+    visualizer_config, VISUALIZER_STYLES, COLOR_THEMES, FIXED_PALETTE_STYLES,
+)
 from services.video import render_plan as rp
 from services.thumbnail import asset_types as AT
 from services.thumbnail import session_store as ss
@@ -158,9 +160,28 @@ def render_video_renderer():
                                          "minimal_wave": "Minimal Wave Line",
                                          "soft_eq_bars": "Soft Equalizer Bars",
                                          "citypop_glow": "CityPop Glow Wave",
+                                         "classic_bars": "Classic Bars",
+                                         "mirrored_bars": "Mirrored Bars",
+                                         "lissajous_scope": "Circular / Lissajous Scope",
+                                         "spectrum_fire": "Spectrum · Ring of Fire",
+                                         "spectrum_terrain": "Spectrum · Terrain",
                                      }.get(s, s), key="vr_viz_style")
         with vcol2:
-            viz_color = st.color_picker("색상", "#ffffff", key="vr_viz_color")
+            if viz_style in FIXED_PALETTE_STYLES:
+                st.caption("이 스타일은 FFmpeg 내장 컬러맵을 사용해 "
+                           "컬러 테마/색상 선택이 적용되지 않습니다.")
+                viz_color = "#ffffff"
+            else:
+                theme_label = st.selectbox(
+                    "컬러 테마", ["직접 선택"] + list(COLOR_THEMES.keys()),
+                    key="vr_viz_theme",
+                    help="빠른 프리셋. '직접 선택'이면 아래 색상 피커 값을 씁니다.",
+                )
+                if theme_label != "직접 선택":
+                    st.caption(f"🎨 {COLOR_THEMES[theme_label]}")
+                    viz_color = COLOR_THEMES[theme_label]
+                else:
+                    viz_color = st.color_picker("색상 (직접 선택)", "#ffffff", key="vr_viz_color")
         with vcol3:
             viz_opacity = st.slider("투명도", 0.0, 1.0, 0.55, key="vr_viz_op")
 

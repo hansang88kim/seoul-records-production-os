@@ -1,10 +1,26 @@
 """
-services/video/visualizer.py — Dynamic waveform / equalizer (v0.7.3).
+services/video/visualizer.py — Dynamic waveform / equalizer (v1.0.0-alpha.37).
 
-Builds an audio-reactive visualizer from the actual MP3 audio. Three styles:
-  - minimal_wave   : thin wave line
-  - soft_eq_bars   : soft equalizer bars
-  - citypop_glow   : glowing wave with bloom
+Builds an audio-reactive visualizer from the actual MP3 audio using FFmpeg's
+native audio-visualization filters (showwaves / showfreqs / showspectrum /
+avectorscope) — real-time filter-graph rendering, not per-frame custom
+drawing, so it stays fast even for hour-long compilation videos.
+
+Nine styles:
+  - minimal_dots     : clean dot-to-dot waveform line (default)
+  - minimal_wave      : thin continuous wave line
+  - soft_eq_bars      : soft equalizer bars (log scale)
+  - citypop_glow      : glowing wave with gaussian bloom
+  - classic_bars      : crisp classic EQ bars (linear scale)
+  - mirrored_bars     : EQ bars mirrored top/bottom (vstack)
+  - lissajous_scope   : organic circular/blob audio pattern (stereo Lissajous
+                        figure — the closest native-FFmpeg equivalent to a
+                        "Circular"/"Blob" style; needs stereo audio to look
+                        full, degrades to a thin line on mono sources)
+  - spectrum_fire     : glowing warm-toned frequency spectrum (FFmpeg's
+                        built-in "fire" colormap — "Ring of Fire" mood)
+  - spectrum_terrain  : scrolling colorful frequency landscape (FFmpeg's
+                        built-in "terrain" colormap)
 
 Position/size/opacity/glow are fully configurable and are reflected in the
 real filter_complex (see filter_complex_builder.add_visualizer_layer).
@@ -14,13 +30,46 @@ DEPRECATED for rendering — the real renderer composites via
 filter_complex_builder, which uses the correct audio input index ([1:a]).
 build_visualizer_filter() now accepts audio_input_index to avoid the old
 hard-coded [0:a] confusion.
+
+NOTE on scope: fancier shader-style looks from consumer visualizer tools
+(Particles, Starfield, Clouds, Lava Lamp, Jellyfish) are NOT included here —
+those require per-frame custom rendering (not an FFmpeg filter-graph), which
+would make hour-long render times balloon. The 9 styles above are the set
+that's genuinely achievable via FFmpeg's real-time audio filters.
 """
 from __future__ import annotations
 
 import warnings
 
 
-VISUALIZER_STYLES = ["minimal_dots", "minimal_wave", "soft_eq_bars", "citypop_glow"]
+VISUALIZER_STYLES = [
+    "minimal_dots", "minimal_wave", "soft_eq_bars", "citypop_glow",
+    "classic_bars", "mirrored_bars", "lissajous_scope",
+    "spectrum_fire", "spectrum_terrain",
+]
+
+# Styles driven by FFmpeg's own built-in colormap (showspectrum "color"
+# option) rather than a single configurable hex color. The UI should disable/
+# ignore the color picker for these — picking a custom color has no effect.
+FIXED_PALETTE_STYLES = {"spectrum_fire", "spectrum_terrain"}
+
+# Named color-theme presets for the configurable styles (quick-pick swatches,
+# in addition to the free-form color picker already in the UI).
+COLOR_THEMES: dict[str, str] = {
+    "네온 퍼플": "#7c5cff",
+    "선셋 오렌지": "#ff7a45",
+    "시안": "#00d4ff",
+    "매혹 마젠타": "#ff4d6d",
+    "앰버": "#ffb347",
+    "실버": "#c8ccd4",
+    "슬레이트 블루": "#5b6b9e",
+    "그린": "#2ecc71",
+    "틸": "#2ec4b6",
+    "코랄": "#ff6b6b",
+    "스카이 블루": "#7fd4e8",
+    "핑크": "#ff8fc4",
+    "옐로우": "#ffe066",
+}
 
 # Canvas geometry
 CANVAS_W = 1920
@@ -106,6 +155,19 @@ def build_visualizer_filter(cfg: dict, width: int = 1920,
         return f"{a}showwaves=s={width}x{h}:mode=line:rate=25:colors=0x{color}[viz]"
     elif style == "soft_eq_bars":
         return f"{a}showfreqs=s={width}x{h}:mode=bar:ascale=log:colors=0x{color}[viz]"
+    elif style == "classic_bars":
+        return f"{a}showfreqs=s={width}x{h}:mode=bar:ascale=lin:colors=0x{color}[viz]"
+    elif style == "mirrored_bars":
+        h2 = max(1, h // 2)
+        return (f"{a}showfreqs=s={width}x{h2}:mode=bar:ascale=log:colors=0x{color}[b];"
+                f"[b]split[b1][b2];[b2]vflip[b2f];[b1][b2f]vstack=inputs=2[viz]")
+    elif style == "lissajous_scope":
+        return (f"{a}avectorscope=s={width}x{h}:mode=lissajous:rate=25:"
+                f"rc=0x{color[0:2] or '80'}:gc=0x{color[2:4] or '80'}:bc=0x{color[4:6] or '80'}[viz]")
+    elif style == "spectrum_fire":
+        return f"{a}showspectrum=s={width}x{h}:mode=combined:color=fire:scale=log[viz]"
+    elif style == "spectrum_terrain":
+        return f"{a}showspectrum=s={width}x{h}:mode=combined:color=terrain:slide=scroll[viz]"
     else:  # citypop_glow
         glow = cfg.get("glow_strength", 3.0)
         return (f"{a}showwaves=s={width}x{h}:mode=cline:rate=25:colors=0x{color},"

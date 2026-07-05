@@ -208,27 +208,60 @@ def _viz_geometry(cfg: dict) -> dict:
 def add_visualizer_layer(parts: list[str], current: str, viz: dict) -> str:
     """
     Add the dynamic audio-reactive visualizer. Uses [1:a] (real audio).
-    Styles: minimal_dots (recommended) | minimal_wave | soft_eq_bars | citypop_glow.
+    Styles: minimal_dots (recommended) | minimal_wave | soft_eq_bars |
+    citypop_glow | classic_bars | mirrored_bars | lissajous_scope |
+    spectrum_fire | spectrum_terrain.
     """
     cfg = viz.get("config", {})
     style = cfg.get("style", "minimal_dots")
     opacity = cfg.get("opacity", 0.55)
     glow = cfg.get("glow_strength", 1.5)
     color = _hex_to_ffmpeg(cfg.get("color", "#ffffff"))
+    color_hex = (cfg.get("color", "#ffffff") or "#ffffff").lstrip("#")
     g = _viz_geometry(cfg)
     w, h, x, y = g["w"], g["h"], g["x"], g["y"]
 
     if style == "minimal_dots":
         # Clean dot-to-dot line — subtle, premium (like reference channels).
-        gen = f"[{AUDIO_INPUT}:a]showwaves=s={w}x{h}:mode=p2p:rate=25:colors={color}[vizraw]"
+        parts.append(f"[{AUDIO_INPUT}:a]showwaves=s={w}x{h}:mode=p2p:rate=25:colors={color}[vizraw]")
     elif style == "minimal_wave":
-        gen = f"[{AUDIO_INPUT}:a]showwaves=s={w}x{h}:mode=line:rate=25:colors={color}[vizraw]"
+        parts.append(f"[{AUDIO_INPUT}:a]showwaves=s={w}x{h}:mode=line:rate=25:colors={color}[vizraw]")
     elif style == "soft_eq_bars":
-        gen = f"[{AUDIO_INPUT}:a]showfreqs=s={w}x{h}:mode=bar:ascale=log:colors={color}[vizraw]"
+        parts.append(f"[{AUDIO_INPUT}:a]showfreqs=s={w}x{h}:mode=bar:ascale=log:colors={color}[vizraw]")
+    elif style == "classic_bars":
+        # Crisp classic EQ bars — linear scale (punchier than the log-scale soft bars).
+        parts.append(f"[{AUDIO_INPUT}:a]showfreqs=s={w}x{h}:mode=bar:ascale=lin:colors={color}[vizraw]")
+    elif style == "mirrored_bars":
+        # Half-height bars, mirrored top/bottom via vflip+vstack.
+        h2 = max(1, h // 2)
+        parts.append(f"[{AUDIO_INPUT}:a]showfreqs=s={w}x{h2}:mode=bar:ascale=log:colors={color}[mb]")
+        parts.append("[mb]split[mb1][mb2]")
+        parts.append("[mb2]vflip[mb2f]")
+        parts.append("[mb1][mb2f]vstack=inputs=2[vizraw]")
+    elif style == "lissajous_scope":
+        # Organic circular/blob audio pattern (stereo Lissajous figure) —
+        # the closest native-FFmpeg equivalent to a "Circular"/"Blob" style.
+        # Needs stereo audio to fill out; degrades to a thin line on mono.
+        rc = int(color_hex[0:2], 16) if len(color_hex) >= 6 else 0x80
+        gc = int(color_hex[2:4], 16) if len(color_hex) >= 6 else 0x80
+        bc = int(color_hex[4:6], 16) if len(color_hex) >= 6 else 0x80
+        parts.append(
+            f"[{AUDIO_INPUT}:a]avectorscope=s={w}x{h}:mode=lissajous:rate=25:"
+            f"rc={rc}:gc={gc}:bc={bc}[vizraw]"
+        )
+    elif style == "spectrum_fire":
+        # FFmpeg's built-in "fire" colormap — glowing warm-toned spectrum,
+        # ignores the custom color picker (fixed palette).
+        parts.append(f"[{AUDIO_INPUT}:a]showspectrum=s={w}x{h}:mode=combined:color=fire:scale=log[vizraw]")
+    elif style == "spectrum_terrain":
+        # FFmpeg's built-in "terrain" colormap — scrolling colorful landscape,
+        # ignores the custom color picker (fixed palette).
+        parts.append(f"[{AUDIO_INPUT}:a]showspectrum=s={w}x{h}:mode=combined:color=terrain:slide=scroll[vizraw]")
     else:  # citypop_glow
-        gen = (f"[{AUDIO_INPUT}:a]showwaves=s={w}x{h}:mode=cline:rate=25:colors={color},"
-               f"gblur=sigma={glow}[vizraw]")
-    parts.append(gen)
+        parts.append(
+            f"[{AUDIO_INPUT}:a]showwaves=s={w}x{h}:mode=cline:rate=25:colors={color},"
+            f"gblur=sigma={glow}[vizraw]"
+        )
 
     parts.append(f"[vizraw]format=rgba,colorchannelmixer=aa={opacity}[viz_alpha]")
     parts.append(f"{current}[viz_alpha]overlay=x={x}:y={y}[v_viz]")
