@@ -64,7 +64,31 @@ def _render_prompt_lab():
                                    format_func=lambda i: country_labels[i], key="thumb_country")
         country_key = countries[country_idx][0]
     with col2:
-        theme = st.text_input("테마/무드", value="rainy night drive", key="thumb_theme")
+        # v1.0.0-alpha.62: theme/mood is now a shared value across song ·
+        # thumbnail · YouTube, chosen from a dropdown (with a 🎲 variation
+        # button) so the thumbnail mood always matches the song's.
+        from services import shared_mood as SM
+        mood_options = SM.get_mood_options(st.session_state)
+        if not mood_options:
+            mood_options = ["rainy night drive"]
+        tc1, tc2 = st.columns([5, 1])
+        with tc1:
+            cur = SM.get_shared_mood(st.session_state) or mood_options[0]
+            if cur not in mood_options:
+                mood_options = [cur] + mood_options
+            theme = st.selectbox(
+                "테마/무드 (곡·유튜브와 공유)", mood_options,
+                index=mood_options.index(cur),
+                key="thumb_theme_select",
+                help="곡·썸네일·유튜브가 같은 무드를 쓰도록 공유됩니다. "
+                     "🎲로 새 무드를 제안받을 수 있어요.")
+            SM.set_shared_mood(st.session_state, theme)
+        with tc2:
+            if st.button("🎲", key="thumb_theme_variation",
+                         help="시티팝 무드 제안", use_container_width=True):
+                new = SM.add_variation(st.session_state)
+                SM.set_shared_mood(st.session_state, new)
+                st.rerun()
     with col3:
         volume = 1  # decoupled; put the Vol. number directly in the title text
         count = st.number_input("생성 개수", min_value=1, max_value=10, value=1, step=1,

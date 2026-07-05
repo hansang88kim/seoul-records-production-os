@@ -101,8 +101,16 @@ def render_youtube_package():
         with mcol2:
             volume = st.number_input("Volume 번호", 1, 999, 1, key="yt_vol")
             duration_min = st.number_input("길이 (분)", 1, 600, 60, key="yt_dur")
-        mood = st.text_input("무드/테마 (선택)", key="yt_mood",
-                             placeholder="예: Rainy Night Drive")
+        # v1.0.0-alpha.62: mood/theme is shared with the song + thumbnail.
+        from services import shared_mood as SM
+        _shared = SM.get_shared_mood(st.session_state)
+        mood = st.text_input("무드/테마 (곡·썸네일과 공유)", key="yt_mood",
+                             value=_shared,
+                             placeholder="예: Rainy Night Drive",
+                             help="곡/썸네일에서 고른 무드가 여기에 자동으로 "
+                                  "채워집니다. 이 무드가 제목·설명·태그에 반영됩니다.")
+        if mood:
+            SM.set_shared_mood(st.session_state, mood)
 
         # v1.0.0-alpha.60: song language → auto-translate the description
         # frame (tags stay English). Korean = no translation.
@@ -152,7 +160,8 @@ def render_youtube_package():
                     # DJ HANA description: fixed frame, tracklist from the
                     # real uploaded audio (chapters), translated to the
                     # selected song language if non-Korean.
-                    desc = MG.generate_djhana_description(meta.get("chapters", []))
+                    desc = MG.generate_djhana_description(meta.get("chapters", []),
+                                                         mood=mood)
                     lang = st.session_state.get("yt_language", "korean")
                     from services.youtube.description_translator import (
                         translate_description, needs_translation)

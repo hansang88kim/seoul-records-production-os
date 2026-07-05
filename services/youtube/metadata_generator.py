@@ -89,9 +89,11 @@ def generate_tags(country: str = "", mood: str = "", volume: int = 1) -> list[st
     core SEO set does the heavy lifting.
     """
     core = [
-        # primary genre / intent
+        # primary genre / intent (highest value, must always survive)
         "citypop", "city pop", "citypop playlist", "city pop playlist",
         "playlist", "music playlist", "citypop mix", "city pop mix",
+        # brand / channel (must always survive)
+        "seoul records", "seoul citypop", "seoul city pop", "korean citypop",
         # mood / usage (high-search long-tail)
         "nostalgic", "night drive", "night drive music", "chill", "chill music",
         "chill playlist", "relaxing music", "study music", "work music",
@@ -100,27 +102,29 @@ def generate_tags(country: str = "", mood: str = "", volume: int = 1) -> list[st
         "japanese citypop", "japanese city pop", "80s citypop", "80s city pop",
         "80s music", "retro music", "retro citypop", "synthwave",
         "nu disco", "disco house", "funk", "smooth jazz",
-        # brand / channel
-        "seoul records", "seoul citypop", "seoul city pop", "korean citypop",
-        "k citypop", "asian citypop",
-        # discovery long-tail
-        "citypop for driving", "citypop night", "neon night", "tokyo night",
-        "seoul night", "summer citypop", "sunset drive", "rooftop lounge",
+        # extra discovery long-tail
+        "k citypop", "asian citypop", "citypop for driving", "citypop night",
+        "neon night", "tokyo night", "seoul night", "summer citypop",
+        "sunset drive", "rooftop lounge",
     ]
 
-    # Light, optional folding of dynamic context (kept English).
+    # Light, optional folding of dynamic context (kept English). A mood is
+    # only folded into tags when it's ASCII/English — Korean moods stay out
+    # so the tag set remains all-English (alpha.60 rule).
     extras = []
     if country:
         c = country.strip().lower()
         extras += [f"{c} citypop", f"{c} playlist", f"{c} city pop"]
-    if mood:
+    if mood and mood.strip().isascii():
         extras.append(mood.strip().lower())
     extras.append(f"citypop vol {volume}")
 
-    # Dedupe (case-insensitive), preserve order.
+    # Dedupe (case-insensitive), preserve order. Dynamic extras (mood /
+    # country) go FIRST so they always survive the 490-char trim — the
+    # curated core then fills the remaining budget.
     seen = set()
     ordered = []
-    for t in core + extras:
+    for t in extras + core:
         key = t.lower()
         if key not in seen:
             seen.add(key)
@@ -260,20 +264,28 @@ def _normalise_timestamp(ts: str) -> str:
     return f"{h:02d}:{m:02d}:{s:02d}"
 
 
-def generate_djhana_description(chapters: list[dict] | None = None) -> str:
+def generate_djhana_description(chapters: list[dict] | None = None,
+                                mood: str = "") -> str:
     """
     Build the full Seoul Records / DJ HANA description with the fixed frame
     the user specified, injecting ONLY the tracklist from the real uploaded
     audio. If there are no chapters, a placeholder line is used instead of a
     fabricated tracklist.
+
+    v1.0.0-alpha.62: an optional `mood` (shared across song/thumbnail/
+    YouTube) is woven into the opening line so the description reflects the
+    same mood as the song and thumbnail, without disturbing the fixed FAQ /
+    copyright frame.
     """
     chapters = chapters or []
     tracklist = _format_djhana_tracklist(chapters)
     if not tracklist:
         tracklist = "00:00:00  01. (트랙 정보는 업로드된 음원 기준으로 자동 생성됩니다)"
 
-    return f"""[Playlist] 서울 시티팝 한강에서 DJ가 말아주는 디스코 하우스 | Seoul Citypop Sunset Nu Disco Mixset
+    mood_line = f"\n🌆 Tonight's mood — {mood.strip()}\n" if mood.strip() else ""
 
+    return f"""[Playlist] 서울 시티팝 한강에서 DJ가 말아주는 디스코 하우스 | Seoul Citypop Sunset Nu Disco Mixset
+{mood_line}
 🏖️ Mood Keywords
 DJ HANA, Seoul Sunset, Han River, Live DJ Set, Summer Night Drive, Nu Disco House, Tropical House, Disco House, Korean House Mix, Rooftop Lounge, Summer Playlist
 
@@ -359,7 +371,7 @@ def generate_all_metadata(
     translated_language = "Korean"
     if use_djhana_template:
         title = DJHANA_DEFAULT_TITLE
-        description = generate_djhana_description(chapters)
+        description = generate_djhana_description(chapters, mood=mood)
         if translate:
             from services.youtube.description_translator import (
                 translate_description, needs_translation)
