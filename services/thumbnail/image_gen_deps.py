@@ -94,3 +94,27 @@ def check_apiframe_nanobanana_dependencies() -> dict:
         ),
         "key_env_vars": ["APIFRAME_API_KEY"],
     }
+
+
+def check_gpt_image_dependencies() -> dict:
+    """
+    Structured readiness report for GPT Image 2 via OpenAI (v1.0.0-alpha.35).
+    Reuses the same OPENAI_API_KEY already connected for ChatGPT/lyrics — no
+    separate credential. Readiness == key presence; the key VALUE is never
+    included.
+    """
+    from services.thumbnail.openai_image_provider import get_openai_key
+    key = get_openai_key() is not None
+    return {
+        "api_key_present": key,
+        "ready": key,
+        "model": "gpt-image-2 (OpenAI)",
+        "key_hint": (
+            "Enter your ChatGPT/OpenAI API key in the left sidebar "
+            "(🤖 AI Composer), or set OPENAI_API_KEY. Same key used for "
+            "lyrics/songwriting — no separate credential needed. Note: GPT "
+            "Image access may require API Organization Verification in the "
+            "OpenAI developer console."
+        ),
+        "key_env_vars": ["OPENAI_API_KEY"],
+    }

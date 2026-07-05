@@ -401,6 +401,9 @@ def get_image_provider(use_real: bool = False, model: str | None = None,
       * "apiframe_nanobanana"   — Nano Banana 2 via the already-connected Apiframe
                                   account (APIFRAME_API_KEY required) — no separate
                                   Gemini key needed.
+      * "gpt_image"             — OpenAI GPT Image 2, via the already-connected
+                                  ChatGPT credential (OPENAI_API_KEY) — no
+                                  separate key needed.
       * "midjourney"            — the user's Midjourney account via Apiframe
                                   (APIFRAME_API_KEY required). Kept for reference;
                                   not currently surfaced in the UI (see v1.0.0-alpha.34
@@ -433,6 +436,14 @@ def get_image_provider(use_real: bool = False, model: str | None = None,
         if not get_apiframe_key():
             return MockImageGenProvider()
         return ApiframeNanoBananaProvider()
+
+    if eng == "gpt_image":
+        from services.thumbnail.openai_image_provider import (
+            OpenAIGptImageProvider, get_openai_key,
+        )
+        if not get_openai_key():
+            return MockImageGenProvider()
+        return OpenAIGptImageProvider()
 
     if not get_api_key():
         return MockImageGenProvider()

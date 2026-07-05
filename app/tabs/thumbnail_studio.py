@@ -94,25 +94,49 @@ def _render_prompt_lab():
         )
         project_folder = None if proj_idx == 0 else projects[proj_idx - 1]["path"]
     with col_r:
+        _ENGINE_OPTIONS = {
+            "Gemini (Nano Banana)": {
+                "key": "gemini",
+                "dep_fn": igd.check_image_gen_dependencies,
+                "toggle_label": "실제 이미지 생성 (Gemini · Nano Banana)",
+                "not_ready_hint": "좌측 사이드바 🤖 AI Composer → Gemini 칸에 API 키를 입력하면 켜집니다.",
+                "ready_caption": None,  # uses dep['model']/dep['backend'] (see below)
+                "per_image_time": None,
+            },
+            "Nano Banana 2 (Apiframe · 기존 연결 재사용)": {
+                "key": "apiframe_nanobanana",
+                "dep_fn": igd.check_apiframe_nanobanana_dependencies,
+                "toggle_label": "실제 이미지 생성 (Nano Banana 2 · Apiframe)",
+                "not_ready_hint": "좌측 사이드바 🎨 Image Gen 칸에 Apiframe API 키를 입력하면 켜집니다.",
+                "ready_caption": "🟢 실제 생성 ON · Nano Banana 2 (Apiframe · 기존 연결 재사용) "
+                                 "· 1장당 약 30초~2분 소요 (일시적 용량 부족 시 자동 재시도)",
+                "per_image_time": None,
+            },
+            "ChatGPT (GPT Image 2 · 기존 연결 재사용)": {
+                "key": "gpt_image",
+                "dep_fn": igd.check_gpt_image_dependencies,
+                "toggle_label": "실제 이미지 생성 (GPT Image 2)",
+                "not_ready_hint": "좌측 사이드바 🤖 AI Composer → ChatGPT 칸에 API 키를 입력하면 켜집니다.",
+                "ready_caption": "🟢 실제 생성 ON · GPT Image 2 (OpenAI · 기존 ChatGPT 연결 재사용) "
+                                 "· 1장당 약 10~30초 소요 (요청 제한 시 자동 재시도)",
+                "per_image_time": None,
+            },
+        }
         engine_label = st.selectbox(
             "이미지 엔진",
-            ["Gemini (Nano Banana)", "Nano Banana 2 (Apiframe · 기존 연결 재사용)"],
+            list(_ENGINE_OPTIONS.keys()),
             key="thumb_engine",
             help=("Gemini: Google API 키로 직접 생성 (REST). "
-                  "Nano Banana 2 (Apiframe): 이미 연결한 Apiframe 키로 Google 공식 "
-                  "Nano Banana 2 모델을 생성 — 별도 Gemini 키 불필요. "
+                  "Nano Banana 2 / ChatGPT(GPT Image 2): 이미 연결한 Apiframe/ChatGPT 키를 "
+                  "그대로 재사용해 생성 — 별도 키 불필요. "
                   "(Midjourney/Apiframe 조합은 계정 풀 불안정으로 제외했습니다 — "
                   "필요시 다음 세션에서 다시 켤 수 있습니다.)"),
         )
-        engine = "apiframe_nanobanana" if engine_label.startswith("Nano Banana 2") else "gemini"
-        if engine == "apiframe_nanobanana":
-            dep = igd.check_apiframe_nanobanana_dependencies()
-            toggle_label = "실제 이미지 생성 (Nano Banana 2 · Apiframe)"
-        else:
-            dep = igd.check_image_gen_dependencies()
-            toggle_label = "실제 이미지 생성 (Gemini · Nano Banana)"
+        opt = _ENGINE_OPTIONS[engine_label]
+        engine = opt["key"]
+        dep = opt["dep_fn"]()
         use_real = st.toggle(
-            toggle_label,
+            opt["toggle_label"],
             value=dep["ready"],
             disabled=not dep["ready"],
             key="thumb_use_real",
@@ -120,20 +144,10 @@ def _render_prompt_lab():
                   else f"준비 안 됨 → {dep['key_hint']}"),
         )
         if not dep["ready"]:
-            if engine == "apiframe_nanobanana":
-                st.caption(
-                    "⚠️ 실제 생성 비활성 → 목업으로 진행. "
-                    "좌측 사이드바 🎨 Image Gen 칸에 Apiframe API 키를 입력하면 켜집니다."
-                )
-            else:
-                st.caption(
-                    "⚠️ 실제 생성 비활성 → 목업으로 진행. "
-                    "좌측 사이드바 🤖 AI Composer → Gemini 칸에 API 키를 입력하면 켜집니다."
-                )
+            st.caption(f"⚠️ 실제 생성 비활성 → 목업으로 진행. {opt['not_ready_hint']}")
         elif use_real:
-            if engine == "apiframe_nanobanana":
-                st.caption("🟢 실제 생성 ON · Nano Banana 2 (Apiframe · 기존 연결 재사용) "
-                           "· 1장당 약 30초~2분 소요 (일시적 용량 부족 시 자동 재시도)")
+            if opt["ready_caption"]:
+                st.caption(opt["ready_caption"])
             else:
                 st.caption(f"🟢 실제 생성 ON · 모델 {dep['model']} ({dep['backend'].upper()})")
 
@@ -179,6 +193,8 @@ def _render_prompt_lab():
             mode_label = "목업"
         elif engine == "apiframe_nanobanana":
             mode_label = "실제 (Nano Banana 2 · Apiframe)"
+        elif engine == "gpt_image":
+            mode_label = "실제 (GPT Image 2 · OpenAI)"
         else:
             mode_label = "실제 (Gemini)"
         with st.spinner(f"{count}장 이미지 생성 중… ({mode_label})"):
@@ -221,7 +237,8 @@ def _render_prompt_lab():
                         st.warning(f"{c['candidate_id']}: 파일을 찾을 수 없음")
             if gen[0].get("gen_provider") == "mock":
                 st.caption("ℹ️ 목업(placeholder) 이미지입니다. 실제 생성: 사이드바에서 API 키 입력 "
-                           "(Gemini → 🤖 AI Composer / Nano Banana 2 → 🎨 Image Gen) → "
+                           "(Gemini → 🤖 AI Composer / Nano Banana 2 → 🎨 Image Gen / "
+                           "GPT Image 2 → 🤖 AI Composer) → "
                            "위의 '실제 이미지 생성' 토글 ON.")
             st.caption("→ **🖼️ Candidate Gallery** 탭에서 이미지를 선택하면 Brand Thumbnail(Canva)로 넘어갑니다.")
         if failed:
