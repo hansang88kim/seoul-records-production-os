@@ -500,6 +500,15 @@ def _render_auto_batch():
     """Auto Batch — 2-step: generate plan (preview title/style/lyrics) → generate songs."""
     from providers.ai.base import get_available_ai_providers
 
+    # "🎲" writes to a _pending key instead of "auto_concept" directly,
+    # because the auto_concept text_input widget below is instantiated
+    # before the button — assigning to st.session_state["auto_concept"]
+    # after that would raise StreamlitAPIException even though a
+    # st.rerun() follows. Apply the pending value here, before the widget
+    # is instantiated.
+    if "_auto_concept_pending" in st.session_state:
+        st.session_state["auto_concept"] = st.session_state.pop("_auto_concept_pending")
+
     st.markdown("<h2 style='margin-bottom:0.5rem'>🤖 Auto Batch 생성</h2>", unsafe_allow_html=True)
     st.caption("① AI가 N곡의 제목/스타일/가사를 먼저 만듭니다 → ② 확인/편집 후 Suno로 순차 생성")
 
@@ -570,7 +579,7 @@ def _render_auto_batch():
                 from services.concept_suggester import next_concept
                 sug = next_concept(st.session_state,
                                    avoid=st.session_state.get("auto_concept", ""))
-                st.session_state["auto_concept"] = sug
+                st.session_state["_auto_concept_pending"] = sug
                 st.rerun()
     with col_provider:
         prov_idx = st.selectbox(

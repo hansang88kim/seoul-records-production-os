@@ -61,6 +61,14 @@ LYRICS_PLACEHOLDER = """[Intro]
 def render_composer_panel() -> dict | None:
     """Render full composer: AI Composer + Song Form + Confirm + Generate."""
 
+    # "🎲 변주" writes to a _pending key instead of "ai_concept" directly,
+    # because the ai_concept text_input widget below is instantiated before
+    # the button — assigning to st.session_state["ai_concept"] after that
+    # would raise StreamlitAPIException even though a st.rerun() follows.
+    # Apply the pending value here, before the widget is instantiated.
+    if "_ai_concept_pending" in st.session_state:
+        st.session_state["ai_concept"] = st.session_state.pop("_ai_concept_pending")
+
     # ═══════════════════════════════════════════════════════════════════════
     # AI COMPOSER
     # ═══════════════════════════════════════════════════════════════════════
@@ -101,7 +109,7 @@ def render_composer_panel() -> dict | None:
                 from services.concept_suggester import next_concept
                 sug = next_concept(st.session_state,
                                    avoid=st.session_state.get("ai_concept", ""))
-                st.session_state["ai_concept"] = sug
+                st.session_state["_ai_concept_pending"] = sug
                 st.rerun()
 
     # Language selector — picks the lyric language + city emotion
