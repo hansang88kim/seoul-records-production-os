@@ -1,16 +1,21 @@
 """
-services/suno_auto_download.py — 최종본 자동 다운로드 (v1.0.0-alpha.50).
+services/suno_auto_download.py — 최종본 자동 다운로드 (v1.0.0-alpha.52).
 
-Rule (사용자 확정 기준): Suno가 만든 2개 버전 중 **길이가 더 긴 쪽이 최종본**.
-선택 과정 없이:
-  1. 두 클립의 duration을 `suno info`로 조회 → 더 긴 클립의 audio_url을
-     HTTP로 직접 스트리밍 다운로드.
-  2. 저장 위치는 프로젝트 폴더 FLAT:
-         outputs/song_projects/<프로젝트명>/songs/<제목>-<clipid8>.mp3
-     — 곡별 하위 폴더를 절대 만들지 않는다 (suno-cli의 곡별 폴더 다운로드를
-     우회하기 위해 CLI download 대신 audio_url 직접 다운로드를 쓴다).
-  3. delete_shorter=True(기본)면 짧은 버전을 Suno 휴지통으로 이동 —
-     동일한 길이 규칙이므로 사용자 선택이 필요 없다.
+Rule (사용자 확정 기준, v1.0.0-alpha.52로 변경):
+  1. 180s~240s 범위 안에 들어오는 버전을 우선한다.
+  2. 둘 다 범위 안이면 더 긴 쪽.
+  3. 둘 다 범위 밖이면 180s~240s 범위에 더 가까운 쪽
+     (범위 경계까지의 거리가 짧은 쪽 — 예: 178s vs 170s → 178s,
+     245s vs 250s → 245s가 240s 경계에 더 가까우므로 245s).
+  4. 위 기준으로도 완전히 동일하면(길이 정확히 같음) 어느 쪽이 최종본인지
+     알 수 없으므로 삭제는 하지 않는다(둘 다 유지, 다운로드는 함).
+
+선택되지 않은 나머지 버전은 Suno에서 자동으로 삭제한다(사용자 선택 불필요).
+
+저장 위치는 프로젝트 폴더 FLAT:
+    outputs/song_projects/<프로젝트명>/songs/<제목>-<clipid8>.mp3
+곡별 하위 폴더를 만들지 않는다 — suno-cli의 곡별 폴더 다운로드를 우회하기
+위해 CLI download 대신 audio_url을 직접 스트리밍 다운로드한다.
 
 Manifest는 file_path / duration / file_type / status 로 갱신되어
 프로젝트 관리 재생 버튼·Video Renderer 라벨이 즉시 따라온다.
@@ -23,6 +28,10 @@ from pathlib import Path
 from services.suno_cleanup import _task_clip_ids
 
 _FORBIDDEN = re.compile(r'[/\\:*?"<>|]')
+
+# 최종본 우선순위 범위 (초 단위)
+_RANGE_LO = 180.0
+_RANGE_HI = 240.0
 
 
 def _safe_title(title: str) -> str:
@@ -46,7 +55,60 @@ def _clip_audio_url(info: dict) -> str:
     if not info:
         return ""
     return (info.get("audio_url") or info.get("audio_url_wav")
-            or info.get("wav_url") or "")
+            or info.get("wav_url") or info.get("stream_audio_url")
+            or info.get("mp3_url") or info.get("download_url") or "")
+
+
+def _in_range(duration: float) -> bool:
+    return _RANGE_LO <= duration <= _RANGE_HI
+
+
+def _distance_to_range(duration: float) -> float:
+    """0 if inside [180, 240]; else the gap to the nearest boundary."""
+    if duration < _RANGE_LO:
+        return _RANGE_LO - duration
+    if duration > _RANGE_HI:
+        return duration - _RANGE_HI
+    return 0.0
+
+
+def _select_final_clip(cand_a: tuple, cand_b: tuple) -> tuple:
+    """
+    Decide which of two (clip_id, info) candidates is the "final version".
+
+    Returns (winner, loser, is_tie):
+      * winner/loser are (clip_id, info) tuples.
+      * is_tie is True only when the two durations are EXACTLY equal —
+        the only case where we truly cannot tell them apart. In that case
+        `winner` is chosen arbitrarily (cand_a) for download purposes, but
+        callers must NOT delete `loser` on Suno when is_tie is True.
+    """
+    id_a, info_a = cand_a
+    id_b, info_b = cand_b
+    d_a, d_b = _clip_duration(info_a), _clip_duration(info_b)
+
+    if d_a == d_b:
+        return cand_a, cand_b, True
+
+    in_a, in_b = _in_range(d_a), _in_range(d_b)
+
+    # Rule 1: exactly one is inside the 180-240s range — it wins outright.
+    if in_a != in_b:
+        return (cand_a, cand_b, False) if in_a else (cand_b, cand_a, False)
+
+    # Rule 2: both inside the range — the longer one wins.
+    if in_a and in_b:
+        return (cand_a, cand_b, False) if d_a > d_b else (cand_b, cand_a, False)
+
+    # Rule 3: neither inside the range — whichever is closer to it wins.
+    dist_a, dist_b = _distance_to_range(d_a), _distance_to_range(d_b)
+    if dist_a == dist_b:
+        # Equally close but different durations (symmetric around a
+        # boundary) — decisive tie-break: prefer the longer one. This is
+        # NOT the "can't tell apart" tie (durations differ), so deletion
+        # of the loser still proceeds normally.
+        return (cand_a, cand_b, False) if d_a > d_b else (cand_b, cand_a, False)
+    return (cand_a, cand_b, False) if dist_a < dist_b else (cand_b, cand_a, False)
 
 
 def _http_download(url: str, dest: Path) -> bool:
@@ -68,17 +130,20 @@ def _http_download(url: str, dest: Path) -> bool:
         return False
 
 
-def auto_download_longest(project_name: str, provider=None,
-                          delete_shorter: bool = True,
-                          downloader=None) -> dict:
+def auto_download_final_version(project_name: str, provider=None,
+                                delete_other: bool = True,
+                                downloader=None) -> dict:
     """
     For every song in the project that has 2 recorded clip ids and no
-    local audio yet: download the LONGER clip flat into the project's
-    songs/ folder and (optionally) trash the shorter sibling on Suno.
+    local audio yet: pick the "final version" per the 180-240s priority
+    rule (see module docstring), download it flat into the project's
+    songs/ folder, and (optionally) trash the other clip on Suno.
 
     provider / downloader are injectable for tests.
     Returns {"downloaded": [...], "deleted": [...], "skipped": [...],
-             "failed": [...]} — every entry carries the song title.
+             "failed": [...]} — every entry carries the song title AND a
+             "reason"/"error" string so callers can surface WHY nothing
+             happened instead of failing silently.
     """
     from app.project_manager import (
         get_song_project_songs, find_song_file, song_project_dir,
@@ -105,27 +170,28 @@ def auto_download_longest(project_name: str, provider=None,
                 {"title": title, "reason": "이미 로컬 파일 있음 — 🧹 Suno 정리에서 처리"})
             continue
 
-        infos = [(cid, provider.get_clip_info(cid) or {}) for cid in clip_ids]
-        # 안전규칙: 모든 클립 정보가 조회돼야 길이 비교가 유효하다 — 하나라도
-        # 실패하면 남은 클립을 '긴 쪽'으로 오판할 수 있으므로 진행하지 않는다.
+        # 설계상 곡당 클립은 2개 — 그 이상 기록된 경우는 앞의 2개만 사용.
+        pair = clip_ids[:2]
+        infos = [(cid, provider.get_clip_info(cid) or {}) for cid in pair]
+        # 안전규칙: 모든 클립 정보가 조회돼야 비교가 유효하다 — 하나라도
+        # 실패하면 남은 클립을 '정답'으로 오판할 수 있으므로 진행하지 않는다.
         if any(not info for _, info in infos):
             report["failed"].append(
-                {"title": title, "reason": "일부 클립 정보 조회 실패 — 길이 비교 불가"})
+                {"title": title, "reason": "일부 클립 정보 조회 실패 — 비교 불가"})
             continue
 
-        # 길이 규칙: 더 긴 클립이 최종본
-        ranked = sorted(infos, key=lambda t: _clip_duration(t[1]), reverse=True)
-        winner_id, winner = ranked[0]
-        is_tie = (len(ranked) > 1 and
-                  _clip_duration(ranked[0][1]) == _clip_duration(ranked[1][1]))
-        if not _clip_audio_url(winner):
+        winner, loser, is_tie = _select_final_clip(infos[0], infos[1])
+        winner_id, winner_info = winner
+        loser_id, loser_info = loser
+
+        if not _clip_audio_url(winner_info):
             report["failed"].append(
                 {"title": title, "reason": "오디오 URL 조회 실패", "clip_id": winner_id})
             continue
         dest = (song_project_dir(project_name) / "songs"
                 / f"{_safe_title(title)}-{winner_id}.mp3")
 
-        if not dl(_clip_audio_url(winner), dest):
+        if not dl(_clip_audio_url(winner_info), dest):
             report["failed"].append(
                 {"title": title, "reason": "다운로드 실패", "clip_id": winner_id})
             continue
@@ -133,29 +199,33 @@ def auto_download_longest(project_name: str, provider=None,
         update_song_in_project(project_name, song, {
             "file_path": str(dest),
             "file_type": "mp3",
-            "duration": _clip_duration(winner) or None,
+            "duration": _clip_duration(winner_info) or None,
             "status": "saved",
-            "selected_clip_id": winner.get("id") or winner_id,
+            "selected_clip_id": winner_info.get("id") or winner_id,
         })
         report["downloaded"].append({
             "title": title, "clip_id": winner_id,
-            "duration": _clip_duration(winner), "path": str(dest),
+            "duration": _clip_duration(winner_info), "path": str(dest),
         })
 
-        if delete_shorter and is_tie:
+        if not delete_other:
+            continue
+        if is_tie:
             report["skipped"].append(
                 {"title": title,
                  "reason": "두 버전 길이 동일 — 다운로드만 하고 Suno 삭제는 건너뜀"})
-        elif delete_shorter:
-            for cid, info in infos:
-                if cid == winner_id:
-                    continue
-                full = (info or {}).get("id") or cid
-                res = provider.delete_clips([full])
-                if res.get("ok"):
-                    report["deleted"].append({"title": title, "clip_id": full})
-                else:
-                    report["failed"].append(
-                        {"title": title, "clip_id": full,
-                         "reason": f"Suno 삭제 실패: {res.get('error')}"})
+            continue
+
+        full = loser_info.get("id") or loser_id
+        res = provider.delete_clips([full])
+        if res.get("ok"):
+            report["deleted"].append({"title": title, "clip_id": full})
+        else:
+            report["failed"].append(
+                {"title": title, "clip_id": full,
+                 "reason": f"Suno 삭제 실패: {res.get('error')}"})
     return report
+
+
+# 이전 이름 호환 — 기존 호출부/외부 스크립트가 있다면 그대로 동작한다.
+auto_download_longest = auto_download_final_version

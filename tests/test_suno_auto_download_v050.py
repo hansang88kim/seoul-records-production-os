@@ -1,10 +1,24 @@
 """
-tests/test_suno_auto_download_v050.py — v1.0.0-alpha.50
+tests/test_suno_auto_download_v050.py — v1.0.0-alpha.50, updated in alpha.52.
 
-길이 규칙 자동화: 두 버전 중 긴 클립을 자동 다운로드(프로젝트 폴더 FLAT,
-곡별 폴더 없음)하고 짧은 버전을 Suno에서 삭제 — 사용자 선택 불필요.
-plan_suno_cleanup의 길이 규칙 폴백(웹 다운로드로 파일명에 ID가 없는 곡)도
-검증한다.
+alpha.52 rule change: final-version selection is no longer "longer always
+wins" — it now follows the 180~240s priority rule (see
+services/suno_auto_download.py module docstring):
+  1. Whichever clip's duration falls in [180, 240]s wins outright.
+  2. If both are in range, the longer one wins.
+  3. If neither is in range, whichever is closer to the range wins.
+  4. If durations are EXACTLY equal, we can't tell them apart — download
+     one, but never delete the other on Suno.
+
+Function renamed auto_download_longest → auto_download_final_version
+(old name kept as a working alias for backward compatibility).
+delete_shorter kwarg renamed → delete_other (the concept generalized: we
+no longer always delete "the shorter" one).
+
+plan_suno_cleanup's OWN duration-based fallback (for web-downloaded songs
+with no clip id in the filename) is a separate, unrelated code path and
+is intentionally left unchanged/untested here — see
+tests/test_suno_cleanup_v049.py.
 """
 from __future__ import annotations
 
@@ -14,7 +28,9 @@ from pathlib import Path
 import pytest
 
 from services.suno_auto_download import (
-    auto_download_longest, _safe_title, _clip_duration, _clip_audio_url,
+    auto_download_final_version, auto_download_longest,
+    _safe_title, _clip_duration, _clip_audio_url,
+    _in_range, _distance_to_range, _select_final_clip,
 )
 from services.suno_cleanup import plan_suno_cleanup
 
@@ -70,34 +86,91 @@ def test_clip_duration_and_audio_url_fallbacks():
     assert _clip_audio_url({}) == ""
 
 
-# ─── auto download (길이 규칙) ───────────────────────────────────────────────
+def test_old_name_is_a_working_alias():
+    assert auto_download_longest is auto_download_final_version
 
-def test_downloads_longer_clip_flat_and_deletes_shorter(monkeypatch, tmp_path):
+
+# ─── 180-240s 우선순위 규칙 (핵심 로직) ──────────────────────────────────────
+
+def test_in_range_and_distance():
+    assert _in_range(180) and _in_range(240) and _in_range(200)
+    assert not _in_range(179.9) and not _in_range(240.1)
+    assert _distance_to_range(200) == 0
+    assert _distance_to_range(170) == 10
+    assert _distance_to_range(250) == 10
+
+
+def test_rule1_one_in_range_wins_outright():
+    """190s(범위 안) vs 250s(범위 밖) → 190s가 무조건 승리."""
+    a = ("aaaaaaaa", {"duration": 190.0})
+    b = ("bbbbbbbb", {"duration": 250.0})
+    winner, loser, tie = _select_final_clip(a, b)
+    assert winner[0] == "aaaaaaaa" and loser[0] == "bbbbbbbb" and not tie
+
+
+def test_rule2_both_in_range_longer_wins():
+    a = ("aaaaaaaa", {"duration": 200.0})
+    b = ("bbbbbbbb", {"duration": 220.0})
+    winner, loser, tie = _select_final_clip(a, b)
+    assert winner[0] == "bbbbbbbb" and not tie
+
+
+def test_rule3_neither_in_range_closer_wins_178_vs_170():
+    """사용자 예시 1: 178s, 170s → 178s (180에 더 가까움)."""
+    a = ("aaaaaaaa", {"duration": 178.0})
+    b = ("bbbbbbbb", {"duration": 170.0})
+    winner, loser, tie = _select_final_clip(a, b)
+    assert winner[0] == "aaaaaaaa" and not tie
+
+
+def test_rule3_neither_in_range_closer_wins_245_vs_250():
+    """사용자 예시 2: 245s, 250s → 245s (240에 더 가까움)."""
+    a = ("aaaaaaaa", {"duration": 245.0})
+    b = ("bbbbbbbb", {"duration": 250.0})
+    winner, loser, tie = _select_final_clip(a, b)
+    assert winner[0] == "aaaaaaaa" and not tie
+
+
+def test_rule4_exact_duration_tie_is_flagged():
+    a = ("aaaaaaaa", {"duration": 200.0})
+    b = ("bbbbbbbb", {"duration": 200.0})
+    winner, loser, tie = _select_final_clip(a, b)
+    assert tie is True
+
+
+def test_symmetric_distance_tie_break_prefers_longer_not_flagged_as_tie():
+    """거리가 같아도(경계에서 대칭) 길이가 다르면 결정 가능 — is_tie는 False."""
+    a = ("aaaaaaaa", {"duration": 175.0})   # 180-175=5
+    b = ("bbbbbbbb", {"duration": 245.0})   # 245-240=5 (동일 거리)
+    winner, loser, tie = _select_final_clip(a, b)
+    assert winner[0] == "bbbbbbbb"  # 더 긴 245s 선택
+    assert not tie
+
+
+# ─── auto_download_final_version: end-to-end ────────────────────────────────
+
+def test_downloads_in_range_winner_flat_and_deletes_other(monkeypatch, tmp_path):
     root = _patch_song_root(monkeypatch, tmp_path)
     _make_project(root, "방콕-Vol.01", [
         {"title": "늦은 대답", "file_path": "", "created_at": "t1",
          "task_id": "8df69261,b099c8aa"},
     ])
     fp = _FakeProvider({
-        "8df69261": {"id": "8df69261-full", "duration": 175.0, "audio_url": "http://a/8"},
+        "8df69261": {"id": "8df69261-full", "duration": 250.0, "audio_url": "http://a/8"},
         "b099c8aa": {"id": "b099c8aa-full", "duration": 214.0, "audio_url": "http://a/b"},
     })
-    rep = auto_download_longest("방콕-Vol.01", provider=fp,
-                                downloader=_fake_downloader)
+    rep = auto_download_final_version("방콕-Vol.01", provider=fp,
+                                      downloader=_fake_downloader)
 
     assert len(rep["downloaded"]) == 1
     d = rep["downloaded"][0]
-    assert d["clip_id"] == "b099c8aa"            # 더 긴 214s 버전
+    assert d["clip_id"] == "b099c8aa"            # 214s가 범위 안(180-240), 250s는 범위 밖
     dest = Path(d["path"])
-    # FLAT: song_projects/<프로젝트>/songs/ 바로 아래, 곡별 폴더 없음
     assert dest.parent == root / "방콕-Vol.01" / "songs"
     assert dest.name == "늦은 대답-b099c8aa.mp3"
     assert dest.exists()
-
-    # 짧은 버전만 Suno에서 삭제 (full id로)
     assert fp.deleted == ["8df69261-full"]
 
-    # manifest 갱신 확인
     from app.project_manager import get_song_project_songs
     s = get_song_project_songs("방콕-Vol.01")[0]
     assert s["file_path"] == str(dest)
@@ -106,17 +179,17 @@ def test_downloads_longer_clip_flat_and_deletes_shorter(monkeypatch, tmp_path):
     assert s["selected_clip_id"] == "b099c8aa-full"
 
 
-def test_delete_shorter_can_be_disabled(monkeypatch, tmp_path):
+def test_delete_other_can_be_disabled(monkeypatch, tmp_path):
     root = _patch_song_root(monkeypatch, tmp_path)
     _make_project(root, "P", [
         {"title": "곡", "file_path": "", "task_id": "8df69261,b099c8aa"},
     ])
     fp = _FakeProvider({
-        "8df69261": {"id": "8f", "duration": 100, "audio_url": "http://a/8"},
-        "b099c8aa": {"id": "bf", "duration": 200, "audio_url": "http://a/b"},
+        "8df69261": {"id": "8f", "duration": 200, "audio_url": "http://a/8"},
+        "b099c8aa": {"id": "bf", "duration": 220, "audio_url": "http://a/b"},
     })
-    rep = auto_download_longest("P", provider=fp, delete_shorter=False,
-                                downloader=_fake_downloader)
+    rep = auto_download_final_version("P", provider=fp, delete_other=False,
+                                      downloader=_fake_downloader)
     assert rep["downloaded"] and fp.deleted == [] and rep["deleted"] == []
 
 
@@ -129,7 +202,7 @@ def test_skips_songs_already_downloaded_or_without_ids(monkeypatch, tmp_path):
     ])
     existing.write_bytes(b"x")
     fp = _FakeProvider({})
-    rep = auto_download_longest("P", provider=fp, downloader=_fake_downloader)
+    rep = auto_download_final_version("P", provider=fp, downloader=_fake_downloader)
     assert rep["downloaded"] == []
     reasons = " / ".join(s["reason"] for s in rep["skipped"])
     assert "이미 로컬 파일" in reasons and "클립 ID 2개 미기록" in reasons
@@ -142,21 +215,54 @@ def test_download_failure_does_not_delete_anything(monkeypatch, tmp_path):
         {"title": "곡", "file_path": "", "task_id": "8df69261,b099c8aa"},
     ])
     fp = _FakeProvider({
-        "8df69261": {"id": "8f", "duration": 100, "audio_url": "http://a/8"},
-        "b099c8aa": {"id": "bf", "duration": 200, "audio_url": "http://a/b"},
+        "8df69261": {"id": "8f", "duration": 200, "audio_url": "http://a/8"},
+        "b099c8aa": {"id": "bf", "duration": 220, "audio_url": "http://a/b"},
     })
-    rep = auto_download_longest("P", provider=fp,
-                                downloader=lambda u, d: False)
+    rep = auto_download_final_version("P", provider=fp,
+                                      downloader=lambda u, d: False)
     assert rep["downloaded"] == []
     assert rep["failed"] and rep["failed"][0]["reason"] == "다운로드 실패"
-    assert fp.deleted == []   # 다운로드 실패 시 Suno 삭제 금지
+    assert fp.deleted == []
 
 
-# ─── plan 길이 규칙 폴백 (웹 다운로드 곡) ────────────────────────────────────
+def test_partial_info_failure_aborts_no_download_no_delete(monkeypatch, tmp_path):
+    """클립 하나라도 정보 조회 실패 시 남은 클립을 '정답'으로 오판하지 않는다."""
+    root = _patch_song_root(monkeypatch, tmp_path)
+    _make_project(root, "P", [
+        {"title": "곡", "file_path": "", "task_id": "8df69261,b099c8aa"},
+    ])
+    fp = _FakeProvider({
+        "8df69261": {"id": "8f", "duration": 100, "audio_url": "http://a/8"},
+        # b099c8aa 조회 실패 ({} 반환)
+    })
+    calls = []
+    rep = auto_download_final_version(
+        "P", provider=fp, downloader=lambda u, d: calls.append(u) or True)
+    assert rep["downloaded"] == [] and rep["deleted"] == []
+    assert fp.deleted == [] and calls == []
+    assert rep["failed"] and "일부 클립 정보 조회 실패" in rep["failed"][0]["reason"]
+
+
+def test_exact_tie_downloads_but_never_deletes(monkeypatch, tmp_path):
+    """두 버전 길이가 정확히 같으면 다운로드만 하고 Suno 삭제는 금지."""
+    root = _patch_song_root(monkeypatch, tmp_path)
+    _make_project(root, "P", [
+        {"title": "곡", "file_path": "", "task_id": "8df69261,b099c8aa"},
+    ])
+    fp = _FakeProvider({
+        "8df69261": {"id": "8f", "duration": 200.0, "audio_url": "http://a/8"},
+        "b099c8aa": {"id": "bf", "duration": 200.0, "audio_url": "http://a/b"},
+    })
+    rep = auto_download_final_version("P", provider=fp, downloader=_fake_downloader)
+    assert len(rep["downloaded"]) == 1
+    assert fp.deleted == [] and rep["deleted"] == []
+    assert any("길이 동일" in s["reason"] for s in rep["skipped"])
+
+
+# ─── plan 길이 규칙 폴백 (웹 다운로드 곡) — 변경 없음, 그대로 유지 ───────────
 
 def test_plan_duration_fallback_for_web_downloads(monkeypatch, tmp_path):
     root = _patch_song_root(monkeypatch, tmp_path)
-    # 파일명에 클립 ID가 없는 웹 다운로드 파일
     mp3 = root / "P" / "songs" / "곡제목.mp3"
     _make_project(root, "P", [
         {"title": "곡제목", "file_path": str(mp3), "task_id": "8df69261,b099c8aa"},
@@ -169,7 +275,7 @@ def test_plan_duration_fallback_for_web_downloads(monkeypatch, tmp_path):
     plan = plan_suno_cleanup("P", provider=fp)
     e = plan[0]
     assert e["action"] == "delete"
-    assert e["keep_id"] == "8df69261"      # 긴 버전 유지
+    assert e["keep_id"] == "8df69261"      # 긴 버전 유지 (이 폴백은 변경 없음)
     assert e["delete_ids"] == ["b099c8aa"]
     assert "길이 규칙" in e["reason"]
 
@@ -206,10 +312,27 @@ def test_plan_without_provider_keeps_offline_behavior(monkeypatch, tmp_path):
 
 def test_project_album_has_auto_download_button():
     src = Path("app/tabs/song_lab.py").read_text(encoding="utf-8")
-    assert "auto_download_longest" in src
+    assert "auto_download_final_version" in src
     assert "최종본 자동 다운로드" in src
+    assert "180~240s" in src
     assert "곡별 폴더 없음" in src
     assert 'plan_suno_cleanup(name, provider=_prov)' in src
+
+
+def test_generation_paths_have_auto_pipeline_hook():
+    """생성 완료 즉시(버튼 없이) 자동 다운로드+삭제가 실행되도록 배선 확인."""
+    worker = Path("workers/suno_generation_worker.py").read_text(encoding="utf-8")
+    assert "auto_download_final_version" in worker
+    ui = Path("app/tabs/song_lab.py").read_text(encoding="utf-8")
+    assert ui.count("auto_download_final_version") >= 3  # 버튼 1 + 후크 2
+
+
+def test_hooks_no_longer_silently_swallow_failures():
+    """예전엔 except Exception: pass로 완전히 침묵 — 이제는 실패를 보여준다."""
+    worker = Path("workers/suno_generation_worker.py").read_text(encoding="utf-8")
+    assert "자동 다운로드 파이프라인 오류" in worker
+    ui = Path("app/tabs/song_lab.py").read_text(encoding="utf-8")
+    assert "자동 다운로드 파이프라인 오류" in ui
 
 
 try:
@@ -230,47 +353,3 @@ def test_project_mode_renders_with_auto_download(monkeypatch, tmp_path):
     at.session_state["song_lab_mode"] = "💿 프로젝트 관리"
     at.run(timeout=30)
     assert not at.exception
-
-
-# ─── 검수 후 강화된 안전규칙 (alpha.50 최종) ─────────────────────────────────
-
-def test_partial_info_failure_aborts_no_download_no_delete(monkeypatch, tmp_path):
-    """클립 하나라도 정보 조회 실패 시 남은 클립을 '긴 쪽'으로 오판하지 않는다."""
-    root = _patch_song_root(monkeypatch, tmp_path)
-    _make_project(root, "P", [
-        {"title": "곡", "file_path": "", "task_id": "8df69261,b099c8aa"},
-    ])
-    fp = _FakeProvider({
-        "8df69261": {"id": "8f", "duration": 100, "audio_url": "http://a/8"},
-        # b099c8aa 조회 실패 ({} 반환)
-    })
-    calls = []
-    rep = auto_download_longest("P", provider=fp,
-                                downloader=lambda u, d: calls.append(u) or True)
-    assert rep["downloaded"] == [] and rep["deleted"] == []
-    assert fp.deleted == [] and calls == []
-    assert rep["failed"] and "일부 클립 정보 조회 실패" in rep["failed"][0]["reason"]
-
-
-def test_tie_downloads_but_never_deletes(monkeypatch, tmp_path):
-    """두 버전 길이가 같으면 규칙 적용 불가 — 다운로드만 하고 삭제는 금지."""
-    root = _patch_song_root(monkeypatch, tmp_path)
-    _make_project(root, "P", [
-        {"title": "곡", "file_path": "", "task_id": "8df69261,b099c8aa"},
-    ])
-    fp = _FakeProvider({
-        "8df69261": {"id": "8f", "duration": 180.0, "audio_url": "http://a/8"},
-        "b099c8aa": {"id": "bf", "duration": 180.0, "audio_url": "http://a/b"},
-    })
-    rep = auto_download_longest("P", provider=fp, downloader=_fake_downloader)
-    assert len(rep["downloaded"]) == 1
-    assert fp.deleted == [] and rep["deleted"] == []
-    assert any("길이 동일" in s["reason"] for s in rep["skipped"])
-
-
-def test_generation_paths_have_auto_pipeline_hook():
-    """생성 완료 즉시(버튼 없이) 자동 다운로드+삭제가 실행되도록 배선 확인."""
-    worker = Path("workers/suno_generation_worker.py").read_text(encoding="utf-8")
-    assert "auto_download_longest" in worker
-    ui = Path("app/tabs/song_lab.py").read_text(encoding="utf-8")
-    assert ui.count("auto_download_longest") >= 3  # 버튼 1 + 후크 2

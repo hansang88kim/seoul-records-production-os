@@ -705,16 +705,39 @@ class SunoCliProvider(ComposerProvider):
         """
         Full details for one clip (`suno info <id>`). Accepts an 8-char id
         prefix (the same form our task_ids store) — the CLI resolves it.
-        Returns the clip data dict ({} on failure).
+
+        v1.0.0-alpha.52: if `info` returns nothing for the prefix (some
+        suno-cli builds only resolve `info` by the FULL clip id, unlike
+        `status`), fall back to `suno list` and match by prefix — the same
+        resolution approach create_song() already relies on after
+        generation. This makes clip lookups resilient regardless of
+        which form the installed CLI version accepts.
+        Returns the clip data dict ({} if truly not found).
         """
         try:
             data = _run_suno_json(["info", clip_id], timeout=30, suno_bin=self._bin)
             d = data.get("data", {})
             if isinstance(d, list):
                 d = d[0] if d else {}
-            return d or {}
+            if d:
+                return d
         except ProviderError:
-            return {}
+            pass
+
+        # Fallback: resolve via `suno list` and match on id prefix.
+        try:
+            list_data = _run_suno_json(["list", "--limit", "20"], timeout=30,
+                                       suno_bin=self._bin)
+            clips = list_data.get("data", [])
+            if isinstance(clips, dict):
+                clips = clips.get("clips", clips.get("songs", []))
+            for c in clips:
+                cid = c.get("id", "")
+                if cid and cid.startswith(clip_id):
+                    return c
+        except Exception:
+            pass
+        return {}
 
     def delete_clips(self, clip_ids: list[str]) -> dict:
         """

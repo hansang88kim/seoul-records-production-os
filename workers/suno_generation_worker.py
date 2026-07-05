@@ -210,20 +210,26 @@ def run_job(job_id: str):
             except Exception:
                 pass
 
-            # ── ⬇️ 자동 파이프라인 (v1.0.0-alpha.50): 생성 완료 즉시 ──
-            # 길이 규칙(긴 버전 = 최종본)으로 자동 다운로드(프로젝트 폴더
-            # FLAT, 곡별 폴더 없음) + 짧은 버전 Suno 휴지통 이동.
-            # 실패해도 생성 결과에는 영향 없음.
+            # ── ⬇️ 자동 파이프라인 (v1.0.0-alpha.52): 생성 완료 즉시 ──
+            # 180~240s 우선순위 규칙(모듈 docstring 참고)으로 최종본을 자동
+            # 선택해 다운로드(프로젝트 폴더 FLAT, 곡별 폴더 없음) + 나머지
+            # 버전 Suno 휴지통 이동. 실패해도 생성 결과에는 영향 없지만,
+            # 이제 job 로그에 원인을 남긴다(예전엔 완전히 침묵 처리되어
+            # "왜 다운로드가 안 되는지" 알 방법이 없었음).
             try:
-                from services.suno_auto_download import auto_download_longest
-                rep = auto_download_longest(project)
+                from services.suno_auto_download import auto_download_final_version
+                rep = auto_download_final_version(project)
                 for d in rep.get("downloaded", []):
                     _log(job_id, f"⬇️ 최종본 저장: {d['title']} "
                                  f"({d.get('duration', 0):.0f}s) → songs/", "info")
                 for dd in rep.get("deleted", []):
-                    _log(job_id, f"🗑 Suno 짧은 버전 삭제: {dd['title']}", "info")
-            except Exception:
-                pass
+                    _log(job_id, f"🗑 Suno 나머지 버전 삭제: {dd['title']}", "info")
+                for fl in rep.get("failed", []):
+                    _log(job_id, f"⚠️ 자동 다운로드 실패: {fl.get('title','?')} — "
+                                 f"{fl.get('reason', fl.get('error',''))}", "warning")
+            except Exception as _e:
+                _log(job_id, f"⚠️ 자동 다운로드 파이프라인 오류: "
+                             f"{type(_e).__name__}: {_e}", "warning")
 
         except Exception as e:
             draft["status"] = "failed"
