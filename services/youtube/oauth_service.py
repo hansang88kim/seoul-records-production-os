@@ -60,44 +60,69 @@ def load_client_secret_from_bytes(data: bytes) -> bool:
     return ok
 
 
-def _run_local_server_with_timeout(flow, timeout_seconds: float):
+def _run_flow_local_server(flow, timeout_seconds: float, open_browser: bool = True):
     """
-    Run flow.run_local_server(port=0) with a hard wall-clock timeout.
+    Run flow.run_local_server(port=0, timeout_seconds=..., open_browser=...)
+    and capture whatever it prints to stdout (the fallback "please visit
+    this URL" message google-auth-oauthlib prints when it can't be sure
+    the browser opened) so we can show that URL directly in the app UI
+    on failure.
 
-    v1.0.0-alpha.53 fix: InstalledAppFlow.run_local_server() blocks
-    forever waiting for the OAuth redirect. In a Streamlit app this means
-    that if the browser doesn't auto-open (headless/remote session, no
-    default browser configured, popup blocked) or the person closes the
-    tab without finishing login, clicking "🔑 YouTube 인증" just hangs —
-    no error, no timeout, nothing — which looks EXACTLY like "인증이 안
-    됨" with zero diagnostic signal. This wraps the blocking call in a
-    worker thread and gives up after `timeout_seconds`, raising
-    TimeoutError so authorize() can show a clear, actionable message
-    instead of hanging silently.
+    v1.0.0-alpha.54 fix (replaces the alpha.53 ThreadPoolExecutor
+    wrapper): reading the actual google-auth-oauthlib source confirmed
+    run_local_server() has its OWN native `timeout_seconds` parameter that
+    aborts the underlying WSGI server's socket wait and raises
+    WSGITimeoutError — this is the correct way to bound the wait.
 
-    Note: the worker thread itself cannot be forcibly killed (Python has
-    no safe thread-kill); it keeps listening on its OS-assigned port
-    until the browser eventually hits it or the process exits. That's
-    harmless — port=0 means a fresh random port is used on each retry.
+    The alpha.53 wrapper (a ThreadPoolExecutor + future.result(timeout=))
+    had a real bug: if the person completed the Google login just a
+    little slower than our patience threshold, the background thread's
+    run_local_server() would keep running and eventually SUCCEED — but by
+    then authorize() had already returned a "실패" status to the caller,
+    and that late success was silently discarded (never saved to
+    token_store). Someone could finish the real Google login correctly
+    and still see "인증 실패". Using the library's own timeout instead
+    avoids this entirely: the abort happens inside the same synchronous
+    call, so there's no discarded background success.
+
+    open_browser=False is exposed for headless/CI/test environments where
+    no browser exists at all — auto-open would otherwise fail with its
+    own webbrowser.Error before ever reaching the socket timeout.
     """
-    import concurrent.futures
-    executor = concurrent.futures.ThreadPoolExecutor(max_workers=1)
-    future = executor.submit(flow.run_local_server, port=0)
+    import io
+    import contextlib
+    buf = io.StringIO()
     try:
-        return future.result(timeout=timeout_seconds)
-    except concurrent.futures.TimeoutError:
-        raise TimeoutError(
-            f"{int(timeout_seconds)}초 내에 브라우저 인증이 완료되지 않았습니다")
+        with contextlib.redirect_stdout(buf):
+            creds = flow.run_local_server(port=0, timeout_seconds=int(timeout_seconds),
+                                          open_browser=open_browser)
+        return creds
+    except Exception as e:
+        # Stash whatever was printed (the auth URL, if google-auth-oauthlib
+        # got that far) on the exception so authorize() can surface it —
+        # this covers Streamlit sessions with no visible console for the
+        # printed fallback message to appear in.
+        e._captured_stdout = buf.getvalue()
+        raise
+
+
+def _extract_url(text: str) -> str | None:
+    import re
+    m = re.search(r"https://\S+", text or "")
+    return m.group(0) if m else None
 
 
 def authorize(headless_token: dict | None = None,
-             timeout_seconds: float = 120) -> dict:
+             timeout_seconds: float = 120,
+             open_browser: bool = True) -> dict:
     """
     Run (or simulate) the OAuth authorization.
 
     - If headless_token is provided (tests / programmatic), store it directly.
     - Else, attempt the real installed-app flow via google-auth-oauthlib,
-      bounded by timeout_seconds (see _run_local_server_with_timeout).
+      bounded by timeout_seconds (see _run_flow_local_server).
+    - open_browser=False skips the automatic browser launch (useful for
+      headless environments / testing); production UI leaves it True.
     Returns the resulting status dict (no secrets).
     """
     if not ts.has_client_secret():
@@ -115,11 +140,15 @@ def authorize(headless_token: dict | None = None,
         from services.youtube.dependency_check import oauth_install_hint
         hint = oauth_install_hint() or "pip install google-auth-oauthlib google-auth"
         return ts.set_status(ts.STATUS_FAILED, hint)
+    try:
+        from google_auth_oauthlib.flow import WSGITimeoutError  # type: ignore
+    except Exception:
+        WSGITimeoutError = ()  # no native timeout support in this version
 
     try:
         secret = ts.load_client_secret()
         flow = InstalledAppFlow.from_client_config(secret, scopes=[YOUTUBE_UPLOAD_SCOPE])
-        creds = _run_local_server_with_timeout(flow, timeout_seconds)
+        creds = _run_flow_local_server(flow, timeout_seconds, open_browser=open_browser)
         token = {
             "token": creds.token,
             "refresh_token": creds.refresh_token,
@@ -131,23 +160,51 @@ def authorize(headless_token: dict | None = None,
         }
         ts.save_token(token)
         return ts.set_status(ts.STATUS_AUTHORIZED, "인증 완료")
-    except TimeoutError as e:
+    except WSGITimeoutError as e:
+        url = _extract_url(getattr(e, "_captured_stdout", ""))
+        url_hint = (f" 다음 링크를 브라우저에 직접 열어 로그인을 완료한 뒤 다시 "
+                    f"시도하세요: {url}" if url else
+                    " 브라우저 창이 자동으로 열리지 않았다면 이 앱을 실행한 "
+                    "터미널(cmd/PowerShell)에 출력된 인증 링크를 확인하세요.")
         return ts.set_status(
             ts.STATUS_FAILED,
-            f"인증 실패 — {e}. 클릭 시 자동으로 열리는 브라우저 창에서 Google 로그인을 "
-            "완료해야 합니다. 브라우저가 자동으로 열리지 않았다면, 이 앱을 실행한 "
-            "터미널(cmd/PowerShell) 창에 출력된 인증 URL을 복사해 브라우저 주소창에 "
-            "직접 붙여넣고 로그인을 완료한 뒤 다시 시도하세요.")
+            f"인증 실패 — {int(timeout_seconds)}초 내에 브라우저 인증이 완료되지 "
+            f"않았습니다.{url_hint}")
     except Exception as e:
+        # v1.0.0-alpha.54: known bug in older google-auth-oauthlib
+        # (googleapis/google-auth-library-python-oauthlib#276) — versions
+        # around 1.0.0 raise a bare AttributeError ("'NoneType' object has
+        # no attribute 'replace'") instead of WSGITimeoutError in this
+        # EXACT same "nothing ever completed the redirect" timeout
+        # scenario. Treat it identically so the person still gets the
+        # actionable timeout message instead of a confusing internal
+        # AttributeError.
+        if (isinstance(e, AttributeError) and "replace" in str(e)
+                and "NoneType" in str(e)):
+            url = _extract_url(getattr(e, "_captured_stdout", ""))
+            url_hint = (f" 다음 링크를 브라우저에 직접 열어 로그인을 완료한 뒤 다시 "
+                        f"시도하세요: {url}" if url else
+                        " 브라우저 창이 자동으로 열리지 않았다면 이 앱을 실행한 "
+                        "터미널(cmd/PowerShell)에 출력된 인증 링크를 확인하세요.")
+            return ts.set_status(
+                ts.STATUS_FAILED,
+                f"인증 실패 — {int(timeout_seconds)}초 내에 브라우저 인증이 완료되지 "
+                f"않았습니다.{url_hint} (google-auth-oauthlib 구버전에서 알려진 "
+                "메시지 표시 문제 — pip install --upgrade google-auth-oauthlib 권장)")
+
         # v1.0.0-alpha.51 fix: the previous version discarded the real
         # exception and always showed a generic "인증 실패", leaving no way
         # to tell apart a closed browser, a Testing-mode Gmail not added,
         # a wrong client type (web vs. installed), a blocked local port,
         # etc. We now surface the (redacted) exception type + message so
-        # the person can actually diagnose it.
+        # the person can actually diagnose it — plus the captured URL
+        # (if any was printed before the failure), which is useful even
+        # for non-timeout failures.
         from services.security.redaction import redact_text
         detail = redact_text(f"{type(e).__name__}: {e}").strip()[:300]
-        return ts.set_status(ts.STATUS_FAILED, f"인증 실패 — {detail}")
+        url = _extract_url(getattr(e, "_captured_stdout", ""))
+        url_part = f" (인증 URL: {url})" if url else ""
+        return ts.set_status(ts.STATUS_FAILED, f"인증 실패 — {detail}{url_part}")
 
 
 def refresh_if_needed() -> dict:
