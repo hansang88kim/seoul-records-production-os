@@ -345,6 +345,10 @@ def _render_upload_progress_panel():
         thumb_err = state.get("thumbnail_error", "")
         st.warning(f"⚠️ 업로드됨(private) · 썸네일 실패: {state.get('youtube_url','')}"
                    + (f"\n\n**사유:** {thumb_err}" if thumb_err else ""))
+        vid = state.get("video_id", "")
+        if vid:
+            st.markdown(f"[🎬 YouTube Studio에서 이 영상 편집하기 (썸네일 수동 설정)]"
+                       f"(https://studio.youtube.com/video/{vid}/edit)")
         if st.button("🖼️ 썸네일만 재시도", key="yt_retry_thumb"):
             from workers.youtube_upload_worker import run_thumbnail_retry
             run_thumbnail_retry(jid, use_mock=not st.session_state.get("yt_use_real", False))

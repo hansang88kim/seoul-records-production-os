@@ -197,16 +197,24 @@ class RealYouTubeApiClient:
                 media_body=MediaFileUpload(thumbnail_path)).execute()
             return {"thumbnail_set": True, "video_id": video_id, "mock": False}
         except Exception as e:
-            # v1.0.0-alpha.55 fix: this used to swallow the real exception
-            # entirely and always return the generic "thumbnail set
-            # failed" — giving no way to tell a file-size/format problem
-            # apart from the classic (and very common) real cause: a
-            # YouTube channel that hasn't completed phone/channel
-            # verification cannot set custom thumbnails AT ALL, via the
-            # API or the website, even when the image file itself is
-            # perfectly valid. We now surface the actual HTTP status +
-            # message from YouTube's error body, and add a specific hint
-            # when the message matches that known pattern.
+            # v1.0.0-alpha.55 fix, corrected in v1.0.0-alpha.56: this used
+            # to swallow the real exception entirely and always return the
+            # generic "thumbnail set failed". alpha.55 first assumed the
+            # cause was always missing CHANNEL phone verification — but a
+            # real retry (this exact error, this exact video) AFTER
+            # completing phone verification still failed with the
+            # identical 403, which disproves that as the (sole) cause.
+            # thumbnails.set returning a persistent 403 despite full
+            # scopes and a verified channel is a widely-reported pattern
+            # (e.g. googleapis youtube/api-samples#316) most consistent
+            # with a separate, APP-level restriction: YouTube Data API
+            # apps that haven't passed Google's formal API Services
+            # audit/verification can be blocked from setting custom
+            # thumbnails via the API specifically, independent of channel
+            # verification status. We no longer assert channel
+            # verification as the fix; we surface the real HTTP detail
+            # and point to the practical workaround (set it by hand in
+            # Studio) alongside the — now uncertain — channel-side check.
             from services.security.redaction import redact_text
             status = None
             reason = ""
@@ -223,10 +231,17 @@ class RealYouTubeApiClient:
             low = reason.lower()
             if (status == 403 and
                     any(k in low for k in ("thumbnail", "eligib", "verif"))):
-                hint = (" — YouTube는 채널 인증(전화번호 인증)이 완료되지 않은 "
-                        "채널은 API로도 커스텀 썸네일 설정을 막습니다. YouTube "
-                        "Studio → 설정 → 채널 → 채널 상태 및 기능에서 전화번호 "
-                        "인증을 완료한 뒤 '썸네일만 재시도'를 눌러주세요.")
+                hint = (" — 이 에러는 보통 채널 인증(전화번호 인증) 미완료가 원인으로 "
+                        "알려져 있지만, 채널 인증을 이미 완료했는데도 동일한 403이 "
+                        "계속되면 채널 문제가 아니라 이 앱(OAuth 클라이언트)이 "
+                        "Google의 정식 YouTube API 심사(Audit/verification)를 "
+                        "통과하지 않아 API로는 커스텀 썸네일 설정 자체가 막혀 있는 "
+                        "구조적 제한일 가능성이 높습니다. 개인/소규모 프로젝트라면 "
+                        "심사를 받기보다 영상은 이대로 자동 업로드(private)하고, "
+                        "썸네일만 YouTube Studio에서 직접 수동으로 설정하는 것을 "
+                        "권장합니다. (채널 인증을 아직 안 하셨다면 YouTube Studio → "
+                        "설정 → 채널 → 기능 사용 자격 요건에서 전화번호 인증 후 "
+                        "'썸네일만 재시도'를 한 번 눌러보세요.)")
 
             detail = f"HTTP {status}: {reason}" if status else reason
             return {"thumbnail_set": False, "video_id": video_id,
