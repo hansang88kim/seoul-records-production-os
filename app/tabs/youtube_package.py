@@ -104,12 +104,37 @@ def render_youtube_package():
         mood = st.text_input("무드/테마 (선택)", key="yt_mood",
                              placeholder="예: Rainy Night Drive")
 
+        # v1.0.0-alpha.60: song language → auto-translate the description
+        # frame (tags stay English). Korean = no translation.
+        lang_labels = {
+            "korean": "한국어 (번역 안 함 · 기본)",
+            "japanese": "日本語 (일본어로 번역)",
+            "thai": "ไทย (태국어로 번역)",
+            "vietnamese": "Tiếng Việt (베트남어로 번역)",
+            "indonesian": "Bahasa Indonesia (인도네시아어로 번역)",
+        }
+        yt_language = st.selectbox(
+            "곡 언어 / 설명 번역", list(lang_labels.keys()),
+            format_func=lambda k: lang_labels[k], key="yt_language",
+            help="곡이 외국어일 경우 설명 틀을 해당 언어로 자동 번역합니다 "
+                 "(OpenAI/Gemini). 트랙리스트는 그대로 유지되고, 태그는 항상 "
+                 "영어입니다. API 키가 없으면 한국어 원본이 유지됩니다.",
+        )
+
         chapters_path = sel_chapters["path"] if sel_chapters else ""
 
         if st.button("🎯 YouTube 메타데이터 생성", type="primary", use_container_width=True):
-            meta = MG.generate_all_metadata(
-                playlist_title, country, int(volume), mood, chapters_path, int(duration_min))
+            with st.spinner("메타데이터 생성 중… (외국어면 설명 번역에 시간이 걸릴 수 있습니다)"):
+                meta = MG.generate_all_metadata(
+                    playlist_title, country, int(volume), mood, chapters_path,
+                    int(duration_min), language=yt_language)
             st.session_state["yt_meta"] = meta
+            if meta.get("description_translated"):
+                st.success(f"✅ 설명을 {meta['description_language']}로 번역했습니다.")
+            elif yt_language != "korean":
+                st.warning("⚠️ 번역에 실패했거나 API 키가 없어 한국어 원본을 "
+                           "사용합니다. Settings에서 OpenAI 또는 Gemini 키를 "
+                           "확인하세요.")
 
         meta = st.session_state.get("yt_meta")
         if meta:
@@ -125,9 +150,19 @@ def render_youtube_package():
             with rc2:
                 if st.button("🔄 설명", use_container_width=True, key="yt_regen_desc"):
                     # DJ HANA description: fixed frame, tracklist from the
-                    # real uploaded audio (chapters).
-                    meta["description"] = MG.generate_djhana_description(
-                        meta.get("chapters", []))
+                    # real uploaded audio (chapters), translated to the
+                    # selected song language if non-Korean.
+                    desc = MG.generate_djhana_description(meta.get("chapters", []))
+                    lang = st.session_state.get("yt_language", "korean")
+                    from services.youtube.description_translator import (
+                        translate_description, needs_translation)
+                    if needs_translation(lang):
+                        with st.spinner("설명 번역 중…"):
+                            res = translate_description(desc, lang)
+                        desc = res["description"]
+                        meta["description_translated"] = res["translated"]
+                        meta["description_language"] = res["language"]
+                    meta["description"] = desc
                     st.session_state["yt_meta"] = meta
                     st.rerun()
             with rc3:

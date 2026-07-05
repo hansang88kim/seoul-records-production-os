@@ -111,9 +111,13 @@ def test_metadata_generator_creates_tags():
     from services.youtube.metadata_generator import generate_tags
     tags = generate_tags("Korea", "night drive", 1)
     assert "citypop" in tags
-    assert len(tags) <= 30
-    # No '#' in plain tags
+    # v1.0.0-alpha.60: SEO-expanded fixed English tags (~480 chars),
+    # under YouTube's 500-char hard cap.
+    joined = ",".join(tags)
+    assert 400 <= len(joined) < 500
+    # No '#' in plain tags; all English (ASCII).
     assert all(not t.startswith("#") for t in tags)
+    assert all(t.isascii() for t in tags)
 
 
 def test_pinned_comment_created():

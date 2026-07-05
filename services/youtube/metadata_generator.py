@@ -73,27 +73,69 @@ def generate_title(playlist_title: str, country: str = "", volume: int = 1,
 
 
 def generate_tags(country: str = "", mood: str = "", volume: int = 1) -> list[str]:
-    """Generate a tag list (no '#', plain keywords)."""
-    tags = [
-        "citypop", "city pop", "playlist", "music playlist",
-        "nostalgic", "night drive", "chill", "lofi citypop",
-        "japanese citypop", "80s citypop", "retro music",
-        "seoul records",
+    """
+    v1.0.0-alpha.60: SEO-optimised FIXED tag set, always in English.
+
+    The tags are now a curated, stable list tuned for city-pop / playlist
+    discovery on YouTube, targeting ~400-490 characters of the 500-char
+    budget (previously only ~180 chars, which under-used the space). Tags
+    stay in English regardless of the song's lyric language — only the
+    title/description get localised (see the translation option) — because
+    English tags reach the widest city-pop search audience.
+
+    The list is intentionally fixed (not randomised) so every upload is
+    consistently indexed under the same high-value keywords. country/mood/
+    volume are accepted for backwards-compat and lightly folded in, but the
+    core SEO set does the heavy lifting.
+    """
+    core = [
+        # primary genre / intent
+        "citypop", "city pop", "citypop playlist", "city pop playlist",
+        "playlist", "music playlist", "citypop mix", "city pop mix",
+        # mood / usage (high-search long-tail)
+        "nostalgic", "night drive", "night drive music", "chill", "chill music",
+        "chill playlist", "relaxing music", "study music", "work music",
+        "late night music", "aesthetic", "vaporwave", "lofi", "lofi citypop",
+        # sub-genre / era
+        "japanese citypop", "japanese city pop", "80s citypop", "80s city pop",
+        "80s music", "retro music", "retro citypop", "synthwave",
+        "nu disco", "disco house", "funk", "smooth jazz",
+        # brand / channel
+        "seoul records", "seoul citypop", "seoul city pop", "korean citypop",
+        "k citypop", "asian citypop",
+        # discovery long-tail
+        "citypop for driving", "citypop night", "neon night", "tokyo night",
+        "seoul night", "summer citypop", "sunset drive", "rooftop lounge",
     ]
+
+    # Light, optional folding of dynamic context (kept English).
+    extras = []
     if country:
-        tags.append(f"{country.lower()} citypop")
-        tags.append(f"{country.lower()} playlist")
+        c = country.strip().lower()
+        extras += [f"{c} citypop", f"{c} playlist", f"{c} city pop"]
     if mood:
-        tags.append(mood.lower())
-    tags.append(f"citypop vol {volume}")
-    # Dedupe, keep order, cap at 30 (YouTube allows ~500 chars of tags)
+        extras.append(mood.strip().lower())
+    extras.append(f"citypop vol {volume}")
+
+    # Dedupe (case-insensitive), preserve order.
     seen = set()
+    ordered = []
+    for t in core + extras:
+        key = t.lower()
+        if key not in seen:
+            seen.add(key)
+            ordered.append(t)
+
+    # Fill up toward ~480 chars (comma-joined), hard-stop under 500.
     out = []
-    for t in tags:
-        if t not in seen:
-            seen.add(t)
-            out.append(t)
-    return out[:30]
+    total = 0
+    for t in ordered:
+        add = len(t) + (1 if out else 0)  # +1 for the joining comma
+        if total + add > 490:
+            break
+        out.append(t)
+        total += add
+    return out
 
 
 def generate_hashtags(country: str = "", volume: int = 1) -> list[str]:
@@ -292,6 +334,8 @@ def generate_all_metadata(
     playlist_title: str, country: str = "", volume: int = 1,
     mood: str = "", chapters_path: str = "", duration_min: int = 60,
     use_djhana_template: bool = True,
+    language: str = "korean",
+    translate: bool = True,
 ) -> dict:
     """
     Generate the full metadata bundle.
@@ -301,12 +345,29 @@ def generate_all_metadata(
     with ONLY the tracklist auto-filled from the real uploaded audio
     (chapters). Set it False to fall back to the older auto-generated
     English description.
+
+    v1.0.0-alpha.60: `language` is the song's lyric language key (korean,
+    japanese, thai, vietnamese, indonesian). When it is a non-Korean
+    supported language and `translate` is True, the DJ HANA description
+    frame is auto-translated into that language via OpenAI/Gemini (the
+    tracklist is preserved verbatim). Tags always stay English. On any
+    translation failure or missing API key, the Korean frame is kept.
     """
     chapters = parse_chapters_txt(chapters_path) if chapters_path else []
 
+    translated_flag = False
+    translated_language = "Korean"
     if use_djhana_template:
         title = DJHANA_DEFAULT_TITLE
         description = generate_djhana_description(chapters)
+        if translate:
+            from services.youtube.description_translator import (
+                translate_description, needs_translation)
+            if needs_translation(language):
+                res = translate_description(description, language)
+                description = res["description"]
+                translated_flag = res["translated"]
+                translated_language = res["language"]
     else:
         title = generate_title(playlist_title, country, volume, duration_min, mood)
         description = generate_description(
@@ -321,4 +382,6 @@ def generate_all_metadata(
         "chapters": chapters,
         "chapters_section": format_chapters_section(chapters),
         "studio_manual_steps": STUDIO_MANUAL_STEPS,
+        "description_translated": translated_flag,
+        "description_language": translated_language,
     }
