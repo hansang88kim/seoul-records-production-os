@@ -229,15 +229,20 @@ def test_visualizer_styles_all_valid():
 
 # ─── New FFmpeg-native styles + color themes (v1.0.0-alpha.37) ──────────────
 
-def test_nine_total_styles_present():
+# ─── Single classic_bars style (v1.0.0-alpha.40) ────────────────────────────
+
+def test_only_classic_bars_style_remains():
     from services.video.visualizer import VISUALIZER_STYLES
-    assert len(VISUALIZER_STYLES) == 9
-    for expected in ("classic_bars", "mirrored_bars", "lissajous_scope",
-                     "spectrum_fire", "spectrum_terrain"):
-        assert expected in VISUALIZER_STYLES
+    assert VISUALIZER_STYLES == ["classic_bars"]
 
 
-def test_classic_bars_uses_linear_scale_showfreqs():
+def test_classic_bars_uses_log_frequency_scale():
+    """Regression: classic_bars originally used only ascale=lin (amplitude),
+    leaving the FREQUENCY axis at FFmpeg's default linear scale — which bunches
+    most of a song's energy into the left ~20% of the bar and leaves the high
+    end nearly flat/invisible. fscale=log is the actual fix (matches how real
+    equalizers display frequency), spreading bass out and giving treble a fair
+    share of screen space."""
     from services.video.visualizer import visualizer_config, build_visualizer_filter
     import warnings
     cfg = visualizer_config("classic_bars", color="#00d4ff")
@@ -245,110 +250,36 @@ def test_classic_bars_uses_linear_scale_showfreqs():
         warnings.simplefilter("ignore")
         flt = build_visualizer_filter(cfg)
     assert "showfreqs" in flt
+    assert "fscale=log" in flt
     assert "ascale=lin" in flt
     assert "0x00d4ff" in flt
 
 
-def test_mirrored_bars_is_vflip_vstack_of_bars():
-    from services.video.visualizer import visualizer_config, build_visualizer_filter
-    import warnings
-    cfg = visualizer_config("mirrored_bars")
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore")
-        flt = build_visualizer_filter(cfg)
-    assert "showfreqs" in flt
-    assert "vflip" in flt
-    assert "vstack=inputs=2" in flt
-    assert flt.endswith("[viz]")
+def test_visualizer_config_defaults_to_classic_bars():
+    from services.video.visualizer import visualizer_config
+    cfg = visualizer_config()
+    assert cfg["style"] == "classic_bars"
 
 
-def test_lissajous_scope_uses_avectorscope():
-    from services.video.visualizer import visualizer_config, build_visualizer_filter
-    import warnings
-    cfg = visualizer_config("lissajous_scope", color="#ff4d6d")
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore")
-        flt = build_visualizer_filter(cfg)
-    assert "avectorscope" in flt
-    assert "mode=lissajous" in flt
+def test_unknown_style_falls_back_to_classic_bars():
+    from services.video.visualizer import visualizer_config
+    cfg = visualizer_config(style="some_removed_style")
+    assert cfg["style"] == "classic_bars"
 
 
-def test_spectrum_fire_uses_builtin_fire_colormap():
-    from services.video.visualizer import visualizer_config, build_visualizer_filter
-    import warnings
-    cfg = visualizer_config("spectrum_fire")
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore")
-        flt = build_visualizer_filter(cfg)
-    assert "showspectrum" in flt
-    assert "color=fire" in flt
-
-
-def test_spectrum_terrain_uses_builtin_terrain_colormap_and_scroll():
-    from services.video.visualizer import visualizer_config, build_visualizer_filter
-    import warnings
-    cfg = visualizer_config("spectrum_terrain")
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore")
-        flt = build_visualizer_filter(cfg)
-    assert "showspectrum" in flt
-    assert "color=terrain" in flt
-    assert "slide=scroll" in flt
-
-
-def test_fixed_palette_styles_flagged_for_ui():
-    from services.video.visualizer import FIXED_PALETTE_STYLES
-    assert FIXED_PALETTE_STYLES == {"spectrum_fire", "spectrum_terrain"}
-
-
-def test_color_themes_are_valid_hex():
-    from services.video.visualizer import COLOR_THEMES
-    assert len(COLOR_THEMES) >= 10
-    for name, hexval in COLOR_THEMES.items():
-        assert hexval.startswith("#") and len(hexval) == 7
-        int(hexval[1:], 16)  # must be valid hex
-
-
-def test_real_renderer_mirrored_bars_produces_multi_part_filter():
+def test_real_renderer_classic_bars_uses_log_frequency_scale():
     """The REAL renderer (filter_complex_builder), not the deprecated
-    standalone helper — mirrored_bars must emit its 4 chained filter parts
-    (bars -> split -> vflip -> vstack) before the shared opacity/overlay
-    steps, and still return the standard [v_viz] output label."""
+    standalone helper — same fscale=log fix must be present."""
     from services.video.filter_complex_builder import add_visualizer_layer
     from services.video.visualizer import visualizer_config
     parts = []
-    cfg = visualizer_config("mirrored_bars", color="#ffb347")
+    cfg = visualizer_config("classic_bars", color="#ffb347")
     out = add_visualizer_layer(parts, "[bg]", {"config": cfg})
     joined = ";".join(parts)
     assert out == "[v_viz]"
-    assert "vflip" in joined
-    assert "vstack=inputs=2" in joined
-    assert "[vizraw]" in joined  # bars chain still feeds the shared alpha/overlay stage
-
-
-def test_real_renderer_lissajous_scope_rgb_from_hex():
-    from services.video.filter_complex_builder import add_visualizer_layer
-    from services.video.visualizer import visualizer_config
-    parts = []
-    cfg = visualizer_config("lissajous_scope", color="#ff8000")
-    add_visualizer_layer(parts, "[bg]", {"config": cfg})
-    joined = ";".join(parts)
-    assert "rc=255" in joined  # 0xff
-    assert "gc=128" in joined  # 0x80
-    assert "bc=0" in joined    # 0x00
-
-
-def test_real_renderer_spectrum_styles_ignore_custom_color():
-    """spectrum_fire/spectrum_terrain use FFmpeg's own colormap — the hex
-    color picker must have no effect on the generated filter."""
-    from services.video.filter_complex_builder import add_visualizer_layer
-    from services.video.visualizer import visualizer_config
-    for style in ("spectrum_fire", "spectrum_terrain"):
-        parts = []
-        cfg = visualizer_config(style, color="#123456")
-        add_visualizer_layer(parts, "[bg]", {"config": cfg})
-        joined = ";".join(parts)
-        assert "0x123456" not in joined
+    assert "showfreqs" in joined
+    assert "fscale=log" in joined
+    assert "0xffb347" in joined
 
 
 # ─── Overlay plan layer order ────────────────────────────────────────────────
