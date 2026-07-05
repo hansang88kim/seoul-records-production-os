@@ -23,6 +23,68 @@ VIDEO_DEFAULTS = {
 }
 
 
+# Marker asset_type for a clean generated source image used directly as the
+# playback background (16:9, no title text) — not an Exports deliverable.
+CLEAN_SOURCE_16X9 = "clean_source_16x9"
+
+
+def list_video_backgrounds(limit: int = 30) -> list[dict]:
+    """
+    All directly-selectable 16:9 playback backgrounds across thumbnail
+    sessions, newest session first (v1.0.0-alpha.47). Rendering only ever
+    needs a 16:9 playback background, so the Video Renderer lets the user
+    pick one of these directly instead of picking a thumbnail session and
+    trusting an auto rule. Two kinds, both clean (no title text):
+
+      1. "export" — exports/video_playback_background_16x9.png (권장)
+      2. "source" — a candidate's clean generated 16:9 image
+
+    Each option: {label, path, asset_type, is_clean_playback, session_id,
+    kind, candidate_id}. Labels reuse the Library-identical session label.
+    """
+    from pathlib import Path
+    from services.thumbnail import session_store as ss
+    from services.library_labels import thumbnail_session_library_label
+
+    options: list[dict] = []
+    for sess in ss.list_sessions(limit=limit):
+        sid = sess.get("session_id", "")
+        try:
+            cands = ss.load_candidates(sid)
+        except Exception:
+            cands = []
+        generated = [c for c in cands if c.get("uploaded_image_path")]
+        sess_label = thumbnail_session_library_label(
+            sess, generated=len(generated), total=len(cands)
+        )
+
+        export = (ss.session_path(sid) / "exports"
+                  / AT.EXPORT_FILENAMES[AT.VIDEO_PLAYBACK_BACKGROUND_16X9])
+        if export.exists():
+            options.append({
+                "label": f"🎬 영상 배경 16:9 · {sess_label}",
+                "path": str(export),
+                "asset_type": AT.VIDEO_PLAYBACK_BACKGROUND_16X9,
+                "is_clean_playback": True,
+                "session_id": sid,
+                "kind": "export",
+                "candidate_id": None,
+            })
+        for c in generated:
+            p = c.get("uploaded_image_path")
+            if p and Path(p).exists():
+                options.append({
+                    "label": f"🖼️ 원본 16:9 ({c.get('candidate_id', '?')}) · {sess_label}",
+                    "path": str(p),
+                    "asset_type": CLEAN_SOURCE_16X9,
+                    "is_clean_playback": True,
+                    "session_id": sid,
+                    "kind": "source",
+                    "candidate_id": c.get("candidate_id"),
+                })
+    return options
+
+
 def select_video_background(session_id: str) -> dict:
     """
     Choose the background for the Video Renderer.

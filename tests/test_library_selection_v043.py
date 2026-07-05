@@ -205,7 +205,10 @@ def test_video_renderer_uses_library_labels_and_project_bulk_select():
     src = Path("app/tabs/video_renderer.py").read_text(encoding="utf-8")
     assert "enrich_tracks_with_song_library" in src
     assert "group_track_indices_by_project" in src
-    assert "thumbnail_session_library_label" in src
+    # alpha.47: the background is picked DIRECTLY from 16:9 playback
+    # backgrounds (list_video_backgrounds — labels still Library-identical
+    # via thumbnail_session_library_label inside the rules module).
+    assert "list_video_backgrounds" in src
     assert "프로젝트 폴더 선택" in src
     assert 'key="vr_mp3_sel"' in src
 

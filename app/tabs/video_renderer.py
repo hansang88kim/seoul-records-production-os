@@ -20,9 +20,6 @@ from services.video.visualizer import (
     visualizer_config, VISUALIZER_STYLES, COLOR_THEMES,
 )
 from services.video import render_plan as rp
-from services.thumbnail import asset_types as AT
-from services.thumbnail import session_store as ss
-from services.thumbnail.video_renderer_rules import select_video_background
 
 
 def _linked_slider(label: str, min_v, max_v, default, step, key: str,
@@ -133,33 +130,39 @@ def render_video_renderer():
                f"({len(plan['chapters'])}개 챕터)")
 
     # ── 2. Background ────────────────────────────────────────────────
-    st.markdown("#### 2️⃣ 재생 배경")
-    thumb_sessions = ss.list_sessions(limit=20)
-    if not thumb_sessions:
-        st.warning("⚠️ Thumbnail Studio에서 video_playback_background를 먼저 내보내세요.")
+    # v1.0.0-alpha.47: rendering only needs a 16:9 playback background, so
+    # pick that DIRECTLY (across all sessions) instead of picking a
+    # thumbnail session and trusting an auto rule. Also removes the old
+    # "⚠️ None" warning path.
+    st.markdown("#### 2️⃣ 재생 배경 (16:9 영상 배경 직접 선택)")
+    from services.thumbnail.video_renderer_rules import list_video_backgrounds
+    bg_options = list_video_backgrounds(limit=30)
+    if not bg_options:
+        st.warning("⚠️ 선택 가능한 16:9 배경이 없습니다. Thumbnail Studio에서 이미지를 생성하거나 "
+                   "Exports에서 '영상 배경'을 내보내세요.")
         st.caption("배경 없이도 플레이리스트 플랜은 저장할 수 있습니다.")
         bg_info = {"asset_type": None, "path": None, "is_clean_playback": False,
                    "warning": "배경 없음"}
     else:
-        # Library-identical session labels (v1.0.0-alpha.43)
-        from services.library_labels import thumbnail_session_library_label
-        sess_labels = {thumbnail_session_library_label(s): s["session_id"]
-                       for s in thumb_sessions}
-        sel_sess = st.selectbox("Thumbnail 세션 선택 (이름은 좌측 Library와 동일)",
-                                list(sess_labels.keys()))
-        sess_id = sess_labels[sel_sess]
-        bg_info = select_video_background(sess_id)
-
-        if bg_info["asset_type"] == AT.VIDEO_PLAYBACK_BACKGROUND_16X9:
-            st.success(f"✅ 깨끗한 재생 배경 사용: video_playback_background_16x9")
-            if bg_info["path"] and Path(bg_info["path"]).exists():
-                st.image(bg_info["path"], width=320)
-        elif bg_info["asset_type"] == AT.YOUTUBE_THUMBNAIL_16X9:
-            st.warning(f"⚠️ {bg_info['warning']}")
-            if bg_info["path"] and Path(bg_info["path"]).exists():
-                st.image(bg_info["path"], width=320)
+        bg_labels = [o["label"] for o in bg_options]
+        sel_bg = st.selectbox(
+            "16:9 영상 배경 선택 (이름은 좌측 Library와 동일)",
+            range(len(bg_options)), format_func=lambda i: bg_labels[i],
+            key="vr_bg_pick",
+            help="렌더링에는 16:9 영상 배경만 사용됩니다. "
+                 "🎬 = Exports에서 내보낸 전용 재생 배경(권장) · "
+                 "🖼️ = 텍스트 없는 생성 원본 이미지.",
+        )
+        picked = bg_options[sel_bg]
+        bg_info = {"asset_type": picked["asset_type"], "path": picked["path"],
+                   "is_clean_playback": True, "warning": None}
+        if picked["kind"] == "export":
+            st.success("✅ 전용 영상 배경 사용: video_playback_background_16x9 (깨끗한 재생 배경)")
         else:
-            st.error("사용 가능한 배경이 없습니다.")
+            st.info("🖼️ 텍스트 없는 생성 원본을 배경으로 사용합니다. 전용 배경이 필요하면 "
+                    "Thumbnail Studio → Exports에서 '영상 배경'을 내보내세요.")
+        if picked["path"] and Path(picked["path"]).exists():
+            st.image(picked["path"], width=320)
 
     # ── 3. Overlay assets ────────────────────────────────────────────
     st.markdown("#### 3️⃣ 오버레이 설정")
