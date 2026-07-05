@@ -177,7 +177,7 @@ def render_video_renderer():
             viz_height = st.slider("높이 (px)", 60, 400, 160, key="vr_viz_h")
             viz_bottom = st.slider("하단 여백 (px)", 0, 400, 40, key="vr_viz_bm")
         with pcol2:
-            viz_width = st.slider("너비 (%)", 10, 100, 100, key="vr_viz_w")
+            viz_width = st.slider("너비 (%)", 10, 100, 25, key="vr_viz_w")
             viz_glow = st.slider("글로우 강도", 0.0, 10.0, 3.0, key="vr_viz_glow")
         with pcol3:
             use_custom_y = st.checkbox("Y 위치 직접 지정", value=False, key="vr_viz_use_y")

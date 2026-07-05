@@ -17,9 +17,20 @@ typical song's energy (bass/low-mid) bunches into the left ~20% of the bar
 and the high end sits nearly flat/invisible on the right. Real hardware/
 software equalizers display frequency on a LOG scale for exactly this
 reason. Added fscale=log, which spreads bass out and compresses treble into
-a comparable amount of screen space — the classic evenly-populated EQ-bar
-look, and the actual fix for the "all bunched left, right barely moves"
-issue.
+a comparable amount of screen space.
+
+v1.0.0-alpha.41: fscale=log alone wasn't enough — bars still looked
+left-heavy after testing a real render. Root cause #2: ascale was still
+LINEAR, and bass genuinely has much higher raw FFT magnitude than treble in
+real music, so even with frequency bins spread out correctly, the bass bars
+dwarfed the (quieter-but-present) treble bars, LOOKING empty on the right.
+Switched to ascale=log too — log amplitude compresses the dynamic range, so
+quiet high-frequency content becomes visually comparable to the bass
+instead of vanishing next to it. ascale=log + fscale=log together give the
+classic, evenly-populated hi-fi-equalizer look. Also changed the default
+width_percent from 100 to 25 (narrower bar band, matching what real
+equalizer overlays typically look like and what the user settled on after
+testing).
 
 Position/size/opacity/glow are fully configurable and are reflected in the
 real filter_complex (see filter_complex_builder.add_visualizer_layer).
@@ -68,7 +79,7 @@ def visualizer_config(
     position: str = "bottom",
     y_position: int | None = None,
     bottom_margin: int = 40,
-    width_percent: int = 100,
+    width_percent: int = 25,
     glow_strength: float = 3.0,
 ) -> dict:
     """
@@ -133,8 +144,10 @@ def build_visualizer_filter(cfg: dict, width: int = 1920,
     h = cfg.get("height", 160)
     color = cfg.get("color", "#ff4d6d").lstrip("#")
     a = f"[{audio_input_index}:a]"
-    # fscale=log balances bass-vs-treble screen space (see module docstring).
-    return f"{a}showfreqs=s={width}x{h}:mode=bar:ascale=lin:fscale=log:colors=0x{color}[viz]"
+    # fscale=log balances bass-vs-treble screen space (frequency axis);
+    # ascale=log balances bass-vs-treble bar HEIGHT (amplitude) — both are
+    # needed for an evenly-populated look (see module docstring).
+    return f"{a}showfreqs=s={width}x{h}:mode=bar:ascale=log:fscale=log:colors=0x{color}[viz]"
 
 
 def save_visualizer_config(cfg: dict) -> dict:

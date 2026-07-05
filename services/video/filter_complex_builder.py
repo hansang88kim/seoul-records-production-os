@@ -209,10 +209,16 @@ def add_visualizer_layer(parts: list[str], current: str, viz: dict) -> str:
     """
     Add the dynamic audio-reactive visualizer. Uses [1:a] (real audio).
     Single style: classic_bars (v1.0.0-alpha.40 — all other styles removed
-    per user direction). fscale=log balances bass-vs-treble screen space —
-    without it, most of a song's energy bunches into the left ~20% of the
-    bar and the high end sits nearly flat (FFmpeg's showfreqs defaults to a
-    LINEAR frequency axis; real EQs use log for exactly this reason).
+    per user direction). Two log scales are both needed for an evenly-
+    populated "classic hi-fi equalizer" look:
+      * fscale=log — balances bass-vs-treble screen SPACE (which frequency
+        maps to which x-position). Without it, FFmpeg's default linear
+        frequency axis bunches most of a song's energy into the left ~20%.
+      * ascale=log — balances bass-vs-treble bar HEIGHT (amplitude). Bass
+        genuinely has far higher raw FFT magnitude than treble in real
+        music, so even with fscale=log alone the bass bars dwarf the
+        (quieter-but-present) treble bars and the right side still looks
+        empty (v1.0.0-alpha.41 fix — fscale=log alone wasn't enough).
     """
     cfg = viz.get("config", {})
     opacity = cfg.get("opacity", 0.55)
@@ -220,7 +226,7 @@ def add_visualizer_layer(parts: list[str], current: str, viz: dict) -> str:
     g = _viz_geometry(cfg)
     w, h, x, y = g["w"], g["h"], g["x"], g["y"]
 
-    parts.append(f"[{AUDIO_INPUT}:a]showfreqs=s={w}x{h}:mode=bar:ascale=lin:fscale=log:colors={color}[vizraw]")
+    parts.append(f"[{AUDIO_INPUT}:a]showfreqs=s={w}x{h}:mode=bar:ascale=log:fscale=log:colors={color}[vizraw]")
     parts.append(f"[vizraw]format=rgba,colorchannelmixer=aa={opacity}[viz_alpha]")
     parts.append(f"{current}[viz_alpha]overlay=x={x}:y={y}[v_viz]")
     return "[v_viz]"

@@ -251,8 +251,30 @@ def test_classic_bars_uses_log_frequency_scale():
         flt = build_visualizer_filter(cfg)
     assert "showfreqs" in flt
     assert "fscale=log" in flt
-    assert "ascale=lin" in flt
+    assert "ascale=log" in flt
     assert "0x00d4ff" in flt
+
+
+def test_ascale_log_also_needed_not_just_fscale():
+    """v1.0.0-alpha.41 regression: fscale=log alone still looked left-heavy
+    in a real render, because ascale was still linear — bass has far higher
+    raw FFT magnitude than treble in real music, so the bass bars dwarfed
+    the treble bars even with frequency bins correctly spread out. Both
+    scales must be log."""
+    from services.video.visualizer import visualizer_config, build_visualizer_filter
+    import warnings
+    cfg = visualizer_config("classic_bars")
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        flt = build_visualizer_filter(cfg)
+    assert "ascale=lin" not in flt
+
+
+def test_default_width_percent_is_25():
+    """User settled on a narrower 25% band after testing full-width (100%)."""
+    from services.video.visualizer import visualizer_config
+    cfg = visualizer_config()
+    assert cfg["width_percent"] == 25
 
 
 def test_visualizer_config_defaults_to_classic_bars():
