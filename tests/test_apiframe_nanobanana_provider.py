@@ -59,6 +59,52 @@ def test_nb_no_key_returns_error_without_network():
     post.assert_not_called()
 
 
+# ─── 2000-char prompt cap (v1.0.0-alpha.39) ─────────────────────────────────
+
+def test_fit_prompt_under_limit_unchanged():
+    from services.thumbnail.apiframe_nanobanana_provider import _fit_prompt
+    result = _fit_prompt("short prompt", "short negative")
+    assert result == "short prompt\n\nAvoid: short negative"
+    assert len(result) <= 2000
+
+
+def test_fit_prompt_trims_negative_suffix_first():
+    from services.thumbnail.apiframe_nanobanana_provider import _fit_prompt
+    main = "A" * 1900
+    negative = "B" * 500
+    result = _fit_prompt(main, negative)
+    assert len(result) == 2000
+    assert result.startswith("A" * 1900)  # main prompt NEVER truncated here
+    assert "Avoid:" in result
+
+
+def test_fit_prompt_no_room_drops_negative_entirely():
+    from services.thumbnail.apiframe_nanobanana_provider import _fit_prompt
+    main = "A" * 1995
+    result = _fit_prompt(main, "some negative terms")
+    assert len(result) <= 2000
+    assert "Avoid" not in result  # no meaningful room left, negative dropped
+
+
+def test_fit_prompt_no_negative_still_capped():
+    from services.thumbnail.apiframe_nanobanana_provider import _fit_prompt
+    result = _fit_prompt("C" * 2500, "")
+    assert len(result) == 2000
+
+
+def test_real_portrait_prompt_plus_negative_fits_2000_chars():
+    """Regression: the real alpha.36 portrait prompt + full negative prompt
+    together previously totaled ~2350 chars, which Apiframe rejected with
+    HTTP 400 'Too big: expected string to have <=2000 characters'."""
+    from services.thumbnail.prompt_generator import generate_flow_prompt
+    from services.thumbnail.apiframe_nanobanana_provider import _fit_prompt
+    p = generate_flow_prompt("korea", "rainy night drive", 0)
+    assert len(p["main_prompt"]) + len(p["negative_prompt"]) > 2000  # confirms the bug scenario
+    fitted = _fit_prompt(p["main_prompt"], p["negative_prompt"])
+    assert len(fitted) <= 2000
+    assert fitted.startswith(p["main_prompt"])  # main prompt preserved in full
+
+
 def test_nb_happy_path_submits_polls_downloads(tmp_path):
     prov = nb.ApiframeNanoBananaProvider(api_key=_FAKE_KEY)
     out = tmp_path / "cand" / "c1_16x9.png"

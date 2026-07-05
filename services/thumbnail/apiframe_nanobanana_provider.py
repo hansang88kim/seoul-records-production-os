@@ -63,6 +63,36 @@ def _default_timeout() -> int:
         return 180
 
 
+# Apiframe's images/generate validates the "prompt" field to <=2000 chars
+# (confirmed by a real 400: "Too big: expected string to have <=2000
+# characters"). The main creative prompt matters most, so when folding in
+# negative_prompt would push the total over the limit, trim the negative
+# portion first (never the main prompt); if the main prompt alone is
+# already over, trim that too as a last resort.
+_MAX_PROMPT_CHARS = 2000
+
+
+def _fit_prompt(main_prompt: str, negative_prompt: str) -> str:
+    main_prompt = main_prompt.strip()
+    if not negative_prompt:
+        return main_prompt[:_MAX_PROMPT_CHARS]
+
+    negative_prompt = negative_prompt.strip()
+    suffix = f"\n\nAvoid: {negative_prompt}"
+    full = f"{main_prompt}{suffix}"
+    if len(full) <= _MAX_PROMPT_CHARS:
+        return full
+
+    # Trim the negative-prompt suffix to whatever room is left after the main
+    # prompt (main prompt is never cut for this — it's the creative content).
+    room = _MAX_PROMPT_CHARS - len(main_prompt) - len("\n\nAvoid: ")
+    if room > 20:  # only worth keeping if it leaves a meaningful fragment
+        return f"{main_prompt}\n\nAvoid: {negative_prompt[:room]}"
+    # No room at all for a negative suffix — just send the (possibly
+    # truncated) main prompt.
+    return main_prompt[:_MAX_PROMPT_CHARS]
+
+
 class ApiframeNanoBananaProvider(ImageGenProvider):
     """Nano Banana 2 generation via the already-connected Apiframe account."""
 
@@ -177,9 +207,9 @@ class ApiframeNanoBananaProvider(ImageGenProvider):
 
         # Gemini/Nano Banana has no dedicated negative-prompt field — fold it
         # into the prompt text, same convention as the direct-Gemini providers.
-        full_prompt = prompt.strip()
-        if negative_prompt:
-            full_prompt = f"{full_prompt}\n\nAvoid: {negative_prompt.strip()}"
+        # Apiframe hard-limits the "prompt" field to 2000 chars — _fit_prompt
+        # trims the negative-prompt suffix (never the main prompt) to fit.
+        full_prompt = _fit_prompt(prompt, negative_prompt)
         # ref_image_path is intentionally ignored (no i2i wiring here yet);
         # the 1:1 is composed natively via aspect_ratio instead.
 
