@@ -86,12 +86,23 @@ def render_composer_panel() -> dict | None:
         selected_provider = providers[selected_idx]
 
     with col_concept:
-        concept = st.text_input(
-            "컨셉 / 무드",
-            placeholder="예: 비 오는 서울 밤, 이별 후 택시 안에서, 루프탑에서 보는 야경",
-            key="ai_concept",
-            label_visibility="collapsed",
-        )
+        cc1, cc2 = st.columns([5, 1])
+        with cc1:
+            concept = st.text_input(
+                "컨셉 / 무드",
+                placeholder="예: 비 오는 서울 밤, 이별 후 택시 안에서, 루프탑에서 보는 야경",
+                key="ai_concept",
+                label_visibility="collapsed",
+            )
+        with cc2:
+            if st.button("🎲 변주", key="ai_concept_variation",
+                         help="시티팝에 어울리는 컨셉 키워드를 하나씩 제안합니다.",
+                         use_container_width=True):
+                from services.concept_suggester import next_concept
+                sug = next_concept(st.session_state,
+                                   avoid=st.session_state.get("ai_concept", ""))
+                st.session_state["ai_concept"] = sug
+                st.rerun()
 
     # Language selector — picks the lyric language + city emotion
     from providers.ai.languages import language_choices

@@ -555,11 +555,23 @@ def _render_auto_batch():
 
     col_concept, col_provider, col_count = st.columns([3, 1, 1])
     with col_concept:
-        concept = st.text_input(
-            "컨셉 / 무드",
-            placeholder="예: 서울 밤거리, 이별, 1990s 시티팝",
-            key="auto_concept",
-        )
+        cc1, cc2 = st.columns([5, 1])
+        with cc1:
+            concept = st.text_input(
+                "컨셉 / 무드",
+                placeholder="예: 서울 밤거리, 이별, 1990s 시티팝",
+                key="auto_concept",
+                label_visibility="collapsed",
+            )
+        with cc2:
+            if st.button("🎲", key="auto_concept_variation",
+                         help="시티팝 컨셉 키워드를 하나씩 제안합니다.",
+                         use_container_width=True):
+                from services.concept_suggester import next_concept
+                sug = next_concept(st.session_state,
+                                   avoid=st.session_state.get("auto_concept", ""))
+                st.session_state["auto_concept"] = sug
+                st.rerun()
     with col_provider:
         prov_idx = st.selectbox(
             "AI", range(len(available)),
