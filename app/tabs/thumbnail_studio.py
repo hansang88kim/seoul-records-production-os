@@ -29,7 +29,8 @@ def render_thumbnail_studio():
     # Mode selector
     mode = st.radio(
         "모드",
-        ["🎨 Prompt Lab", "🖼️ Candidate Gallery", "✨ Brand Thumbnail", "📦 Exports"],
+        ["🎨 Prompt Lab", "🖼️ Candidate Gallery", "✨ Brand Thumbnail",
+         "🆕 프리미엄 (형태별)", "📦 Exports"],
         horizontal=True, label_visibility="collapsed",
     )
 
@@ -41,6 +42,8 @@ def render_thumbnail_studio():
         _render_candidate_gallery()
     elif mode.startswith("✨"):
         _render_brand_thumbnail()
+    elif mode.startswith("🆕"):
+        _render_form_studio()
     else:
         _render_exports()
 
@@ -111,6 +114,25 @@ def _render_prompt_lab():
     if not include_person:
         st.caption("ℹ️ 인물 없이 배경(도시 야경)만 생성됩니다. 타이틀 안전영역은 "
                    "좌/우/상/하 중 다양하게 배치됩니다.")
+
+    # v1.0.0-alpha.71: optional thumbnail FORM (A~F) — injects that form's
+    # composition constraint into the generated image prompt (see
+    # services/thumbnail/prompt_generator.generate_flow_prompt(form=...))
+    # so the background actually has the negative space html_renderer.py's
+    # layout needs. "선택 안 함" keeps the exact pre-alpha.71 prompt.
+    from services.thumbnail.html_renderer import FORMS as HR_FORMS
+    form_options = ["선택 안 함 (기존 방식)"] + [
+        f"{k} · {v['label']} ({v['rec']})" for k, v in HR_FORMS.items()
+    ]
+    form_idx = st.selectbox(
+        "🆕 썸네일 형태 (선택 시 프리미엄 HTML 렌더러용 구도로 이미지 생성)",
+        range(len(form_options)), format_func=lambda i: form_options[i],
+        key="thumb_form_idx",
+        help="형태를 고르면 배경 이미지 생성 프롬프트에 그 형태 전용 구도 제약이 "
+             "추가되어(좌우 여백, 중앙 여백 등) 아래 '🆕 프리미엄 (형태별)' 모드에서 "
+             "텍스트를 올릴 자리가 실제로 비게 됩니다.",
+    )
+    selected_form = list(HR_FORMS.keys())[form_idx - 1] if form_idx > 0 else None
 
     # ── Project link + real image generation ──────────────────────────────
     col_p, col_r = st.columns([1, 1])
@@ -229,7 +251,8 @@ def _render_prompt_lab():
             # Clear stale prompt/brand display from the previous session
             st.session_state.pop("brand_results", None)
 
-        prompts = generate_prompt_batch(country_key, theme, count, include_person=include_person)
+        prompts = generate_prompt_batch(country_key, theme, count, include_person=include_person,
+                                        form=selected_form)
         if not use_real:
             mode_label = "목업"
         elif engine == "apiframe_nanobanana":
@@ -588,6 +611,148 @@ def _render_brand_thumbnail():
                         final = cb.export_final_thumbnail(sess["session_id"], branded)
                         if final:
                             st.success(f"✅ 내보냄: {Path(final).name}")
+
+
+def _render_form_studio():
+    """
+    Mode — 🆕 프리미엄 (형태별) (v1.0.0-alpha.71).
+
+    New HTML/CSS + Playwright renderer (services/thumbnail/html_renderer.py,
+    the JazzNe-benchmarked 6-form design system) applied to a Candidate
+    Gallery selection. Independent of the existing PIL-based ✨ Brand
+    Thumbnail flow — canva_branding.py is untouched; this is purely additive.
+    """
+    from services.thumbnail import html_renderer as hr
+
+    st.markdown("#### 🆕 프리미엄 썸네일 (형태별 HTML 렌더러)")
+    st.caption("JazzNe 벤치마킹 6형태 디자인 시스템 · Playwright 헤드리스 렌더링")
+
+    sess = _current_session()
+    if not sess:
+        st.info("먼저 Prompt Lab에서 세션을 시작하세요.")
+        return
+
+    selected = ss.get_selected_candidates(sess["session_id"])
+    if not selected:
+        st.warning("⚠️ 렌더링할 이미지가 선택되지 않았습니다. Candidate Gallery에서 이미지를 선택하세요.")
+        return
+
+    st.success(f"✅ {len(selected)}개 이미지 선택됨")
+
+    # ── 1. Form ──────────────────────────────────────────────────────────
+    form_keys = list(hr.FORMS.keys())
+    form_labels = [f"{k} · {hr.FORMS[k]['label']} ({hr.FORMS[k]['rec']})" for k in form_keys]
+    # Default to whatever form was picked in Prompt Lab (if any), so the
+    # form-matched image generated there is the natural starting point here.
+    prompt_lab_form_idx = st.session_state.get("thumb_form_idx", 0)
+    default_idx = max(prompt_lab_form_idx - 1, 0)
+    form_idx = st.radio(
+        "1 · 형태", range(len(form_keys)), format_func=lambda i: form_labels[i],
+        horizontal=True, index=default_idx, key="form_studio_form_idx",
+    )
+    form = form_keys[form_idx]
+
+    # Auto-apply the form's recommended font whenever the form changes.
+    if st.session_state.get("_form_studio_prev_form") != form:
+        st.session_state["form_studio_title_font_idx"] = hr.FORMS[form]["recFont"]
+        st.session_state["_form_studio_prev_form"] = form
+
+    # ── 2. Ratio ─────────────────────────────────────────────────────────
+    ratio_label = st.radio("2 · 비율", ["16:9 (썸네일)", "1:1 (커버)"],
+                           horizontal=True, key="form_studio_ratio")
+    ratio = "169" if ratio_label.startswith("16") else "11"
+
+    # ── 3. Fonts ─────────────────────────────────────────────────────────
+    fc1, fc2 = st.columns(2)
+    with fc1:
+        title_font_idx = st.selectbox(
+            "3 · 제목 폰트", range(len(hr.FONTS)), format_func=lambda i: hr.FONTS[i]["name"],
+            key="form_studio_title_font_idx",
+        )
+        title_font_css = hr.FONTS[title_font_idx]["css"]
+        st.caption(f"◆ {form}형 추천: {hr.FONTS[hr.FORMS[form]['recFont']]['name']}")
+    with fc2:
+        kr_font_idx = st.selectbox(
+            "한글 폰트 (트랙리스트)", range(len(hr.KR_FONTS)), format_func=lambda i: hr.KR_FONTS[i]["name"],
+            key="form_studio_kr_font_idx",
+        )
+        kr_font_css = hr.KR_FONTS[kr_font_idx]["css"]
+
+    # ── 4. Text ──────────────────────────────────────────────────────────
+    st.markdown("**4 · 텍스트**")
+    kicker = st.text_input("키커 (상단 소형)", value="CITYPOP PLAYLIST", key="form_studio_kicker")
+    tt1, tt2 = st.columns(2)
+    with tt1:
+        title1 = st.text_input("제목 1", value=sess.get("title", "Seoul"), key="form_studio_t1")
+    with tt2:
+        title2 = st.text_input("제목 2", value="Nights", key="form_studio_t2")
+    badge = st.text_input("뱃지 텍스트 (D형 전용)", value="NEON SEOUL", key="form_studio_badge")
+    tracks_raw = st.text_input("트랙리스트 (/ 로 구분)", value="", key="form_studio_tracks",
+                               help="비워두면 트랙리스트 없이 렌더링됩니다.")
+    tracks = [t.strip() for t in tracks_raw.split("/") if t.strip()]
+
+    # ── 5. Colors ────────────────────────────────────────────────────────
+    st.markdown("**5 · 색상**")
+    cc1, cc2 = st.columns(2)
+    with cc1:
+        title_color = st.color_picker("제목 색", value="#f6efe2", key="form_studio_title_color")
+    with cc2:
+        point_color = st.color_picker("키커/포인트 색", value="#e4be6a", key="form_studio_point_color")
+
+    spine_kwargs = {}
+    if ratio == "11" and form in hr.SPINE_FORMS:
+        st.markdown("**6 · 스파인 (1:1 전용)**")
+        sc1, sc2 = st.columns(2)
+        with sc1:
+            spine_kwargs["spine_bg"] = st.color_picker(
+                "스파인 배경색", value="#1a1420", key="form_studio_spine_bg")
+        with sc2:
+            spine_kwargs["spine_text"] = st.color_picker(
+                "스파인 글씨색", value="#f4efe4", key="form_studio_spine_text")
+
+    st.divider()
+
+    # ── Background candidate + render ───────────────────────────────────
+    cand_labels = [c["candidate_id"] for c in selected]
+    cand_idx = st.selectbox("배경으로 쓸 후보 이미지", range(len(selected)),
+                            format_func=lambda i: cand_labels[i], key="form_studio_cand")
+    cand = selected[cand_idx]
+    bg_path = cand.get("uploaded_image_path", "")
+
+    if bg_path and Path(bg_path).exists():
+        st.image(bg_path, caption=f"배경 후보: {cand['candidate_id']}", width=320)
+    else:
+        st.warning("선택한 후보에 이미지 파일이 없습니다.")
+
+    if st.button("🎨 렌더링 (Playwright)", type="primary", use_container_width=True,
+                key="form_studio_render_btn", disabled=not (bg_path and Path(bg_path).exists())):
+        with st.spinner("HTML/CSS 조립 후 헤드리스 브라우저로 렌더링 중..."):
+            try:
+                out_dir = ss.session_path(sess["session_id"]) / "exports"
+                out_dir.mkdir(parents=True, exist_ok=True)
+                out_name = f"form_{form}_{ratio}_{cand['candidate_id']}.png"
+                out = hr.render_thumbnail(
+                    form=form, ratio=ratio, bg_image_path=bg_path,
+                    kicker=kicker, title1=title1, title2=title2, badge=badge, tracks=tracks,
+                    title_font_css=title_font_css, kr_font_css=kr_font_css,
+                    title_color=title_color, point_color=point_color,
+                    out_path=str(out_dir / out_name),
+                    **spine_kwargs,
+                )
+                st.session_state["form_studio_last_render"] = out
+                st.success(f"✅ 렌더 완료: {Path(out).name}")
+            except Exception as e:
+                st.error(f"렌더 실패: {type(e).__name__}: {e}")
+                st.caption(
+                    "Playwright/Chromium이 설치되지 않았다면: `pip install playwright` 후 "
+                    "`playwright install chromium`을 한 번 실행하세요."
+                )
+
+    last = st.session_state.get("form_studio_last_render")
+    if last and Path(last).exists():
+        st.divider()
+        st.markdown("**미리보기**")
+        st.image(last, use_container_width=True)
 
 
 def _render_exports():
