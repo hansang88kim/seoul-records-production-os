@@ -115,10 +115,55 @@ def _aspect_flag(aspect: str) -> str:
     return {"16:9": "--ar 16:9", "1:1": "--ar 1:1", "9:16": "--ar 9:16"}.get(aspect, "--ar 16:9")
 
 
+def _mj_style_params() -> str:
+    """
+    Midjourney-specific style params appended for this provider only (the
+    prompt BODY stays provider-neutral, from form_prompt_builder). Defaults
+    to a citypop-appropriate `--style raw --stylize 120` (the 110-140 range
+    noted in the handoff MV-prompt rules); override or disable via
+    SEOUL_MJ_LINKR_STYLE_PARAMS (set it to an empty string to turn off).
+    """
+    val = os.environ.get("SEOUL_MJ_LINKR_STYLE_PARAMS")
+    if val is None:
+        return "--style raw --stylize 120"
+    return val.strip()
+
+
+def _to_mj_no(negative_prompt: str) -> str:
+    """
+    Convert a natural-language negative list into Midjourney ``--no`` terms.
+
+    form_prompt_builder / prompt_generator produce negatives like
+    "no text, no letters, no watermark, no logo" — feeding that verbatim into
+    ``--no`` would double-negate ("--no no text ..."). Strip the leading
+    "no "/"not " from each comma term, drop blanks, and de-dup (order kept)
+    so it becomes "text, letters, watermark, logo".
+    """
+    out: list[str] = []
+    seen = set()
+    for raw in (negative_prompt or "").split(","):
+        term = raw.strip()
+        low = term.lower()
+        if low.startswith("no "):
+            term = term[3:].strip()
+        elif low.startswith("not "):
+            term = term[4:].strip()
+        if term and term.lower() not in seen:
+            seen.add(term.lower())
+            out.append(term)
+    return ", ".join(out)
+
+
 def _build_prompt(prompt: str, negative_prompt: str, aspect: str) -> str:
-    """Append Midjourney ``--ar`` / ``--no`` params to the prompt body."""
+    """
+    Assemble the full Midjourney prompt: neutral body + ``--ar`` + optional
+    style params + ``--no`` (converted from the natural-language negatives).
+    """
     parts = [prompt.strip(), _aspect_flag(aspect)]
-    neg = (negative_prompt or "").strip().rstrip(",").strip()
+    style = _mj_style_params()
+    if style:
+        parts.append(style)
+    neg = _to_mj_no(negative_prompt)
     if neg:
         parts.append(f"--no {neg}")
     return " ".join(p for p in parts if p)

@@ -54,11 +54,42 @@ def _resp(status_code=200, payload=None, content=b""):
 
 # ─── Pure helpers ────────────────────────────────────────────────────────────
 
-def test_build_prompt_appends_ar_and_no():
+def test_build_prompt_appends_ar_style_and_no(monkeypatch):
+    # Pin style params so the assertion is deterministic.
+    monkeypatch.setenv("SEOUL_MJ_LINKR_STYLE_PARAMS", "--style raw --stylize 120")
     assert lk._build_prompt("rainy seoul", "text, watermark", "16:9") == \
-        "rainy seoul --ar 16:9 --no text, watermark"
-    assert lk._build_prompt("cover", "", "1:1") == "cover --ar 1:1"
-    assert lk._build_prompt("x", "  ", "9:16") == "x --ar 9:16"
+        "rainy seoul --ar 16:9 --style raw --stylize 120 --no text, watermark"
+    assert lk._build_prompt("cover", "", "1:1") == "cover --ar 1:1 --style raw --stylize 120"
+    assert lk._build_prompt("x", "  ", "9:16") == "x --ar 9:16 --style raw --stylize 120"
+
+
+def test_build_prompt_style_params_disablable(monkeypatch):
+    monkeypatch.setenv("SEOUL_MJ_LINKR_STYLE_PARAMS", "")
+    assert lk._build_prompt("rainy seoul", "text", "16:9") == "rainy seoul --ar 16:9 --no text"
+
+
+def test_style_params_default_is_citypop_stylize(monkeypatch):
+    monkeypatch.delenv("SEOUL_MJ_LINKR_STYLE_PARAMS", raising=False)
+    sp = lk._mj_style_params()
+    assert "--style raw" in sp and "--stylize" in sp
+
+
+def test_to_mj_no_strips_no_prefix_and_dedups():
+    # The exact shape prompt_generator.NEGATIVE_PROMPT produces.
+    src = "no text, no letters, no words, no watermark, no logo, no logo"
+    assert lk._to_mj_no(src) == "text, letters, words, watermark, logo"
+    assert lk._to_mj_no("not cartoon, no text") == "cartoon, text"
+    assert lk._to_mj_no("") == ""
+    # already-clean terms (no "no " prefix) pass through unchanged
+    assert lk._to_mj_no("text, watermark") == "text, watermark"
+
+
+def test_build_prompt_converts_natural_language_negatives(monkeypatch):
+    monkeypatch.setenv("SEOUL_MJ_LINKR_STYLE_PARAMS", "")
+    full = lk._build_prompt("seoul night", "no text, no letters, no watermark, no logo", "16:9")
+    # never double-negate: no "--no no ..." in the output
+    assert "--no no " not in full
+    assert full.endswith("--no text, letters, watermark, logo")
 
 
 def test_upscale_action_maps_index_to_u1_u4_clamped():
