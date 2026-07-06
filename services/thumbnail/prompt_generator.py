@@ -133,11 +133,26 @@ def _background_prompt(preset: dict, culture: str, scene_var: str, theme_phrase:
     )
 
 
+def _merge_negatives(base: str, extra: str) -> str:
+    """
+    Merge two comma-separated negative-prompt strings, keeping `base`'s
+    terms first/unchanged and only appending terms from `extra` that
+    aren't already present (case-insensitive) — avoids near-duplicate
+    noise like "no text" appearing twice.
+    """
+    base_terms = [t.strip() for t in base.split(",") if t.strip()]
+    seen = {t.lower() for t in base_terms}
+    extra_terms = [t.strip() for t in extra.split(",") if t.strip()]
+    added = [t for t in extra_terms if t.lower() not in seen]
+    return ", ".join(base_terms + added)
+
+
 def generate_flow_prompt(
     country: str,
     theme: str,
     track_no: int = 0,
     include_person: bool = True,
+    form: str | None = None,
 ) -> dict:
     """
     Generate a single Google Flow prompt for a citypop thumbnail.
@@ -147,6 +162,21 @@ def generate_flow_prompt(
     (subscribe-worthy YouTube thumbnail + genuine album cover).
     include_person=False: background-only cityscape, no person — just the
     atmospheric city-night look with a clean title-safe band.
+
+    form (v1.0.0-alpha.70, optional, one of "A".."F"): when given, the
+    matching thumbnail form's composition constraint (see
+    services/thumbnail/form_prompt_builder.FORM_SPECS — the 6-form design
+    system html_renderer.py implements) is appended to main_prompt, and its
+    negative-prompt terms are merged into NEGATIVE_PROMPT (existing terms
+    win on conflict/duplication — NEGATIVE_PROMPT's own "no VHS/film grain/
+    retro filter" exclusions are preserved as-is; final VHS is a post-
+    process layer, not baked into the generated image). form=None (default)
+    is the exact pre-alpha.70 behavior — fully backward compatible.
+
+    Only the 16:9 composition is ever used here: this app generates ONE
+    image per candidate and derives both the 16:9 thumbnail and 1:1 cover
+    from it downstream (see module docstring), so there's no separate
+    "form 1:1 prompt" to build.
 
     Returns a dict with the main prompt, negative prompt, composition note,
     title-safe area, color palette, and suggested Canva accent color.
@@ -178,9 +208,19 @@ def generate_flow_prompt(
             f"High contrast for legible text overlay."
         )
 
+    negative_prompt = NEGATIVE_PROMPT
+    form_composition = None
+    if form:
+        from services.thumbnail.form_prompt_builder import FORM_SPECS, NEGATIVE as FORM_NEGATIVE
+        if form not in FORM_SPECS:
+            raise ValueError(f"Unknown thumbnail form {form!r} — expected one of {list(FORM_SPECS)}")
+        form_composition = FORM_SPECS[form]["composition_169"]
+        main_prompt = f"{main_prompt} {form_composition}."
+        negative_prompt = _merge_negatives(NEGATIVE_PROMPT, FORM_NEGATIVE)
+
     return {
         "main_prompt": main_prompt,
-        "negative_prompt": NEGATIVE_PROMPT,
+        "negative_prompt": negative_prompt,
         "composition_note": composition_note,
         "title_safe_area": safe_area,
         "color_palette": preset["palette"],
@@ -190,6 +230,8 @@ def generate_flow_prompt(
         "scene": scene_var,
         "track_no": track_no,
         "include_person": include_person,
+        "form": form,
+        "form_composition": form_composition,
     }
 
 
@@ -198,10 +240,12 @@ def generate_prompt_batch(
     theme: str,
     count: int = 5,
     include_person: bool = True,
+    form: str | None = None,
 ) -> list[dict]:
     """
     Generate a batch of varied Flow prompts. Each prompt varies scene,
-    camera, time, composition, and title-safe area.
+    camera, time, composition, and title-safe area. `form` (optional, see
+    generate_flow_prompt) is applied uniformly to every prompt in the batch.
     """
-    return [generate_flow_prompt(country, theme, track_no=i, include_person=include_person)
+    return [generate_flow_prompt(country, theme, track_no=i, include_person=include_person, form=form)
             for i in range(count)]
