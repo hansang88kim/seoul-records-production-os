@@ -22,6 +22,7 @@ returns the mock whenever LINKRAPI_API_KEY is absent (always true in CI).
 from __future__ import annotations
 
 import json
+from pathlib import Path
 from unittest import mock
 
 import pytest
@@ -146,48 +147,57 @@ def test_no_key_returns_error_without_network(tmp_path):
     get.assert_not_called()
 
 
-# ─── Happy path (v1.0.0-alpha.75: imagine → poll → download, NO upscale) ─────
+# ─── Happy path (v1.0.0-alpha.76: imagine → poll → download ALL 4 quadrants) ─
 
-def test_happy_path_imagine_poll_download_no_action(tmp_path):
+def test_happy_path_downloads_all_four_quadrants_no_action(tmp_path):
     prov = lk.MidjourneyLinkrProvider(api_key=_FAKE_KEY)
     out = tmp_path / "cand.png"
     quad = [f"https://cdn.linkrapi.com/g_{i}.png" for i in range(1, 5)]
 
     posts = [_resp(200, {"status": "SUCCESS", "task_id": "tsk_grid"})]  # imagine ONLY
     gets = [
-        _resp(200, {"status": "starting"}),                        # grid poll 1
-        _resp(200, {"status": "completed", "images": quad}),       # grid poll 2 (done)
-        _resp(200, content=_PNG),                                  # download images[0]
+        _resp(200, {"status": "starting"}),                    # grid poll 1
+        _resp(200, {"status": "completed", "images": quad}),   # grid poll 2 (done)
+        _resp(200, content=_PNG),                              # download primary (q1)
+        _resp(200, content=_PNG),                              # download q2
+        _resp(200, content=_PNG),                              # download q3
+        _resp(200, content=_PNG),                              # download q4
     ]
     with mock.patch("requests.post", side_effect=posts) as mpost, \
-         mock.patch("requests.get", side_effect=gets):
+         mock.patch("requests.get", side_effect=gets) as mget:
         r = prov.generate("rainy seoul --citypop", str(out),
                           negative_prompt="text, watermark", index=0, aspect="16:9")
 
     assert r["ok"] is True, r
     assert r["task_id"] == "tsk_grid"
-    assert out.exists()
-    imagine_body = mpost.call_args_list[0].kwargs["json"]
-    assert "--ar 16:9" in imagine_body["prompt"]
-    assert "--no text, watermark" in imagine_body["prompt"]
-    # NO /action POST at all — upscale removed.
+    assert out.exists()  # primary quadrant
+    # the other 3 quadrants come back as extra_image_paths, written next to out
+    extras = r["extra_image_paths"]
+    assert len(extras) == 3
+    for p in extras:
+        assert Path(p).exists()
+        assert Path(p).name.startswith("cand_q")  # <stem>_q<N>.png
+    # download URLs: primary q1 then q2,q3,q4
+    dl_urls = [c.args[0] for c in mget.call_args_list[2:]]
+    assert dl_urls == [quad[0], quad[1], quad[2], quad[3]]
+    # imagine prompt shaped; NO /action POST (upscale removed)
+    assert "--ar 16:9" in mpost.call_args_list[0].kwargs["json"]["prompt"]
     assert mpost.call_count == 1
-    assert not any("/action" in str(c.args) for c in mpost.call_args_list)
 
 
-def test_index_selects_second_grid_quadrant(tmp_path):
+def test_index_selects_primary_quadrant_others_are_extras(tmp_path):
     prov = lk.MidjourneyLinkrProvider(api_key=_FAKE_KEY)
     quad = ["https://cdn/x_1.png", "https://cdn/x_2.png", "https://cdn/x_3.png", "https://cdn/x_4.png"]
     posts = [_resp(200, {"task_id": "g"})]
-    gets = [
-        _resp(200, {"status": "completed", "images": quad}),
-        _resp(200, content=_PNG),
-    ]
+    gets = [_resp(200, {"status": "completed", "images": quad})] + [_resp(200, content=_PNG)] * 4
     with mock.patch("requests.post", side_effect=posts), \
          mock.patch("requests.get", side_effect=gets) as mget:
-        prov.generate("x", str(tmp_path / "o.png"), index=1)
-    # the download GET (2nd get) fetched quadrant index 1
-    assert mget.call_args_list[1].args[0] == "https://cdn/x_2.png"
+        r = prov.generate("x", str(tmp_path / "o.png"), index=1)
+    # primary download = quadrant index 1; extras = the other three
+    dl_urls = [c.args[0] for c in mget.call_args_list[1:]]
+    assert dl_urls[0] == "https://cdn/x_2.png"        # primary = index 1
+    assert set(dl_urls[1:]) == {"https://cdn/x_1.png", "https://cdn/x_3.png", "https://cdn/x_4.png"}
+    assert len(r["extra_image_paths"]) == 3
 
 
 def test_uses_top_level_image_url_when_no_images_array(tmp_path):

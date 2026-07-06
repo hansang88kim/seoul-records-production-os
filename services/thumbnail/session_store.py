@@ -195,6 +195,7 @@ def generate_images(session_id: str, prompts: list[dict],
 
     candidates = load_candidates(session_id)
     total = len(list(zip(candidates, prompts)))
+    extra_candidates: list[dict] = []  # v1.0.0-alpha.76: Midjourney's other 3 quadrants
     for i, (c, p) in enumerate(zip(candidates, prompts)):
         cid = c["candidate_id"]
         path_169 = target / f"{cid}_16x9.png"
@@ -221,6 +222,26 @@ def generate_images(session_id: str, prompts: list[dict],
             c["image_source"] = "generated"
             c["status"] = "image_generated"
             c["gen_error"] = None if crop_ok else "1:1 crop failed"
+
+            # Midjourney returns a 4-image grid; the provider hands back the
+            # other 3 quadrants in ``extra_image_paths``. Surface each as its
+            # own candidate so all 4 appear in the gallery and are selectable.
+            # Other providers don't set this key, so this is a no-op for them.
+            for qn, extra_path in enumerate(r169.get("extra_image_paths", []), start=2):
+                ec = dict(c)
+                ec_cid = f"{cid}_q{qn}"
+                ec["candidate_id"] = ec_cid
+                ec_path_11 = target / f"{ec_cid}_1x1.png"
+                crop_ok2 = derive_aspect_crop(extra_path, str(ec_path_11), "1:1")
+                ec["image_16x9"] = extra_path
+                ec["image_1x1"] = str(ec_path_11) if crop_ok2 else None
+                ec["uploaded_image_path"] = extra_path
+                ec["generated_image_path"] = extra_path
+                ec["image_source"] = "generated"
+                ec["status"] = "image_generated"
+                ec["gen_error"] = None if crop_ok2 else "1:1 crop failed"
+                ec["selected_for_branding"] = False
+                extra_candidates.append(ec)
         else:
             c["image_source"] = "generation_failed"
             c["status"] = "generation_failed"
@@ -231,6 +252,7 @@ def generate_images(session_id: str, prompts: list[dict],
                 progress_callback(i, total, c)
             except Exception:
                 pass  # never let a progress hook break generation
+    candidates.extend(extra_candidates)
     save_candidates(session_id, candidates)
     return candidates
 

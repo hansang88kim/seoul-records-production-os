@@ -158,6 +158,57 @@ def test_generate_images_calls_provider_once_per_candidate(monkeypatch):
         assert Path(c["image_16x9"]).exists()
 
 
+def test_midjourney_grid_expands_to_four_candidates(monkeypatch, tmp_path):
+    """
+    v1.0.0-alpha.76: a Midjourney generation returns a 4-image grid. The
+    provider hands back the other 3 quadrants in ``extra_image_paths`` and
+    session_store must surface each as its own candidate — so 1 prompt yields
+    4 selectable candidates (all 4 shown in the gallery), each with its own
+    16:9 image + derived 1:1 crop.
+    """
+    from PIL import Image
+
+    def fake_generate(self, prompt, out_path, negative_prompt="", index=0,
+                      meta=None, aspect="16:9", ref_image_path=None):
+        p = Path(out_path)
+        p.parent.mkdir(parents=True, exist_ok=True)
+        Image.new("RGB", (1280, 720), (20, 30, 60)).save(p)  # primary (q1)
+        extras = []
+        for n in (2, 3, 4):
+            sib = p.with_name(f"{p.stem}_q{n}{p.suffix}")
+            Image.new("RGB", (1280, 720), (20, 30, 60)).save(sib)
+            extras.append(str(sib))
+        return {"ok": True, "provider": "midjourney-linkr", "model": "midjourney",
+                "path": str(p), "error": None, "extra_image_paths": extras}
+
+    monkeypatch.setattr(ip.MockImageGenProvider, "generate", fake_generate)
+
+    sess = ss.create_session("korea", "night", "MJ Vol.1")
+    prompts = generate_prompt_batch("korea", "night", count=1)
+    cands = ss.generate_images(sess["session_id"], prompts, use_real=False)
+
+    # 1 prompt → 4 candidates (primary + 3 extra quadrants)
+    assert len(cands) == 4
+    assert all(c["status"] == "image_generated" for c in cands)
+    ids = [c["candidate_id"] for c in cands]
+    assert ids == ["cand_001", "cand_001_q2", "cand_001_q3", "cand_001_q4"]
+    for c in cands:
+        assert Path(c["image_16x9"]).exists()
+        assert Path(c["image_1x1"]).exists()   # each has its own derived 1:1
+        assert c["uploaded_image_path"] == c["image_16x9"]
+    # the 4 images are distinct files
+    assert len({c["image_16x9"] for c in cands}) == 4
+
+
+def test_non_midjourney_generation_stays_single_candidate(monkeypatch):
+    """Providers that don't set extra_image_paths (Gemini/GPT/mock) keep the
+    1-prompt-1-candidate behavior — no accidental extra candidates."""
+    sess = ss.create_session("korea", "night", "Solo Vol.1")
+    prompts = generate_prompt_batch("korea", "night", count=2)
+    cands = ss.generate_images(sess["session_id"], prompts, use_real=False)
+    assert len(cands) == 2  # mock returns no extra_image_paths
+
+
 def test_generate_images_standalone_saves_in_session():
     sess = ss.create_session("korea", "neon", "Seoul Vol.1")
     prompts = generate_prompt_batch("korea", "neon", count=2)

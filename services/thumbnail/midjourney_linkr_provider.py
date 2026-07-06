@@ -449,10 +449,11 @@ class MidjourneyLinkrProvider(ImageGenProvider):
         # which LinkrAPI reports as status=failed but clears on the next call).
         attempts = _transient_retries() + 1
         grid_task_id = None
+        extra_paths: list[str] = []
         last_transient = None
         for attempt in range(attempts):
             try:
-                grid_task_id = self._run_pipeline(full_prompt, out, index, aspect)
+                grid_task_id, extra_paths = self._run_pipeline(full_prompt, out, index, aspect)
             except LinkrApiTransientError as e:
                 last_transient = str(e)
                 if attempt < attempts - 1:
@@ -478,35 +479,57 @@ class MidjourneyLinkrProvider(ImageGenProvider):
                         "task_id": grid_task_id}
             # success
             _finalize_image(str(out), aspect)  # strip stray bars + lock exact size
+            for p in extra_paths:  # finalize the sibling quadrants too
+                _finalize_image(p, aspect)
             return {"ok": True, "provider": self.name, "model": self.model,
-                    "path": str(out), "error": None, "task_id": grid_task_id}
+                    "path": str(out), "error": None, "task_id": grid_task_id,
+                    # v1.0.0-alpha.76: the other Midjourney grid quadrants,
+                    # written next to `out`. session_store surfaces them as
+                    # extra candidates so all 4 show in the gallery. Other
+                    # providers don't set this key (single image), so callers
+                    # that ignore it keep working unchanged.
+                    "extra_image_paths": extra_paths}
 
-    def _run_pipeline(self, full_prompt: str, out: Path, index: int, aspect: str) -> str:
+    def _run_pipeline(self, full_prompt: str, out: Path, index: int, aspect: str):
         """
-        imagine → poll → download the grid image. Returns the grid task_id.
-        Raises LinkrApiTransientError on a retryable state, LinkrApiError else.
+        imagine → poll → download ALL grid quadrants. Returns
+        (grid_task_id, extra_paths). Raises LinkrApiTransientError on a
+        retryable state, LinkrApiError else.
 
-        v1.0.0-alpha.75: the U1..U4 upscale (POST /action) step was removed —
-        we use the grid image directly. LinkrAPI already pre-splits the 2x2
-        grid into four per-quadrant URLs (images[0..3]); we take images[index]
-        (default the first quadrant), falling back to the top-level image_url.
+        LinkrAPI pre-splits the 2x2 grid into four per-quadrant URLs
+        (images[0..3]). v1.0.0-alpha.76: the chosen quadrant (images[index],
+        default the first) goes to `out`; the OTHER quadrants are downloaded to
+        sibling files `<stem>_q<N>.png` and returned so all 4 can be shown.
+        Falls back to the top-level image_url when there's no images[] array.
         """
         grid_task_id = self._submit_imagine(full_prompt)
         logger.info("MJ(LinkrAPI) imagine 제출됨 (task_id=%s) — 생성 대기 시작", grid_task_id)
         grid = self._poll_fetch(grid_task_id, _imagine_timeout(), "imagine")
 
         grid_imgs = _extract_grid_images(grid)
+        extra_paths: list[str] = []
         if grid_imgs:
             q = min(index, len(grid_imgs) - 1)
-            image_url = grid_imgs[q]
-            logger.info("MJ(LinkrAPI) 그리드 이미지(quadrant %d) 사용", q + 1)
+            primary_url = grid_imgs[q]
+            self._download(primary_url, out)
+            logger.info("MJ(LinkrAPI) 그리드 %d장 다운로드 — 대표 quadrant %d + 나머지 %d장",
+                        len(grid_imgs), q + 1, len(grid_imgs) - 1)
+            for n, url in enumerate(grid_imgs, start=1):
+                if n - 1 == q:
+                    continue  # already saved as the primary
+                sib = out.with_name(f"{out.stem}_q{n}{out.suffix}")
+                try:
+                    self._download(url, sib)
+                    extra_paths.append(str(sib))
+                except LinkrApiError as e:
+                    logger.info("MJ(LinkrAPI) quadrant %d 다운로드 실패(무시): %s", n, e)
         else:
             image_url = _extract_image_url(grid)  # top-level image_url / cdn_url
-        if not image_url:
-            raise LinkrApiError("완료됐지만 이미지 URL을 응답에서 찾지 못함")
+            if not image_url:
+                raise LinkrApiError("완료됐지만 이미지 URL을 응답에서 찾지 못함")
+            self._download(image_url, out)
 
-        self._download(image_url, out)
-        return grid_task_id
+        return grid_task_id, extra_paths
 
 
 def verify_linkrapi_key(key: str) -> tuple[bool, str]:
