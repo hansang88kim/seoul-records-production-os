@@ -92,12 +92,38 @@ def test_build_prompt_converts_natural_language_negatives(monkeypatch):
     assert full.endswith("--no text, letters, watermark, logo")
 
 
-def test_upscale_action_maps_index_to_u1_u4_clamped():
-    assert lk._upscale_action_for_index(0) == "U1"
-    assert lk._upscale_action_for_index(1) == "U2"
-    assert lk._upscale_action_for_index(3) == "U4"
-    assert lk._upscale_action_for_index(9) == "U4"   # clamp high
-    assert lk._upscale_action_for_index(-5) == "U1"  # clamp low
+def test_upscale_label_maps_index_to_u1_u4_clamped():
+    assert lk._upscale_label_for_index(0) == "U1"
+    assert lk._upscale_label_for_index(1) == "U2"
+    assert lk._upscale_label_for_index(3) == "U4"
+    assert lk._upscale_label_for_index(9) == "U4"   # clamp high
+    assert lk._upscale_label_for_index(-5) == "U1"  # clamp low
+
+
+# Real LinkrAPI completed-grid components (custom_id is what /action needs).
+def _grid_components(job="3ccdd7fa-b173-467b-9c1f-32f1ba1062f9"):
+    return [
+        {"custom_id": f"MJ::JOB::upsample::1::{job}", "label": "U1", "style": 2},
+        {"custom_id": f"MJ::JOB::upsample::2::{job}", "label": "U2", "style": 2},
+        {"custom_id": f"MJ::JOB::upsample::3::{job}", "label": "U3", "style": 2},
+        {"custom_id": f"MJ::JOB::upsample::4::{job}", "label": "U4", "style": 2},
+    ]
+
+
+def test_find_upscale_custom_id_matches_label_then_quadrant_tag():
+    comps = _grid_components("JOBUUID")
+    assert lk._find_upscale_custom_id(comps, 0) == "MJ::JOB::upsample::1::JOBUUID"
+    assert lk._find_upscale_custom_id(comps, 3) == "MJ::JOB::upsample::4::JOBUUID"
+    # no label match → fall back to the upsample::<n>:: tag
+    tag_only = [{"custom_id": "MJ::JOB::upsample::2::X", "style": 2}]
+    assert lk._find_upscale_custom_id(tag_only, 1) == "MJ::JOB::upsample::2::X"
+    assert lk._find_upscale_custom_id([], 0) is None
+
+
+def test_extract_grid_images_returns_quadrant_urls():
+    data = {"images": [f"{_IMG_URL}?{i}" for i in range(4)], "grid_url": "g"}
+    assert lk._extract_grid_images(data) == [f"{_IMG_URL}?{i}" for i in range(4)]
+    assert lk._extract_grid_images({}) == []
 
 
 def test_extract_task_id_across_casings_and_nesting():
@@ -143,14 +169,14 @@ def test_happy_path_imagine_poll_upscale_poll_download(tmp_path):
 
     posts = [
         _resp(200, {"task_id": "tsk_grid"}),        # imagine
-        _resp(200, {"task_id": "tsk_upscale"}),     # action U1
+        _resp(200, {"task_id": "tsk_upscale"}),     # action (custom_id)
     ]
     gets = [
-        _resp(200, {"status": "pending"}),                         # grid poll 1
-        _resp(200, {"status": "completed", "actions": ["U1"]}),    # grid poll 2
-        _resp(200, {"status": "processing"}),                      # upscale poll 1
-        _resp(200, {"status": "completed", "image_url": _IMG_URL}),# upscale poll 2
-        _resp(200, content=_PNG),                                  # download
+        _resp(200, {"status": "starting"}),                                    # grid poll 1
+        _resp(200, {"status": "completed", "components": _grid_components()}),  # grid poll 2
+        _resp(200, {"status": "starting"}),                                    # upscale poll 1
+        _resp(200, {"status": "completed", "image_url": _IMG_URL}),            # upscale poll 2
+        _resp(200, content=_PNG),                                              # download
     ]
     with mock.patch("requests.post", side_effect=posts) as mpost, \
          mock.patch("requests.get", side_effect=gets):
@@ -164,23 +190,61 @@ def test_happy_path_imagine_poll_upscale_poll_download(tmp_path):
     imagine_body = mpost.call_args_list[0].kwargs["json"]
     assert "--ar 16:9" in imagine_body["prompt"]
     assert "--no text, watermark" in imagine_body["prompt"]
-    # action body carried the grid task_id and U1
+    # action body carried the grid task_id and the U1 button's custom_id
     action_body = mpost.call_args_list[1].kwargs["json"]
-    assert action_body == {"task_id": "tsk_grid", "action": "U1"}
+    assert action_body["task_id"] == "tsk_grid"
+    assert action_body["action"] == "MJ::JOB::upsample::1::3ccdd7fa-b173-467b-9c1f-32f1ba1062f9"
 
 
-def test_index_selects_u2(tmp_path):
+def test_index_selects_u2_custom_id(tmp_path):
     prov = lk.MidjourneyLinkrProvider(api_key=_FAKE_KEY)
     posts = [_resp(200, {"task_id": "g"}), _resp(200, {"task_id": "u"})]
     gets = [
-        _resp(200, {"status": "completed"}),
+        _resp(200, {"status": "completed", "components": _grid_components("JJ")}),
         _resp(200, {"status": "completed", "image_url": _IMG_URL}),
         _resp(200, content=_PNG),
     ]
     with mock.patch("requests.post", side_effect=posts) as mpost, \
          mock.patch("requests.get", side_effect=gets):
         prov.generate("x", str(tmp_path / "o.png"), index=1)
-    assert mpost.call_args_list[1].kwargs["json"]["action"] == "U2"
+    assert mpost.call_args_list[1].kwargs["json"]["action"] == "MJ::JOB::upsample::2::JJ"
+
+
+def test_falls_back_to_grid_quadrant_when_no_components(tmp_path):
+    """No components in the completed grid → download images[index] directly
+    (LinkrAPI pre-splits the grid), no /action call at all."""
+    prov = lk.MidjourneyLinkrProvider(api_key=_FAKE_KEY)
+    quad = [f"https://cdn.linkrapi.com/x_{i}.png" for i in range(1, 5)]
+    posts = [_resp(200, {"task_id": "g"})]  # imagine only — NO action
+    gets = [
+        _resp(200, {"status": "completed", "images": quad}),  # grid, no components
+        _resp(200, content=_PNG),                             # download images[0]
+    ]
+    with mock.patch("requests.post", side_effect=posts) as mpost, \
+         mock.patch("requests.get", side_effect=gets):
+        r = prov.generate("x", str(tmp_path / "o.png"), index=0)
+    assert r["ok"] is True
+    assert mpost.call_count == 1  # only imagine, no action POST
+
+
+def test_upscale_action_failure_falls_back_to_grid_quadrant(tmp_path):
+    """If the /action upscale errors, fall back to the grid quadrant rather
+    than hard-failing (an image is already in hand)."""
+    prov = lk.MidjourneyLinkrProvider(api_key=_FAKE_KEY)
+    quad = [f"https://cdn.linkrapi.com/x_{i}.png" for i in range(1, 5)]
+    posts = [
+        _resp(200, {"task_id": "g"}),
+        _resp(400, {"detail": "Action not found in task components."}),  # action 400
+    ]
+    gets = [
+        _resp(200, {"status": "completed", "components": _grid_components(), "images": quad}),
+        _resp(200, content=_PNG),  # download fallback quadrant
+    ]
+    with mock.patch("requests.post", side_effect=posts), \
+         mock.patch("requests.get", side_effect=gets):
+        r = prov.generate("x", str(tmp_path / "o.png"), index=0)
+    assert r["ok"] is True
+    assert (tmp_path / "o.png").exists()
 
 
 # ─── 3-way status branch ─────────────────────────────────────────────────────
@@ -195,6 +259,74 @@ def test_failed_status_stops_immediately(tmp_path):
     assert r["ok"] is False
     assert "failed" in r["error"].lower()
     assert "banana slipped" in r["error"]
+
+
+_SUBSCRIBE_BANNER = (
+    'Midjourney: {"type": "rich", "title": "Thank you for subscribing to Midjourney!", '
+    '"description": "You are now subscribed to the Basic plan..."}'
+)
+
+
+def test_subscription_banner_is_retried_then_succeeds(tmp_path, monkeypatch):
+    """The one-time 'Thank you for subscribing' banner (status=failed) must be
+    treated as transient and retried — the second cycle produces a real image."""
+    monkeypatch.setattr(lk, "_transient_retries", lambda: 2)
+    monkeypatch.setattr(lk, "_TRANSIENT_BACKOFF_SEC", (0, 0, 0))
+    prov = lk.MidjourneyLinkrProvider(api_key=_FAKE_KEY)
+
+    posts = [
+        _resp(200, {"task_id": "g1"}),   # attempt 1 imagine
+        _resp(200, {"task_id": "g2"}),   # attempt 2 imagine
+        _resp(200, {"task_id": "u2"}),   # attempt 2 action U1
+    ]
+    gets = [
+        _resp(200, {"status": "failed", "error": _SUBSCRIBE_BANNER}),  # attempt 1 grid → transient
+        _resp(200, {"status": "completed", "components": _grid_components()}),  # attempt 2 grid
+        _resp(200, {"status": "completed", "image_url": _IMG_URL}),    # attempt 2 upscale
+        _resp(200, content=_PNG),                                      # download
+    ]
+    with mock.patch("requests.post", side_effect=posts), \
+         mock.patch("requests.get", side_effect=gets):
+        r = prov.generate("seoul", str(tmp_path / "o.png"))
+    assert r["ok"] is True, r
+    assert (tmp_path / "o.png").exists()
+
+
+def test_subscription_banner_exhausted_gives_onboarding_hint(tmp_path, monkeypatch):
+    monkeypatch.setattr(lk, "_transient_retries", lambda: 1)  # 2 total attempts
+    monkeypatch.setattr(lk, "_TRANSIENT_BACKOFF_SEC", (0, 0, 0))
+    prov = lk.MidjourneyLinkrProvider(api_key=_FAKE_KEY)
+    posts = [_resp(200, {"task_id": "g1"}), _resp(200, {"task_id": "g2"})]
+    gets = [
+        _resp(200, {"status": "failed", "error": _SUBSCRIBE_BANNER}),
+        _resp(200, {"status": "failed", "error": _SUBSCRIBE_BANNER}),
+    ]
+    with mock.patch("requests.post", side_effect=posts), \
+         mock.patch("requests.get", side_effect=gets):
+        r = prov.generate("seoul", str(tmp_path / "o.png"))
+    assert r["ok"] is False
+    assert "Discord" in r["error"] and "/imagine" in r["error"]
+
+
+def test_is_transient_failure_detection():
+    assert lk._is_transient_failure("Thank you for subscribing to Midjourney!")
+    assert lk._is_transient_failure("...you are now subscribed to the Basic plan")
+    assert not lk._is_transient_failure("banana slipped on the floor")
+
+
+def test_hard_failure_is_not_retried(tmp_path, monkeypatch):
+    """A genuine failure (not the onboarding banner) must NOT be retried."""
+    monkeypatch.setattr(lk, "_transient_retries", lambda: 3)
+    prov = lk.MidjourneyLinkrProvider(api_key=_FAKE_KEY)
+    posts = [_resp(200, {"task_id": "g1"})]
+    gets = [_resp(200, {"status": "failed", "error": "internal error 500"})]
+    with mock.patch("requests.post", side_effect=posts) as mpost, \
+         mock.patch("requests.get", side_effect=gets):
+        r = prov.generate("seoul", str(tmp_path / "o.png"))
+    assert r["ok"] is False
+    assert "internal error 500" in r["error"]
+    # only ONE imagine POST — no retry on a hard failure
+    assert mpost.call_count == 1
 
 
 def test_moderated_status_gives_clear_policy_message(tmp_path):
@@ -215,7 +347,7 @@ def test_pending_processing_queued_keep_polling_then_complete(tmp_path):
         _resp(200, {"status": "queued"}),
         _resp(200, {"status": "processing"}),
         _resp(200, {"status": "pending"}),
-        _resp(200, {"status": "done"}),                             # grid complete (broad marker)
+        _resp(200, {"status": "done", "components": _grid_components()}),  # grid complete (broad marker)
         _resp(200, {"status": "success", "image_url": _IMG_URL}),   # upscale complete (broad marker)
         _resp(200, content=_PNG),
     ]
@@ -240,19 +372,35 @@ def test_imagine_timeout_is_bounded_and_reported(tmp_path, monkeypatch):
     assert "imagine timed out" in r["error"]
 
 
-def test_upscale_timeout_distinct_from_imagine(tmp_path, monkeypatch):
-    monkeypatch.setattr(lk, "_upscale_timeout", lambda: 0)
+def test_upscale_timeout_bounded_and_falls_back_to_grid_quadrant(tmp_path, monkeypatch):
+    """The upscale stage has its OWN bounded timeout; when it's hit, fall back
+    to the already-in-hand grid quadrant rather than hanging or hard-failing."""
+    monkeypatch.setattr(lk, "_upscale_timeout", lambda: 0)  # upscale deadline hit at once
     prov = lk.MidjourneyLinkrProvider(api_key=_FAKE_KEY)
+    quad = [f"https://cdn.linkrapi.com/x_{i}.png" for i in range(1, 5)]
     posts = [_resp(200, {"task_id": "g"}), _resp(200, {"task_id": "u"})]
     gets = [
-        _resp(200, {"status": "completed"}),   # grid done
-        _resp(200, {"status": "processing"}),  # upscale never completes → timeout
+        _resp(200, {"status": "completed", "components": _grid_components(), "images": quad}),  # grid done
+        _resp(200, content=_PNG),  # download of the fallback quadrant
     ]
     with mock.patch("requests.post", side_effect=posts), \
          mock.patch("requests.get", side_effect=gets):
         r = prov.generate("x", str(tmp_path / "o.png"))
+    assert r["ok"] is True
+    assert (tmp_path / "o.png").exists()
+
+
+def test_upscale_timeout_without_grid_images_fails_cleanly(tmp_path, monkeypatch):
+    """No grid quadrant to fall back to → clean failure (bounded, not a hang)."""
+    monkeypatch.setattr(lk, "_upscale_timeout", lambda: 0)
+    prov = lk.MidjourneyLinkrProvider(api_key=_FAKE_KEY)
+    posts = [_resp(200, {"task_id": "g"}), _resp(200, {"task_id": "u"})]
+    gets = [_resp(200, {"status": "completed", "components": _grid_components()})]  # no images
+    with mock.patch("requests.post", side_effect=posts), \
+         mock.patch("requests.get", side_effect=gets):
+        r = prov.generate("x", str(tmp_path / "o.png"))
     assert r["ok"] is False
-    assert "upscale timed out" in r["error"]
+    assert "이미지 URL" in r["error"]
 
 
 # ─── Inline-completion action path ───────────────────────────────────────────
@@ -265,7 +413,7 @@ def test_action_inline_completion_skips_second_poll(tmp_path):
         _resp(200, {"image_url": _IMG_URL}),  # action returns image directly, no new task_id
     ]
     gets = [
-        _resp(200, {"status": "completed"}),  # grid poll
+        _resp(200, {"status": "completed", "components": _grid_components()}),  # grid poll
         _resp(200, content=_PNG),             # download (no upscale poll)
     ]
     with mock.patch("requests.post", side_effect=posts), \
