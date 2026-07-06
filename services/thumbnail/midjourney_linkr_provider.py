@@ -9,30 +9,24 @@ Apiframe v2 and returns a 4-image grid directly). LinkrAPI instead uses the
 classic Midjourney async grid→upscale flow, so it needs its own imagine →
 fetch → upscale(action) → fetch → download pipeline.
 
-Flow (LinkrAPI — schema CONFIRMED by a real-key smoke test v1.0.0-alpha.73):
+Flow (LinkrAPI — v1.0.0-alpha.75: upscale removed, use the grid image directly):
   1. POST  https://linkrapi.com/api/v1/imagine   {"prompt": "...  --ar 16:9 --no text"}
-        → {"status": "SUCCESS", "task_id": "<uuid>", "message": "..."}   (2x2 grid job)
+        → {"status": "SUCCESS", "task_id": "<uuid>", "message": "..."}
   2. GET   https://linkrapi.com/api/v1/fetch/{task_id}   (poll, up to 6 min)
-        status seen: "sending" → "starting" → "completed" (in-progress values
-        vary; anything not a completion/failure marker keeps polling).
-        completed response carries: image_url, images[] (the 4 pre-split
-        quadrant URLs _1.._4.png), grid_url, cdn_url, and components[] —
-        each {"custom_id": "MJ::JOB::upsample::N::<uuid>", "label": "UN"}.
-  3. POST  https://linkrapi.com/api/v1/action  {"task_id": "<grid uuid>",
-        "action": "MJ::JOB::upsample::1::<uuid>"}   ← must be the button's
-        custom_id, NOT the "U1" label (the label 400s "Action not found in
-        task components"). → {"status": "SUCCESS", "task_id": "<upscale uuid>"}
-  4. GET   https://linkrapi.com/api/v1/fetch/{task_id}   (poll, up to 4 min)
-        → completed with the single upscaled image_url.
-  5. Download that image_url → out_path.
+        status seen: "sending" → "starting" → "completed" (anything not a
+        completion/failure marker keeps polling). The completed response
+        carries images[] — LinkrAPI pre-splits the 2x2 grid into four
+        per-quadrant URLs (_1.._4.png) — plus image_url / cdn_url / grid_url.
+  3. Download images[index] (default the first quadrant, else top-level
+        image_url) → out_path.
 
-  Fallback: LinkrAPI already pre-splits the grid into 4 quadrant images, so if
-  the upscale can't proceed (no matching component, action error, or upscale
-  timeout) we download images[index] from the grid instead of hard-failing.
+  The U1..U4 upscale (POST /action) step was REMOVED — the pre-split quadrant
+  image is used as-is.
 
-  Response parsing stays lenient (_extract_* helpers tolerate casing/nesting
-  variants) as cheap insurance, but the shapes above are what the live API
-  returns.
+  NOTE: a temporary [LINKR-DIAG] logger dumps the raw imagine + each fetch-poll
+  response body (API key masked) so the real response shape can be inspected;
+  remove those _diag_dump() calls once parsing is confirmed. Response parsing
+  stays lenient (_extract_* helpers tolerate casing/nesting variants).
 
 Auth: Authorization: Bearer <LINKRAPI_API_KEY>. The key is NEVER logged and is
 masked out of any surfaced error text (same rule as every other provider).
@@ -47,6 +41,7 @@ Notes:
 """
 from __future__ import annotations
 
+import json
 import logging
 import os
 import time
@@ -56,14 +51,28 @@ from services.thumbnail.image_provider import ImageGenProvider, _finalize_image
 
 logger = logging.getLogger(__name__)
 
+
+def _diag_dump(label: str, data, api_key: str | None) -> None:
+    """
+    TEMP diagnostic (v1.0.0-alpha.75): log a raw LinkrAPI response body so the
+    actual status/fields can be inspected against a real run. The API key is
+    masked out. Logged at WARNING so it's visible in the Streamlit console
+    regardless of log level. Marked [LINKR-DIAG] for easy grepping — remove
+    once the parsing is confirmed against real responses.
+    """
+    try:
+        raw = json.dumps(data, ensure_ascii=False)
+    except Exception:
+        raw = str(data)
+    logger.warning("[LINKR-DIAG] %s: %s", label, _mask(raw, api_key))
+
 # Confirmed from https://linkrapi.com/docs. Override with LINKRAPI_BASE_URL.
 _DEFAULT_BASE_URL = "https://linkrapi.com/api/v1"
 _KEY_ENV_VAR = "LINKRAPI_API_KEY"
 
-# Midjourney is slow and two-staged (grid, then upscale). Stage the timeouts
-# so a stall in either stage is bounded and reported — overridable via env.
-_DEFAULT_IMAGINE_TIMEOUT = 360   # 6 min for the initial 2x2 grid
-_DEFAULT_UPSCALE_TIMEOUT = 240   # 4 min for the U1 upscale
+# Midjourney is slow — bound the wait and report it. v1.0.0-alpha.75 removed
+# the upscale stage, so only the imagine grid timeout remains. Overridable via env.
+_DEFAULT_IMAGINE_TIMEOUT = 360   # 6 min for the grid to finish
 _DEFAULT_POLL_INTERVAL = 5       # seconds between fetch polls
 
 # Status vocabulary (broad, case-insensitive) — matching only "completed" would
@@ -129,13 +138,6 @@ def _imagine_timeout() -> int:
         return max(30, int(os.environ.get("SEOUL_MJ_LINKR_IMAGINE_TIMEOUT", str(_DEFAULT_IMAGINE_TIMEOUT))))
     except ValueError:
         return _DEFAULT_IMAGINE_TIMEOUT
-
-
-def _upscale_timeout() -> int:
-    try:
-        return max(30, int(os.environ.get("SEOUL_MJ_LINKR_UPSCALE_TIMEOUT", str(_DEFAULT_UPSCALE_TIMEOUT))))
-    except ValueError:
-        return _DEFAULT_UPSCALE_TIMEOUT
 
 
 def _poll_interval() -> int:
@@ -293,56 +295,10 @@ def _extract_error(data) -> str:
     return ""
 
 
-def _upscale_label_for_index(index: int) -> str:
-    """index 0→U1, 1→U2, 2→U3, 3→U4 (clamped). Default/quadrant-0 = U1 (top-left)."""
-    n = min(4, max(1, int(index) + 1))
-    return f"U{n}"
-
-
-def _extract_components(data) -> list[dict]:
-    """The completed grid's action buttons (each {custom_id, label, ...})."""
-    if not isinstance(data, dict):
-        return []
-    comps = data.get("components")
-    if isinstance(comps, list):
-        return [c for c in comps if isinstance(c, dict)]
-    for holder in ("data", "result", "task"):
-        inner = data.get(holder)
-        if isinstance(inner, dict):
-            got = _extract_components(inner)
-            if got:
-                return got
-    return []
-
-
-def _find_upscale_custom_id(components: list[dict], index: int) -> str | None:
-    """
-    Find the upscale button's custom_id for quadrant U{index+1}.
-
-    Confirmed shape (real LinkrAPI fetch response):
-      {"custom_id": "MJ::JOB::upsample::1::<uuid>", "label": "U1", "style": 2}
-    LinkrAPI's POST /action matches on the custom_id (NOT the "U1" label —
-    passing the label yields 400 "Action not found in task components").
-    Prefer an exact label match; fall back to the "upsample::<n>::" tag.
-    """
-    label = _upscale_label_for_index(index)          # "U1".."U4"
-    n = label[1:]                                    # "1".."4"
-    for c in components:
-        if str(c.get("label", "")).strip().upper() == label:
-            cid = c.get("custom_id")
-            if cid:
-                return str(cid)
-    for c in components:
-        cid = str(c.get("custom_id", ""))
-        if f"upsample::{n}::" in cid.lower() or f"upsample::{n}:" in cid.lower():
-            return cid
-    return None
-
-
 def _extract_grid_images(data) -> list[str]:
-    """The 4 already-split quadrant image URLs from the completed grid
-    (LinkrAPI pre-splits: images[0..3] = the four U-quadrants). Used as a
-    graceful fallback when the upscale action can't proceed."""
+    """The image URLs from the completed grid response. LinkrAPI pre-splits the
+    2x2 grid into four per-quadrant URLs (images[0..3] = the four quadrants);
+    we use these directly (no upscale) — images[index] is the chosen quadrant."""
     if not isinstance(data, dict):
         return []
     imgs = data.get("images")
@@ -390,31 +346,11 @@ class MidjourneyLinkrProvider(ImageGenProvider):
             data = resp.json()
         except Exception:
             raise LinkrApiError("imagine returned invalid JSON")
+        _diag_dump("imagine response", data, self._api_key)
         task_id = _extract_task_id(data)
         if not task_id:
             raise LinkrApiError(_mask(f"imagine returned no task_id: {str(data)[:300]}", self._api_key))
         return task_id
-
-    def _submit_action(self, task_id: str, action: str):
-        """POST /action {task_id, action} → new task_id (raises on failure)."""
-        import requests
-        url = f"{_base_url()}/action"
-        try:
-            resp = requests.post(url, headers=self._headers(),
-                                 json={"task_id": task_id, "action": action}, timeout=60)
-        except Exception as e:
-            raise LinkrApiError(_mask(f"action request failed: {type(e).__name__}: {e}", self._api_key))
-        if resp.status_code not in (200, 201, 202):
-            raise LinkrApiError(_mask(f"action HTTP {resp.status_code}: {resp.text[:300]}", self._api_key))
-        try:
-            data = resp.json()
-        except Exception:
-            raise LinkrApiError("action returned invalid JSON")
-        # Some proxies return the new task_id; others may complete inline and
-        # already carry the image. Prefer a new task_id, else signal "inline".
-        new_task_id = _extract_task_id(data)
-        inline_url = _extract_image_url(data)
-        return new_task_id, inline_url
 
     def _poll_fetch(self, task_id: str, timeout_sec: int, stage: str):
         """
@@ -456,6 +392,7 @@ class MidjourneyLinkrProvider(ImageGenProvider):
                 time.sleep(interval)
                 continue
 
+            _diag_dump(f"{stage} fetch poll (elapsed {elapsed}s)", data, self._api_key)
             status = _extract_status(data)
             last_status = status or "unknown"
 
@@ -507,7 +444,7 @@ class MidjourneyLinkrProvider(ImageGenProvider):
         full_prompt = _build_prompt(prompt, negative_prompt, aspect)
         out = Path(out_path)
 
-        # Retry the WHOLE imagine→upscale cycle on a transient failure (e.g.
+        # Retry the WHOLE imagine cycle on a transient failure (e.g.
         # Midjourney's one-time 'Thank you for subscribing' onboarding banner,
         # which LinkrAPI reports as status=failed but clears on the next call).
         attempts = _transient_retries() + 1
@@ -545,46 +482,29 @@ class MidjourneyLinkrProvider(ImageGenProvider):
                     "path": str(out), "error": None, "task_id": grid_task_id}
 
     def _run_pipeline(self, full_prompt: str, out: Path, index: int, aspect: str) -> str:
-        """imagine → poll → upscale(U{n} via custom_id) → poll → download.
-        Returns the grid task_id. Raises LinkrApiTransientError on a retryable
-        state, LinkrApiError else. Falls back to the pre-split grid quadrant
-        image when the upscale can't proceed (an image is already in hand)."""
-        # 1) imagine → grid job
+        """
+        imagine → poll → download the grid image. Returns the grid task_id.
+        Raises LinkrApiTransientError on a retryable state, LinkrApiError else.
+
+        v1.0.0-alpha.75: the U1..U4 upscale (POST /action) step was removed —
+        we use the grid image directly. LinkrAPI already pre-splits the 2x2
+        grid into four per-quadrant URLs (images[0..3]); we take images[index]
+        (default the first quadrant), falling back to the top-level image_url.
+        """
         grid_task_id = self._submit_imagine(full_prompt)
-        logger.info("MJ(LinkrAPI) imagine 제출됨 (task_id=%s) — 그리드 생성 대기 시작", grid_task_id)
+        logger.info("MJ(LinkrAPI) imagine 제출됨 (task_id=%s) — 생성 대기 시작", grid_task_id)
         grid = self._poll_fetch(grid_task_id, _imagine_timeout(), "imagine")
 
-        # 2) upscale quadrant U{index+1}. LinkrAPI's /action needs the button's
-        #    custom_id from the grid's components (the plain "U1" label 400s).
-        label = _upscale_label_for_index(index)
-        custom_id = _find_upscale_custom_id(_extract_components(grid), index)
-        image_url = None
-        if custom_id:
-            try:
-                up_task_id, inline_url = self._submit_action(grid_task_id, custom_id)
-                logger.info("MJ(LinkrAPI) %s 업스케일 요청됨 (custom_id 사용, task_id=%s)",
-                            label, up_task_id or "inline")
-                if inline_url and not up_task_id:
-                    image_url = inline_url
-                else:
-                    final = self._poll_fetch(up_task_id, _upscale_timeout(), "upscale")
-                    image_url = _extract_image_url(final)
-            except LinkrApiError as e:
-                logger.info("MJ(LinkrAPI) 업스케일 실패(%s) — 그리드 분할 이미지로 폴백", e)
-
-        if not image_url:
-            # Fallback: LinkrAPI pre-splits the grid into 4 quadrant images, so
-            # images[index] is already a usable single image at grid resolution.
-            grid_imgs = _extract_grid_images(grid)
-            if grid_imgs:
-                image_url = grid_imgs[min(index, len(grid_imgs) - 1)]
-                logger.info("MJ(LinkrAPI) 그리드 분할 이미지(quadrant %d) 사용", min(index, len(grid_imgs) - 1) + 1)
-            else:
-                image_url = _extract_image_url(grid)  # last resort: top-level image_url
+        grid_imgs = _extract_grid_images(grid)
+        if grid_imgs:
+            q = min(index, len(grid_imgs) - 1)
+            image_url = grid_imgs[q]
+            logger.info("MJ(LinkrAPI) 그리드 이미지(quadrant %d) 사용", q + 1)
+        else:
+            image_url = _extract_image_url(grid)  # top-level image_url / cdn_url
         if not image_url:
             raise LinkrApiError("완료됐지만 이미지 URL을 응답에서 찾지 못함")
 
-        # 3) download → out_path
         self._download(image_url, out)
         return grid_task_id
 
