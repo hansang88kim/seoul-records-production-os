@@ -437,6 +437,9 @@ def get_image_provider(use_real: bool = False, model: str | None = None,
                                   not currently surfaced in the UI (see v1.0.0-alpha.34
                                   changelog — Apiframe's Midjourney pool was
                                   unreliable, replaced by apiframe_nanobanana).
+      * "midjourney_linkr"      — the user's Midjourney account via LinkrAPI
+                                  (LINKRAPI_API_KEY required). v1.0.0-alpha.73:
+                                  imagine→fetch→upscale(U1)→fetch→download flow.
 
     Real provider only when use_real AND the matching API key is set; otherwise
     the mock — so tests/default runs never call out. For Gemini the real backend
@@ -456,6 +459,14 @@ def get_image_provider(use_real: bool = False, model: str | None = None,
         if not get_apiframe_key():
             return MockImageGenProvider()
         return MidjourneyApiframeProvider()
+
+    if eng in ("midjourney_linkr", "linkrapi"):
+        from services.thumbnail.midjourney_linkr_provider import (
+            MidjourneyLinkrProvider, get_linkrapi_key,
+        )
+        if not get_linkrapi_key():
+            return MockImageGenProvider()
+        return MidjourneyLinkrProvider()
 
     if eng == "apiframe_nanobanana":
         from services.thumbnail.apiframe_nanobanana_provider import (
