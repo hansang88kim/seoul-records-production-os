@@ -1,6 +1,6 @@
 """
 services/thumbnail/html_renderer.py — HTML/CSS + Playwright thumbnail renderer
-(v1.0.0-alpha.69).
+(v1.0.0-alpha.69, local-first fonts added in alpha.72).
 
 Replaces the PIL-based services/thumbnail/canva_branding.py renderer with a
 server-side port of seoul_records_thumbnail_studio.html (the confirmed design
@@ -16,6 +16,13 @@ real target resolution (services/thumbnail/asset_types.CANVAS_SIZES —
 1920x1080 / 3000x3000) purely via Playwright's device_scale_factor. A final
 PIL resize guards against float/rounding drift in the scale factor.
 
+Fonts (v1.0.0-alpha.72): all 14 font families are bundled locally under
+assets/fonts/ (OFL-licensed — see assets/fonts/LICENSES.md) and loaded via
+@font-face with the local file as the primary src and the original Google
+CDN file as an in-rule fallback (see font_face_css()) — production render
+boxes with a blocked/unreliable font CDN still render correctly, with zero
+network calls in the common case. See _FONT_FACES for the full mapping.
+
 canva_branding.py / asset_exporter.py / prompt_generator.py / country_presets.py
 are all left untouched — this module is purely additive.
 """
@@ -25,6 +32,7 @@ import base64
 import io
 import tempfile
 import uuid
+from functools import lru_cache
 from pathlib import Path
 
 # ─── Font pools (ported verbatim from FONTS / KR_FONTS in the reference) ────
@@ -73,20 +81,112 @@ _LOGICAL = {"169": (1280, 720), "11": (1080, 1080)}
 # Real output resolution (services/thumbnail/asset_types.CANVAS_SIZES).
 _TARGET = {"169": (1920, 1080), "11": (3000, 3000)}
 
-GOOGLE_FONTS_HREF = (
-    "https://fonts.googleapis.com/css2?"
-    "family=Playfair+Display:ital,wght@0,500;0,600;0,700;0,800;1,600;1,700"
-    "&family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,600;1,700"
-    "&family=Bodoni+Moda:ital,wght@0,500;0,700;1,600"
-    "&family=DM+Serif+Display:ital@0;1"
-    "&family=Prata&family=Anton&family=Bebas+Neue"
-    "&family=Montserrat:wght@400;500;600;700;800"
-    "&family=Marcellus&family=Italiana"
-    "&family=Noto+Sans+KR:wght@300;400;500;700"
-    "&family=Nanum+Myeongjo:wght@400;700;800"
-    "&family=Gowun+Batang:wght@400;700"
-    "&family=Song+Myung&display=swap"
-)
+# ─── Local-first web fonts (v1.0.0-alpha.72) ────────────────────────────────
+# Insurance against a production environment where the Google Fonts CDN is
+# blocked/unreliable (firewall, proxy, offline render box): every font used
+# by FONTS/KR_FONTS is bundled as a local woff2 under assets/fonts/ (all 14
+# families are OFL-licensed — see assets/fonts/LICENSES.md) and embedded as a
+# base64 data: URI, so the primary path needs NO network access at all. Each
+# @font-face's src list keeps the original Google CDN file as a SECOND entry
+# — per the CSS spec, a browser only moves to the next src if the current one
+# fails to load, so this is a genuine "local, else CDN" fallback within one
+# rule (two separate @font-face rules would NOT behave this way: an
+# identical later rule fully replaces an earlier one instead of falling back
+# per-src, so the CDN entry must live inside the SAME rule as the local one).
+#
+# Title fonts: only the exact (style, weight) combo FONTS actually renders
+# is bundled (the "latin" Google CDN chunk — small, since titles are plain
+# English). Fonts with no true bold face on Google's side (DM Serif Display,
+# Prata, Marcellus, Italiana, Anton, Bebas Neue all ship ONE weight only)
+# are declared at their real weight; our own CSS still asks for weight 700
+# on top (see _font_italic_weight's 700 default), so the browser applies the
+# exact same closest-match + synthetic-bold behavior locally as it already
+# does via the CDN — no visual change either way.
+#
+# KR fonts: subset via fonttools to Latin + Hangul Syllables only (dropping
+# Cyrillic/Vietnamese/CJK-ideograph blocks Google's CDN chunks would
+# otherwise pull in) — still much larger files than the Latin ones (Hangul
+# alone is 11,172 precomposed syllables), but an 18x+ reduction from the
+# full multi-script source. Noto Sans KR's fallback points at the complete
+# variable-font source (GitHub raw) rather than a single Google CDN chunk,
+# since Google only serves it pre-split into ~100 per-script chunks with no
+# single-file option; the range is pinned via a discrete font-weight value
+# (see CSS_FONT_FACES) so the correct static weight renders either way.
+_FONTS_DIR = Path(__file__).resolve().parent.parent.parent / "assets" / "fonts"
+
+# (family, style, weight, local_filename, fallback_url, fallback_format)
+_FONT_FACES: list[tuple[str, str, int, str, str, str]] = [
+    ("Playfair Display", "italic", 700, "PlayfairDisplay-BoldItalic-latin.woff2",
+     "https://fonts.gstatic.com/s/playfairdisplay/v40/nuFRD-vYSZviVYUb_rj3ij__anPXDTnCjmHKM4nYO7KN_k-UXtHA-Q.woff2", "woff2"),
+    ("Cormorant Garamond", "italic", 700, "CormorantGaramond-BoldItalic-latin.woff2",
+     "https://fonts.gstatic.com/s/cormorantgaramond/v21/co3smX5slCNuHLi8bLeY9MK7whWMhyjYrGFEsdtdc62E6zd5FTf-iNM8.woff2", "woff2"),
+    ("Bodoni Moda", "normal", 700, "BodoniModa-Bold-latin.woff2",
+     "https://fonts.gstatic.com/s/bodonimoda/v28/aFT67PxzY382XsXX63LUYL6GYFcan6NJrKp-VPjfJMShrpsGFUt8oand8Id4tA.woff2", "woff2"),
+    ("DM Serif Display", "normal", 400, "DMSerifDisplay-Regular-latin.woff2",
+     "https://fonts.gstatic.com/s/dmserifdisplay/v17/-nFnOHM81r4j6k0gjAW3mujVU2B2G_Bx0g.woff2", "woff2"),
+    ("Prata", "normal", 400, "Prata-Regular-latin.woff2",
+     "https://fonts.gstatic.com/s/prata/v22/6xKhdSpbNNCT-sWPCm4.woff2", "woff2"),
+    ("Marcellus", "normal", 400, "Marcellus-Regular-latin.woff2",
+     "https://fonts.gstatic.com/s/marcellus/v14/wEO_EBrOk8hQLDvIAF81VvoK.woff2", "woff2"),
+    ("Italiana", "normal", 400, "Italiana-Regular-latin.woff2",
+     "https://fonts.gstatic.com/s/italiana/v21/QldNNTtLsx4E__B0XQmWaXw.woff2", "woff2"),
+    ("Anton", "normal", 400, "Anton-Regular-latin.woff2",
+     "https://fonts.gstatic.com/s/anton/v27/1Ptgg87LROyAm3Kz-C8.woff2", "woff2"),
+    ("Bebas Neue", "normal", 400, "BebasNeue-Regular-latin.woff2",
+     "https://fonts.gstatic.com/s/bebasneue/v16/JTUSjIg69CK48gW7PXoo9Wlhyw.woff2", "woff2"),
+    ("Montserrat", "normal", 800, "Montserrat-ExtraBold-latin.woff2",
+     "https://fonts.gstatic.com/s/montserrat/v31/JTUHjIg1_i6t8kCHKm4532VJOt5-QNFgpCvr73w5aXo.woff2", "woff2"),
+    ("Noto Sans KR", "normal", 400, "NotoSansKR-Regular-latin-korean.woff2",
+     "https://raw.githubusercontent.com/google/fonts/main/ofl/notosanskr/NotoSansKR%5Bwght%5D.ttf", "truetype"),
+    ("Noto Sans KR", "normal", 500, "NotoSansKR-Medium-latin-korean.woff2",
+     "https://raw.githubusercontent.com/google/fonts/main/ofl/notosanskr/NotoSansKR%5Bwght%5D.ttf", "truetype"),
+    ("Nanum Myeongjo", "normal", 400, "NanumMyeongjo-Regular-latin-korean.woff2",
+     "https://raw.githubusercontent.com/google/fonts/main/ofl/nanummyeongjo/NanumMyeongjo-Regular.ttf", "truetype"),
+    ("Gowun Batang", "normal", 400, "GowunBatang-Regular-latin-korean.woff2",
+     "https://raw.githubusercontent.com/google/fonts/main/ofl/gowunbatang/GowunBatang-Regular.ttf", "truetype"),
+    ("Song Myung", "normal", 400, "SongMyung-Regular-latin-korean.woff2",
+     "https://raw.githubusercontent.com/google/fonts/main/ofl/songmyung/SongMyung-Regular.ttf", "truetype"),
+]
+
+
+def _font_face_src(local_filename: str, fallback_url: str, fallback_format: str) -> str:
+    """
+    'local(data-uri), then CDN' src list for one @font-face rule. Missing
+    local file (e.g. assets/fonts/ not deployed) degrades gracefully to
+    CDN-only — never raises.
+    """
+    parts = []
+    local_path = _FONTS_DIR / local_filename
+    try:
+        data = local_path.read_bytes()
+        b64 = base64.b64encode(data).decode("ascii")
+        parts.append(f"url(data:font/woff2;base64,{b64}) format('woff2')")
+    except OSError:
+        pass
+    parts.append(f"url('{fallback_url}') format('{fallback_format}')")
+    return ",\n       ".join(parts)
+
+
+@lru_cache(maxsize=1)
+def font_face_css() -> str:
+    """
+    All @font-face rules (local-first, CDN-fallback) as one CSS string,
+    cached after the first call — reads assets/fonts/ and base64-encodes
+    each file only once per process.
+    """
+    rules = []
+    for family, style, weight, local_filename, fallback_url, fallback_format in _FONT_FACES:
+        src = _font_face_src(local_filename, fallback_url, fallback_format)
+        rules.append(
+            f"@font-face {{\n"
+            f"  font-family: '{family}';\n"
+            f"  font-style: {style};\n"
+            f"  font-weight: {weight};\n"
+            f"  font-display: block;\n"
+            f"  src: {src};\n"
+            f"}}"
+        )
+    return "\n".join(rules)
 
 
 def recommended_font_css(form: str) -> str:
@@ -382,7 +482,7 @@ def _build_html_document(*, form: str, ratio: str, bg_uri: str, subj_uri: str | 
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<link href="{GOOGLE_FONTS_HREF}" rel="stylesheet">
+<style>{font_face_css()}</style>
 <style>{_BASE_CSS}</style>
 </head>
 <body>
