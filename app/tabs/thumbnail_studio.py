@@ -177,6 +177,15 @@ def _render_prompt_lab():
                                  "· 1장당 약 10~30초 소요 (요청 제한 시 자동 재시도)",
                 "per_image_time": None,
             },
+            "Midjourney (LinkrAPI)": {
+                "key": "midjourney_linkr",
+                "dep_fn": igd.check_midjourney_linkr_dependencies,
+                "toggle_label": "실제 이미지 생성 (Midjourney · LinkrAPI)",
+                "not_ready_hint": "좌측 사이드바 🎨 Image Gen 칸에 LinkrAPI API 키(lkr_)를 입력하면 켜집니다.",
+                "ready_caption": "🟢 실제 생성 ON · Midjourney (LinkrAPI) · ⚠️ 미드저니는 그리드→업스케일 "
+                                 "2단계라 1장당 약 1~3분 걸릴 수 있습니다 (진행 로그로 상태 확인 가능)",
+                "per_image_time": None,
+            },
         }
         engine_label = st.selectbox(
             "이미지 엔진",
@@ -185,6 +194,8 @@ def _render_prompt_lab():
             help=("Gemini: Google API 키로 직접 생성 (REST). "
                   "Nano Banana 2 / ChatGPT(GPT Image 2): 이미 연결한 Apiframe/ChatGPT 키를 "
                   "그대로 재사용해 생성 — 별도 키 불필요. "
+                  "Midjourney (LinkrAPI): 본인 Midjourney 계정을 LinkrAPI로 구동 "
+                  "(LINKRAPI_API_KEY 필요). 비동기 2단계라 느립니다(1장 1~3분). "
                   "(Midjourney/Apiframe 조합은 계정 풀 불안정으로 제외했습니다 — "
                   "필요시 다음 세션에서 다시 켤 수 있습니다.)"),
         )

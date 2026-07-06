@@ -427,6 +427,14 @@ def _verify_apiframe(key):
         return False, f"{type(e).__name__}: {e}"
 
 
+def _verify_linkrapi(key):
+    try:
+        from services.thumbnail.midjourney_linkr_provider import verify_linkrapi_key
+        return verify_linkrapi_key(key)
+    except Exception as e:
+        return False, f"{type(e).__name__}: {e}"
+
+
 # ─── Settings page (credentials + job status; moved out of the sidebar) ─────
 def render_settings_page():
     st.markdown("# ⚙️ Settings")
@@ -447,6 +455,8 @@ def render_settings_page():
     with col2:
         st.markdown("##### 🎨 Image Gen")
         _credential_field("Midjourney (Apiframe)", "APIFRAME_API_KEY", "afk_...", verify_fn=_verify_apiframe, persist_env=True)
+        st.write("")
+        _credential_field("Midjourney (LinkrAPI)", "LINKRAPI_API_KEY", "lkr_...", verify_fn=_verify_linkrapi, persist_env=True)
 
         st.write("")
         st.markdown("##### ▶️ YouTube")

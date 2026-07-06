@@ -283,3 +283,44 @@ def test_factory_midjourney_linkr_with_key(monkeypatch):
 def test_factory_use_real_false_is_always_mock(monkeypatch):
     monkeypatch.setenv("LINKRAPI_API_KEY", _FAKE_KEY)
     assert ip.get_image_provider(use_real=False, engine="midjourney_linkr").name == "mock"
+
+
+# ─── UI + credential wiring (v1.0.0-alpha.73 commit 2) ──────────────────────
+
+def test_deps_helper_reports_readiness_without_exposing_key(monkeypatch):
+    from services.thumbnail.image_gen_deps import check_midjourney_linkr_dependencies
+    monkeypatch.delenv("LINKRAPI_API_KEY", raising=False)
+    d = check_midjourney_linkr_dependencies()
+    assert d["ready"] is False and d["api_key_present"] is False
+    monkeypatch.setenv("LINKRAPI_API_KEY", _FAKE_KEY)
+    d = check_midjourney_linkr_dependencies()
+    assert d["ready"] is True
+    assert d["key_env_vars"] == ["LINKRAPI_API_KEY"]
+    # the key VALUE must never appear anywhere in the report
+    assert _FAKE_KEY not in json.dumps(d)
+
+
+def test_verify_linkrapi_key_shape_checks_without_network():
+    from services.thumbnail.midjourney_linkr_provider import verify_linkrapi_key
+    with mock.patch("requests.get") as get:
+        ok_empty, _ = verify_linkrapi_key("")
+        ok_wrong, _ = verify_linkrapi_key("afk_not_a_linkr_key")
+    assert ok_empty is False and ok_wrong is False
+    get.assert_not_called()  # both rejected before any network call
+
+
+def test_thumbnail_studio_ui_exposes_linkrapi_engine():
+    from pathlib import Path
+    src = Path("app/tabs/thumbnail_studio.py").read_text(encoding="utf-8")
+    assert "Midjourney (LinkrAPI)" in src
+    assert '"key": "midjourney_linkr"' in src
+    assert "check_midjourney_linkr_dependencies" in src
+    assert "1~3분" in src  # slow-generation notice
+
+
+def test_sidebar_has_linkrapi_credential_field():
+    from pathlib import Path
+    src = Path("app/main.py").read_text(encoding="utf-8")
+    assert "LINKRAPI_API_KEY" in src
+    assert "_verify_linkrapi" in src
+    assert "verify_linkrapi_key" in src

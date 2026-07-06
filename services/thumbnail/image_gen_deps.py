@@ -73,6 +73,28 @@ def check_midjourney_dependencies() -> dict:
     }
 
 
+def check_midjourney_linkr_dependencies() -> dict:
+    """Structured readiness report for Midjourney generation via LinkrAPI
+    (v1.0.0-alpha.73).
+
+    Requires only `requests` (always available) + a LinkrAPI API key, so
+    readiness == key presence. The API key VALUE is never included.
+    """
+    from services.thumbnail.midjourney_linkr_provider import get_linkrapi_key
+    key = get_linkrapi_key() is not None
+    return {
+        "api_key_present": key,
+        "ready": key,
+        "model": "midjourney (LinkrAPI)",
+        "key_hint": (
+            "Enter your LinkrAPI API key in the left sidebar (🎨 Image Gen → "
+            "Midjourney LinkrAPI), or set LINKRAPI_API_KEY. Key (starts with "
+            "lkr_): https://linkrapi.com dashboard"
+        ),
+        "key_env_vars": ["LINKRAPI_API_KEY"],
+    }
+
+
 def check_apiframe_nanobanana_dependencies() -> dict:
     """
     Structured readiness report for Nano Banana 2 via Apiframe (v1.0.0-alpha.34).
