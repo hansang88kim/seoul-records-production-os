@@ -744,12 +744,17 @@ class SunoCliProvider(ComposerProvider):
         Delete/trash clips on Suno (`suno delete <ids>`). Destructive —
         callers must confirm with the user first. Returns
         {"ok": bool, "deleted": [...], "error": str|None}.
+
+        v1.0.0-alpha.66: `suno delete` waits on a y/n confirmation prompt
+        by default. We call it as a non-interactive subprocess (no stdin
+        attached), so it could never see that prompt and was failing with
+        exit code 1 every time. `-y` skips the prompt.
         """
         ids = [c for c in (clip_ids or []) if c]
         if not ids:
             return {"ok": False, "deleted": [], "error": "no clip ids"}
         try:
-            _run_suno_json(["delete"] + ids, timeout=60, suno_bin=self._bin)
+            _run_suno_json(["delete", "-y"] + ids, timeout=60, suno_bin=self._bin)
             return {"ok": True, "deleted": ids, "error": None}
         except ProviderError as e:
             return {"ok": False, "deleted": [], "error": f"{e.status}: {e}"}
