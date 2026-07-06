@@ -281,10 +281,29 @@ def render_video_renderer():
     st.caption("Full 렌더 전에 짧은 프리뷰로 시각 효과를 확인하세요.")
 
     from app.config import APP_VERSION
-    out_dir = str(Path("outputs") / "video_renders" / f"render_{plan['target_seconds']}s")
 
-    # Build overlay library + plans (in-memory; assets generated on demand)
-    session_path = str(Path("outputs") / "video_renders" / "session")
+    # v1.0.0-alpha.67: when every selected track belongs to the SAME
+    # project, save renders under that project's own folder (alongside its
+    # songs/thumbnails) instead of the shared outputs/video_renders/ — a
+    # project's renders are then easy to find together. If tracks span
+    # multiple projects (or lack project info), keep the old shared
+    # location so nothing silently goes missing.
+    track_projects = [t.get("project") or "" for t in selected_tracks]
+    unique_projects = set(track_projects)
+    common_project = track_projects[0] if len(unique_projects) == 1 and track_projects[0] else ""
+
+    if common_project:
+        from app.project_manager import song_project_dir
+        render_root = song_project_dir(common_project) / "video_renders"
+        out_dir = str(render_root / f"render_{plan['target_seconds']}s")
+        session_path = str(render_root / "session")
+    else:
+        out_dir = str(Path("outputs") / "video_renders" / f"render_{plan['target_seconds']}s")
+        session_path = str(Path("outputs") / "video_renders" / "session")
+        st.warning(
+            "⚠️ 선택한 곡들이 여러 프로젝트에 걸쳐 있거나 프로젝트 정보가 없어 "
+            "공용 outputs/video_renders/ 폴더에 저장합니다."
+        )
 
     rcol1, rcol2, rcol3 = st.columns(3)
     with rcol1:
