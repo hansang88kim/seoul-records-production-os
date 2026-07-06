@@ -100,6 +100,46 @@ def test_plan_skips_when_both_versions_downloaded(monkeypatch, tmp_path):
     assert "식별할 수 없어" in plan_q[0]["reason"]
 
 
+def test_plan_prefers_selected_clip_id_over_filename(monkeypatch, tmp_path):
+    """
+    v1.0.0-alpha.68: 새 파일명("{title}_{project}.mp3")엔 클립 ID가 없으므로,
+    selected_clip_id가 기록돼 있으면 파일명과 무관하게 그걸로 식별해야 한다.
+    """
+    root = _patch_song_root(monkeypatch, tmp_path)
+    mp3 = root / "P" / "songs" / "늦은 대답_P.mp3"
+    _make_project(root, "P", [
+        {"title": "늦은 대답", "file_path": str(mp3),
+         "task_id": "8df69261,b099c8aa",
+         "selected_clip_id": "b099c8aa-1111-2222-3333-444455556666"},
+    ])
+    mp3.write_bytes(b"x")
+
+    plan = plan_suno_cleanup("P")
+    assert len(plan) == 1
+    e = plan[0]
+    assert e["action"] == "delete"
+    assert e["keep_id"] == "b099c8aa"
+    assert e["delete_ids"] == ["8df69261"]
+    assert "selected_clip_id" in e["reason"]
+
+
+def test_plan_falls_back_to_filename_when_no_selected_clip_id(monkeypatch, tmp_path):
+    """selected_clip_id가 없는(예전) 곡은 기존 파일명 매칭 방식으로 폴백한다."""
+    root = _patch_song_root(monkeypatch, tmp_path)
+    mp3 = root / "P" / "songs" / "늦은 대답-8df69261.mp3"
+    _make_project(root, "P", [
+        {"title": "늦은 대답", "file_path": str(mp3), "task_id": "8df69261,b099c8aa"},
+    ])
+    mp3.write_bytes(b"x")
+
+    plan = plan_suno_cleanup("P")
+    e = plan[0]
+    assert e["action"] == "delete"
+    assert e["keep_id"] == "8df69261"
+    assert e["delete_ids"] == ["b099c8aa"]
+    assert "파일명 ID" in e["reason"]
+
+
 def test_plan_skips_without_two_clip_ids(monkeypatch, tmp_path):
     root = _patch_song_root(monkeypatch, tmp_path)
     _make_project(root, "P", [

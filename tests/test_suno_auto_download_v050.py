@@ -30,7 +30,7 @@ import pytest
 from services.suno_auto_download import (
     auto_download_final_version, auto_download_longest,
     _safe_title, _clip_duration, _clip_audio_url,
-    _in_range, _distance_to_range, _select_final_clip,
+    _in_range, _distance_to_range, _select_final_clip, _unique_path,
 )
 from services.suno_cleanup import plan_suno_cleanup
 
@@ -88,6 +88,17 @@ def test_clip_duration_and_audio_url_fallbacks():
 
 def test_old_name_is_a_working_alias():
     assert auto_download_longest is auto_download_final_version
+
+
+def test_unique_path_appends_numeric_suffix_on_collision(tmp_path):
+    dest = tmp_path / "곡_P.mp3"
+    assert _unique_path(dest) == dest  # no collision yet
+
+    dest.write_bytes(b"x")
+    assert _unique_path(dest) == tmp_path / "곡_P_2.mp3"
+
+    (tmp_path / "곡_P_2.mp3").write_bytes(b"x")
+    assert _unique_path(dest) == tmp_path / "곡_P_3.mp3"
 
 
 # ─── 180-240s 우선순위 규칙 (핵심 로직) ──────────────────────────────────────
@@ -167,7 +178,10 @@ def test_downloads_in_range_winner_flat_and_deletes_other(monkeypatch, tmp_path)
     assert d["clip_id"] == "b099c8aa"            # 214s가 범위 안(180-240), 250s는 범위 밖
     dest = Path(d["path"])
     assert dest.parent == root / "방콕-Vol.01" / "songs"
-    assert dest.name == "늦은 대답-b099c8aa.mp3"
+    # v1.0.0-alpha.68: filename is "{title}_{project}.mp3" (no clip id) —
+    # song has no "project_slug" field here, so it falls back to
+    # _song_slug(project_name).
+    assert dest.name == "늦은 대답_방콕-Vol.01.mp3"
     assert dest.exists()
     assert fp.deleted == ["8df69261-full"]
 
@@ -177,6 +191,52 @@ def test_downloads_in_range_winner_flat_and_deletes_other(monkeypatch, tmp_path)
     assert s["duration"] == 214.0
     assert s["status"] == "saved"
     assert s["selected_clip_id"] == "b099c8aa-full"
+
+
+def test_uses_recorded_project_slug_when_present(monkeypatch, tmp_path):
+    """song에 project_slug가 기록돼 있으면 프로젝트명을 재슬러그화하지 않고 그대로 쓴다."""
+    root = _patch_song_root(monkeypatch, tmp_path)
+    _make_project(root, "P", [
+        {"title": "곡", "file_path": "", "task_id": "8df69261,b099c8aa",
+         "project_slug": "custom-slug"},
+    ])
+    fp = _FakeProvider({
+        "8df69261": {"id": "8f", "duration": 200, "audio_url": "http://a/8"},
+        "b099c8aa": {"id": "bf", "duration": 220, "audio_url": "http://a/b"},
+    })
+    rep = auto_download_final_version("P", provider=fp, downloader=_fake_downloader)
+    dest = Path(rep["downloaded"][0]["path"])
+    assert dest.name == "곡_custom-slug.mp3"
+
+
+def test_existing_file_with_same_computed_name_gets_numeric_suffix(monkeypatch, tmp_path):
+    """
+    계산된 파일명(dest)이 이미 존재하면 덮어쓰지 않고 _2가 붙는다.
+
+    (find_song_file()의 폴백 스캔은 song["title"]을 있는 그대로 접두 매칭에
+    쓰지만, 실제 파일명은 _safe_title()로 금지문자를 치환한 뒤 만들어진다.
+    제목에 금지문자가 있으면 그 둘이 갈라져서 find_song_file이 "이미 있음"으로
+    잡아내지 못하는 경우가 실제로 있다 — 아래 "곡/1"이 그 예시. 이 테스트는
+    바로 그 경로로 dest 충돌·_2 로직 자체를 검증한다.)
+    """
+    root = _patch_song_root(monkeypatch, tmp_path)
+    _make_project(root, "P", [
+        {"title": "곡/1", "file_path": "", "task_id": "8df69261,b099c8aa"},
+    ])
+    songs_dir = root / "P" / "songs"
+    existing = songs_dir / "곡_1_P.mp3"  # _safe_title("곡/1") + "_" + "P"
+    existing.write_bytes(b"already here")
+
+    fp = _FakeProvider({
+        "8df69261": {"id": "8f", "duration": 200, "audio_url": "http://a/8"},
+        "b099c8aa": {"id": "bf", "duration": 220, "audio_url": "http://a/b"},
+    })
+    rep = auto_download_final_version("P", provider=fp, downloader=_fake_downloader)
+    assert len(rep["downloaded"]) == 1
+    dest = Path(rep["downloaded"][0]["path"])
+    assert dest.name == "곡_1_P_2.mp3"
+    assert dest.exists()
+    assert existing.read_bytes() == b"already here"  # untouched, not overwritten
 
 
 def test_delete_other_can_be_disabled(monkeypatch, tmp_path):

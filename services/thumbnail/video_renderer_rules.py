@@ -9,7 +9,7 @@ when no branded thumbnail exists.
 from __future__ import annotations
 
 from services.thumbnail import asset_types as AT
-from services.thumbnail.asset_exporter import load_asset_manifest
+from services.thumbnail.asset_exporter import load_asset_manifest, export_filename
 
 
 # Default overlay/feature settings for video playback
@@ -59,7 +59,7 @@ def list_video_backgrounds(limit: int = 30) -> list[dict]:
         )
 
         export = (ss.session_path(sid) / "exports"
-                  / AT.EXPORT_FILENAMES[AT.VIDEO_PLAYBACK_BACKGROUND_16X9])
+                  / export_filename(sid, AT.VIDEO_PLAYBACK_BACKGROUND_16X9))
         if export.exists():
             options.append({
                 "label": f"🎬 영상 배경 16:9 · {sess_label}",

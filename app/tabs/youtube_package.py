@@ -32,6 +32,35 @@ def render_youtube_package():
         st.markdown("### 1️⃣ 자산 선택")
 
         videos = AS.scan_final_videos()
+        thumbs = AS.scan_youtube_thumbnails()
+        chapters_files = AS.scan_chapters()
+
+        # v1.0.0-alpha.68: project filter — same multiselect pattern as
+        # Video Renderer's "📁 프로젝트 폴더 선택". Narrows all three
+        # dropdowns below to one (or more) project's own output, so e.g.
+        # project A's video doesn't get paired with project B's thumbnail
+        # by accident when several projects have rendered assets on disk.
+        from app.project_manager import list_song_projects
+        slug_to_name = {p["slug"]: p["name"] for p in list_song_projects()}
+        all_assets = videos + thumbs + chapters_files
+        available_slugs = sorted({
+            AS.infer_project_slug(a["path"], a.get("name")) for a in all_assets
+        } - {""})
+        if available_slugs:
+            sel_projects = st.multiselect(
+                "📁 프로젝트 필터 (선택 시 그 프로젝트 산출물만 아래 드롭다운에 남음)",
+                available_slugs, format_func=lambda s: slug_to_name.get(s, s),
+                key="yt_pkg_sel_projects",
+                help="비워두면 outputs/ 전체의 산출물을 보여줍니다.",
+            )
+            if sel_projects:
+                videos = [v for v in videos
+                          if AS.infer_project_slug(v["path"], v.get("name")) in sel_projects]
+                thumbs = [t for t in thumbs
+                          if AS.infer_project_slug(t["path"], t.get("name")) in sel_projects]
+                chapters_files = [c for c in chapters_files
+                                  if AS.infer_project_slug(c["path"], c.get("name")) in sel_projects]
+
         if videos:
             vlabels = [f"{v['name']} ({v['size_mb']}MB · {v['parent']})" for v in videos]
             vid_idx = st.selectbox("최종 영상", range(len(videos)),
@@ -41,7 +70,6 @@ def render_youtube_package():
             st.warning("final_video.mp4를 찾을 수 없습니다. Video Renderer에서 먼저 렌더하세요.")
             sel_video = None
 
-        thumbs = AS.scan_youtube_thumbnails()
         if thumbs:
             tlabels = [f"{t['name']} ({t['size_mb']}MB · {t['session']})" for t in thumbs]
             th_idx = st.selectbox("YouTube 썸네일", range(len(thumbs)),
@@ -51,7 +79,6 @@ def render_youtube_package():
             st.warning("youtube_thumbnail_16x9를 찾을 수 없습니다. Thumbnail Studio에서 내보내세요.")
             sel_thumb = None
 
-        chapters_files = AS.scan_chapters()
         if chapters_files:
             clabels = [f"{c['name']} ({c['parent']})" for c in chapters_files]
             ch_idx = st.selectbox("챕터 파일", range(len(chapters_files)),

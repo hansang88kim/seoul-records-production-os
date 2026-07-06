@@ -6,17 +6,26 @@ songs/ folder; the sibling stays in the Suno workspace and later causes
 "어떤 버전이 최종본이지?" confusion. This service finds those siblings and
 (after explicit confirmation in the UI) trashes them via `suno delete`.
 
-Why this is deterministic:
+How the kept clip is identified (v1.0.0-alpha.68):
   * Our provider stores task_id as the comma-joined FIRST-8 chars of the
     two clip ids (e.g. "8df69261,b099c8aa").
-  * suno-cli downloads name files "{title-slug}-{clipid8}.mp3", so the
-    kept clip is identified by matching the local filename suffix.
+  * PRIMARY: song["selected_clip_id"] — the full clip id
+    auto_download_final_version() already records when it picks the final
+    version. This is the deterministic source of truth and works
+    regardless of filename.
+  * FALLBACK: for songs with no selected_clip_id (downloaded before this
+    field existed, or via older/manual flows), fall back to matching the
+    local filename's trailing clip-id suffix — this only works for the
+    OLD "{title}-{clipid8}.mp3" naming; the current "{title}_{project}.mp3"
+    naming (v1.0.0-alpha.68) has no clip id in it at all, so newly
+    downloaded songs always carry selected_clip_id instead.
 
 Safety rules (plan_suno_cleanup):
   * task_id must contain ≥2 valid 8-hex clip ids — "generated"/empty skip.
-  * EXACTLY ONE clip id must match a local file. 0 matches → we can't know
-    which version was chosen → skip. 2 matches → both versions are in use
-    → skip. Only the unambiguous sibling is ever proposed for deletion.
+  * EXACTLY ONE clip id must be identified as kept (via either method
+    above). 0 matches → we can't know which version was chosen → skip.
+    2 matches → both versions are in use → skip. Only the unambiguous
+    sibling is ever proposed for deletion.
   * plan (dry-run) and execute are separate steps; execute verifies each
     clip via `suno info` and uses the FULL clip id when available.
 """
@@ -36,11 +45,36 @@ def _task_clip_ids(task_id: str) -> list[str]:
 
 
 def _file_matches_clip(file_path: str, clip_id8: str) -> bool:
-    """suno-cli download names are '{title-slug}-{clipid8}.ext'."""
+    """
+    FALLBACK matcher for songs with no selected_clip_id recorded — the OLD
+    suno-cli / auto-download naming was '{title-slug}-{clipid8}.ext'.
+    Current downloads (v1.0.0-alpha.68: '{title}_{project}.mp3') carry no
+    clip id in the filename, so this never matches them; those songs rely
+    on selected_clip_id instead (see plan_suno_cleanup).
+    """
     if not file_path:
         return False
     stem = Path(file_path).stem
     return stem.lower().endswith(clip_id8.lower())
+
+
+def _matched_clip_ids(song: dict, clip_ids: list[str], local_file: str) -> tuple[list[str], str]:
+    """
+    Figure out which of `clip_ids` was kept locally for `song`.
+
+    Returns (matched_ids, method) where method is "selected_clip_id" or
+    "filename" — used only to phrase the plan entry's reason text.
+    """
+    selected = (song.get("selected_clip_id") or "").strip().lower()
+    if selected:
+        return (
+            [cid for cid in clip_ids if selected.startswith(cid.lower())],
+            "selected_clip_id",
+        )
+    return (
+        [cid for cid in clip_ids if _file_matches_clip(local_file, cid)],
+        "filename",
+    )
 
 
 def plan_suno_cleanup(project_name: str, provider=None) -> list[dict]:
@@ -48,12 +82,15 @@ def plan_suno_cleanup(project_name: str, provider=None) -> list[dict]:
     Dry-run: for each song in the project, decide whether a Suno-side
     sibling can be safely deleted.
 
-    Matching order (v1.0.0-alpha.50):
-      1. 파일명 클립 ID 매칭 — suno-cli 다운로드('{title}-{clipid8}.mp3')는
-         확정적으로 식별.
-      2. 길이 규칙 폴백 (provider 지정 시) — 파일명에 ID가 없는 웹 다운로드는
-         "긴 버전 = 최종본" 규칙으로 두 클립의 duration을 조회해 짧은 쪽을
-         삭제 대상으로 표시. 길이가 같거나 조회 실패면 건너뜀.
+    Matching order (v1.0.0-alpha.68):
+      1. selected_clip_id 매칭 — auto_download_final_version()이 기록한
+         전체 클립 ID로 확정적으로 식별 (파일명 형식과 무관).
+      2. 파일명 클립 ID 매칭 — selected_clip_id가 없는 예전 곡만 폴백으로
+         사용('{title}-{clipid8}.mp3' 구형 다운로드명 한정).
+      3. 길이 규칙 폴백 (provider 지정 시) — 위 두 방식 다 실패하면(주로
+         클립 ID를 전혀 식별할 수 없는 웹 다운로드) "긴 버전 = 최종본"
+         규칙으로 두 클립의 duration을 조회해 짧은 쪽을 삭제 대상으로 표시.
+         길이가 같거나 조회 실패면 건너뜀.
 
     Returns one entry per song:
       {title, task_id, action: "delete"|"skip", keep_id, delete_ids,
@@ -83,12 +120,13 @@ def plan_suno_cleanup(project_name: str, provider=None) -> list[dict]:
             plan.append(entry)
             continue
 
-        matched = [cid for cid in clip_ids if _file_matches_clip(local, cid)]
+        matched, method = _matched_clip_ids(song, clip_ids, local)
         if len(matched) == 1:
             entry["action"] = "delete"
             entry["keep_id"] = matched[0]
             entry["delete_ids"] = [c for c in clip_ids if c != matched[0]]
-            entry["reason"] = "다운로드한 버전 확인됨(파일명 ID) — 나머지 버전 삭제 가능"
+            reason_src = "selected_clip_id" if method == "selected_clip_id" else "파일명 ID"
+            entry["reason"] = f"다운로드한 버전 확인됨({reason_src}) — 나머지 버전 삭제 가능"
             plan.append(entry)
             continue
         if matched:
@@ -118,7 +156,7 @@ def plan_suno_cleanup(project_name: str, provider=None) -> list[dict]:
             else:
                 entry["reason"] = "두 버전 길이 동일/조회 실패 — 건너뜀"
         else:
-            entry["reason"] = "파일명에서 클립 ID를 식별할 수 없어 건너뜀"
+            entry["reason"] = "다운로드한 버전을 식별할 수 없어 건너뜀"
         plan.append(entry)
     return plan
 

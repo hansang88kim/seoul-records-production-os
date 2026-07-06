@@ -700,7 +700,7 @@ def _render_exports():
                 st.success("✅ Video 재생 배경 16:9")
     with bcol3:
         if st.button("💿 1:1 커버", use_container_width=True):
-            yt = ss.session_path(sid) / "exports" / AT.EXPORT_FILENAMES[AT.YOUTUBE_THUMBNAIL_16X9]
+            yt = ss.session_path(sid) / "exports" / ae.export_filename(sid, AT.YOUTUBE_THUMBNAIL_16X9)
             p = ae.export_streaming_cover(sid, str(yt), bg_path, title, subtitle,
                                           brand_text, accent, crop_mode,
                                           exp_title_color, exp_title_scale, exp_cjk,
@@ -729,7 +729,7 @@ def _render_exports():
         AT.STREAMING_COVER_1X1: ("Streaming Cover 1:1", "앨범 자켓 · Playlist 타이틀 유지"),
     }
     for atype, (label, desc) in checklist.items():
-        fpath = exports_dir / AT.EXPORT_FILENAMES[atype]
+        fpath = exports_dir / ae.export_filename(sid, atype)
         check = "✅" if fpath.exists() else "⬜"
         st.markdown(f"{check} **{label}** — {desc}")
 
@@ -770,7 +770,7 @@ def _rebuild_manifest(sid, ae, AT):
     exports_dir = session_path(sid) / "exports"
     assets = []
     for atype in AT.REQUIRED_OUTPUT_TYPES:
-        fpath = exports_dir / AT.EXPORT_FILENAMES[atype]
+        fpath = exports_dir / ae.export_filename(sid, atype)
         if fpath.exists():
             assets.append(ae._make_asset_entry(sid, atype, str(fpath)))
     return assets

@@ -13,7 +13,9 @@ Rule (사용자 확정 기준, v1.0.0-alpha.52로 변경):
 선택되지 않은 나머지 버전은 Suno에서 자동으로 삭제한다(사용자 선택 불필요).
 
 저장 위치는 프로젝트 폴더 FLAT:
-    outputs/song_projects/<프로젝트명>/songs/<제목>-<clipid8>.mp3
+    outputs/song_projects/<프로젝트명>/songs/<제목>_<프로젝트슬러그>.mp3
+    (동명 곡이 이미 있으면 <제목>_<프로젝트슬러그>_2.mp3 ... 로 번호가 붙는다 —
+    v1.0.0-alpha.68, 파일명에서 클립ID를 빼는 대신 절대 덮어쓰지 않도록)
 곡별 하위 폴더를 만들지 않는다 — suno-cli의 곡별 폴더 다운로드를 우회하기
 위해 CLI download 대신 audio_url을 직접 스트리밍 다운로드한다.
 
@@ -37,6 +39,25 @@ _RANGE_HI = 240.0
 def _safe_title(title: str) -> str:
     s = _FORBIDDEN.sub("_", (title or "무제").strip())
     return s[:80] or "무제"
+
+
+def _unique_path(dest: Path) -> Path:
+    """
+    If `dest` already exists, append _2, _3, ... before the extension
+    until a free name is found. A project can end up with two songs of
+    the same title, and the new "{title}_{project}.mp3" naming (v1.0.0-
+    alpha.68) no longer has a clip id in it to keep them apart, so we
+    must never silently overwrite an existing download.
+    """
+    if not dest.exists():
+        return dest
+    stem, suffix = dest.stem, dest.suffix
+    n = 2
+    while True:
+        candidate = dest.with_name(f"{stem}_{n}{suffix}")
+        if not candidate.exists():
+            return candidate
+        n += 1
 
 
 def _clip_duration(info: dict) -> float:
@@ -147,7 +168,7 @@ def auto_download_final_version(project_name: str, provider=None,
     """
     from app.project_manager import (
         get_song_project_songs, find_song_file, song_project_dir,
-        update_song_in_project,
+        update_song_in_project, _song_slug,
     )
 
     if provider is None:
@@ -188,8 +209,11 @@ def auto_download_final_version(project_name: str, provider=None,
             report["failed"].append(
                 {"title": title, "reason": "오디오 URL 조회 실패", "clip_id": winner_id})
             continue
-        dest = (song_project_dir(project_name) / "songs"
-                / f"{_safe_title(title)}-{winner_id}.mp3")
+        proj_slug = song.get("project_slug") or _song_slug(project_name)
+        dest = _unique_path(
+            song_project_dir(project_name) / "songs"
+            / f"{_safe_title(title)}_{proj_slug}.mp3"
+        )
 
         if not dl(_clip_audio_url(winner_info), dest):
             report["failed"].append(

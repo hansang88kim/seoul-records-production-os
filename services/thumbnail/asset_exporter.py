@@ -16,13 +16,48 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from services.thumbnail import asset_types as AT
-from services.thumbnail.session_store import session_path
+from services.thumbnail.session_store import session_path, load_session
 
 
 def _exports_dir(session_id: str) -> Path:
     d = session_path(session_id) / "exports"
     d.mkdir(parents=True, exist_ok=True)
     return d
+
+
+def _project_slug_for_session(session_id: str) -> str:
+    """
+    The linked Song Lab project's folder-slug for this thumbnail session,
+    or "" when the session is standalone (no project_folder recorded).
+    """
+    sess = load_session(session_id) or {}
+    proj = sess.get("project_folder") or ""
+    return Path(proj).name if proj else ""
+
+
+def export_filename(session_id: str, asset_type: str) -> str:
+    """
+    The actual on-disk filename for one export asset.
+
+    v1.0.0-alpha.68: when the session is linked to a Song Lab project, the
+    project's folder-slug is appended before the extension (e.g.
+    'youtube_thumbnail_16x9_서울-시티팝-Vol.01.png') so
+    services/youtube/asset_scanner.py can tell which project an asset
+    belongs to purely from the filename — thumbnails live under
+    outputs/thumbnail_studio/<session_id>/exports/, not under a project
+    folder, so path-based identification (as used for video renders)
+    doesn't work for them. Standalone sessions keep the bare
+    AT.EXPORT_FILENAMES name, unchanged from before.
+
+    ALL code that writes or looks up one of these export files must go
+    through this function so the name stays consistent both ways.
+    """
+    base = AT.EXPORT_FILENAMES[asset_type]
+    slug = _project_slug_for_session(session_id)
+    if not slug:
+        return base
+    stem, dot, ext = base.rpartition(".")
+    return f"{stem}_{slug}.{ext}" if dot else f"{base}_{slug}"
 
 
 def _font(size: int):
@@ -98,7 +133,7 @@ def export_youtube_thumbnail(
                                    cjk_subtext=cjk_subtext,
                                    eyebrow_color=eyebrow_color, subtitle_color=subtitle_color)
 
-    out = _exports_dir(session_id) / AT.EXPORT_FILENAMES[AT.YOUTUBE_THUMBNAIL_16X9]
+    out = _exports_dir(session_id) / export_filename(session_id, AT.YOUTUBE_THUMBNAIL_16X9)
     img.save(out)
     # Optional JPG
     try:
@@ -131,7 +166,7 @@ def export_video_playback_background(
                                    brand_text if subtle_logo else "",
                                    "#ffffff", W, H, with_title=False)
 
-    out = _exports_dir(session_id) / AT.EXPORT_FILENAMES[AT.VIDEO_PLAYBACK_BACKGROUND_16X9]
+    out = _exports_dir(session_id) / export_filename(session_id, AT.VIDEO_PLAYBACK_BACKGROUND_16X9)
     img.save(out)
     return str(out)
 
@@ -197,7 +232,7 @@ def export_streaming_cover(
     if cover is None:
         return None
 
-    out = _exports_dir(session_id) / AT.EXPORT_FILENAMES[AT.STREAMING_COVER_1X1]
+    out = _exports_dir(session_id) / export_filename(session_id, AT.STREAMING_COVER_1X1)
     cover.save(out)
     try:
         cover.save(out.with_suffix(".jpg"), quality=95)

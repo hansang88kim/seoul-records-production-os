@@ -109,6 +109,7 @@ def build_render_plan(
     enable_film_grain: bool = False,
     cta_interval_minutes: int = 5,
     cta_duration_seconds: int = 12,
+    video_filename: str = "final_video.mp4",
 ) -> dict:
     """
     Build the full render plan (overlay_plan + render_plan in one structure).
@@ -194,7 +195,7 @@ def build_render_plan(
         "background": background,
         "audio_source": "mp3",            # MP3-first, no WAV
         "no_fake_wav": True,
-        "output": str(Path(out_dir) / "final_video.mp4"),
+        "output": str(Path(out_dir) / video_filename),
         "resolution": [1920, 1080],
         "aspect_ratio": "16:9",
         "total_seconds": total,
@@ -301,14 +302,22 @@ def build_full_render_command(
     total_seconds: float,
     render_plan: dict | None = None,
     overlay_plan: dict | None = None,
+    video_filename: str = "final_video.mp4",
 ) -> dict:
     """
     Build the full-length render command with the REAL overlay composition.
     MP3 input, 16:9, no WAV.
+
+    video_filename defaults to "final_video.mp4" for backward compatibility;
+    v1.0.0-alpha.68's video_renderer.py passes "final_video_{project}.mp4"
+    when every selected track belongs to the same project, so
+    services/youtube/asset_scanner.py's scan_final_videos() (which globs
+    "final_video*.mp4") can tell renders apart by project even when they
+    share the shared outputs/video_renders/ folder.
     """
     return _build_overlay_aware_command(
         concat_list, background_path, out_dir, int(total_seconds),
-        "final_video.mp4",
+        video_filename,
         render_plan=render_plan, overlay_plan=overlay_plan,
         preview_seconds=None, with_progress=True,
     )

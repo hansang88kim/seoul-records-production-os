@@ -48,19 +48,25 @@ def _first(paths: list[str]) -> str | None:
 
 
 def scan_thumbnail_assets() -> dict:
-    """YouTube thumbnail / playback background / streaming cover / manifest."""
+    """
+    YouTube thumbnail / playback background / streaming cover / manifest.
+
+    v1.0.0-alpha.68: project-linked thumbnail sessions export these with a
+    "_{project}" suffix (see services/thumbnail/asset_exporter.export_filename)
+    — wildcarded so both that and standalone sessions' bare filenames match.
+    """
     root = _outputs_root() / "thumbnail_studio"
     return {
         "youtube_thumbnail": _first(
-            _exists_glob(root, "youtube_thumbnail_16x9.png")
-            + _exists_glob(root, "youtube_thumbnail_16x9.jpg")
-            + _exists_glob(root, "youtube_thumbnail_16x9.jpeg")),
+            _exists_glob(root, "youtube_thumbnail_16x9*.png")
+            + _exists_glob(root, "youtube_thumbnail_16x9*.jpg")
+            + _exists_glob(root, "youtube_thumbnail_16x9*.jpeg")),
         "video_playback_background": _first(
-            _exists_glob(root, "video_playback_background_16x9.png")
-            + _exists_glob(root, "video_playback_background_16x9.jpg")),
+            _exists_glob(root, "video_playback_background_16x9*.png")
+            + _exists_glob(root, "video_playback_background_16x9*.jpg")),
         "streaming_cover": _first(
-            _exists_glob(root, "streaming_cover_1x1.png")
-            + _exists_glob(root, "streaming_cover_1x1.jpg")),
+            _exists_glob(root, "streaming_cover_1x1*.png")
+            + _exists_glob(root, "streaming_cover_1x1*.jpg")),
         "asset_manifest": _first(_exists_glob(root, "asset_manifest.json")),
     }
 

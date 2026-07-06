@@ -293,13 +293,20 @@ def render_video_renderer():
     common_project = track_projects[0] if len(unique_projects) == 1 and track_projects[0] else ""
 
     if common_project:
-        from app.project_manager import song_project_dir
+        from app.project_manager import song_project_dir, _song_slug
         render_root = song_project_dir(common_project) / "video_renders"
         out_dir = str(render_root / f"render_{plan['target_seconds']}s")
         session_path = str(render_root / "session")
+        # v1.0.0-alpha.68: the project also goes in the FILENAME (not just
+        # the folder) so a render is identifiable by name alone — e.g. once
+        # copied out for YouTube Package, or when it ends up in the shared
+        # outputs/video_renders/ fallback below. asset_scanner.scan_final_videos()
+        # globs "final_video*.mp4" so both this and the old bare name match.
+        video_filename = f"final_video_{_song_slug(common_project)}.mp4"
     else:
         out_dir = str(Path("outputs") / "video_renders" / f"render_{plan['target_seconds']}s")
         session_path = str(Path("outputs") / "video_renders" / "session")
+        video_filename = "final_video.mp4"
         st.warning(
             "⚠️ 선택한 곡들이 여러 프로젝트에 걸쳐 있거나 프로젝트 정보가 없어 "
             "공용 outputs/video_renders/ 폴더에 저장합니다."
@@ -332,6 +339,7 @@ def render_video_renderer():
             enable_now_playing=en_now, enable_cta=en_cta,
             enable_visualizer=en_viz, enable_center_title=en_center,
             enable_film_grain=en_grain,
+            video_filename=video_filename,
         )
         # Attach the visualizer frame config (lock/opacity) to the overlay plan
         plans["overlay_plan"]["visualizer_frame"] = st.session_state.get(
@@ -352,6 +360,7 @@ def render_video_renderer():
             cmd = rp.build_full_render_command(
                 concat, bg_info.get("path") or "", out_dir, plan["total_seconds"],
                 render_plan=plans["render_plan"], overlay_plan=plans["overlay_plan"],
+                video_filename=video_filename,
             )
             from workflows.render_video import _ffmpeg_available
             if not _ffmpeg_available():
