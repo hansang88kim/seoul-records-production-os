@@ -25,3 +25,7 @@ google-genai>=1.0.0
 
 # v1.0.0-alpha.20: bundled FFmpeg via imageio-ffmpeg (no system install needed)
 imageio-ffmpeg>=0.5.1
+
+# v1.0.0-alpha.69: HTML/CSS + Playwright thumbnail renderer (services/thumbnail/html_renderer.py).
+# After installing, run `playwright install chromium` once (downloads the browser binary).
+playwright>=1.40.0
