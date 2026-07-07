@@ -14,7 +14,8 @@ from pathlib import Path
 import streamlit as st
 
 from services.thumbnail.country_presets import list_countries, get_country_preset, get_title_defaults
-from services.thumbnail.prompt_generator import generate_prompt_batch
+from services.thumbnail.prompt_generator import generate_prompt_batch, build_prompt_batch
+from services.thumbnail.prompt_composer import compose_english_prompt
 from services.thumbnail import session_store as ss
 from services.thumbnail import canva_branding as cb
 from services.thumbnail import image_gen_deps as igd
@@ -133,6 +134,52 @@ def _render_prompt_lab():
              "텍스트를 올릴 자리가 실제로 비게 됩니다.",
     )
     selected_form = list(HR_FORMS.keys())[form_idx - 1] if form_idx > 0 else None
+
+    # ── v1.0.0-alpha.77: Korean free-form description → English prompt box ──
+    # Describe the exact image (pose, clothing, objects, setting) in Korean; an
+    # LLM composes one polished English prompt that weaves it into the existing
+    # country/mood/form styling. Leaving it empty keeps the legacy behavior
+    # (country/mood/person dropdowns → N varied scenes).
+    st.markdown("##### ✍️ 원하는 이미지 서술 (선택) — 한글로 자유롭게")
+    freeform_ko = st.text_area(
+        "이미지 내용 (비우면 기존 방식: 국가/무드/인물 조합으로 N장 다양하게 생성)",
+        key="thumb_freeform_ko",
+        placeholder="예: 비 오는 밤 홍대 골목, 짧은 흑발 보브에 베이지 트렌치코트를 입은 여성이 "
+                    "워크맨을 들고 서 있음. 네온 간판이 젖은 바닥에 반사됨.",
+        height=90,
+    ).strip()
+
+    if st.button("🌐 영어 프롬프트 만들기 / 미리보기", key="thumb_compose_en",
+                 help="한글 서술이 있으면 Gemini로 영어 이미지 프롬프트를 생성합니다. "
+                      "비어 있으면 기본 템플릿 프롬프트를 미리보기로 채웁니다."):
+        composed = compose_english_prompt(freeform_ko, country_key, theme,
+                                          include_person=include_person, form=selected_form)
+        st.session_state["thumb_en_prompt"] = composed["main_prompt"]
+        st.session_state["thumb_en_prompt_source"] = composed["prompt_source"]
+        st.rerun()
+
+    en_prompt = st.text_area(
+        "영어 프롬프트 (편집 가능 · 한글 서술이 있으면 이 박스가 생성의 최종 소스)",
+        key="thumb_en_prompt",
+        height=140,
+        help="여기 내용을 직접 수정할 수 있습니다. 한글 서술이 있으면 이 텍스트가 "
+             "그대로 이미지 provider에 전달됩니다.",
+    )
+    _src = st.session_state.get("thumb_en_prompt_source")
+    if freeform_ko:
+        if _src == "llm":
+            st.caption("🟢 Gemini가 한글 서술을 반영해 생성 · 이 박스가 생성의 유일한 소스 "
+                       "(생성 개수만큼 이 프롬프트로 만듦)")
+        elif _src in ("fallback_nokey", "fallback_error"):
+            reason = "Gemini API 키 없음" if _src == "fallback_nokey" else "Gemini 호출 실패"
+            st.caption(f"⚠️ {reason} → 기본 템플릿 프롬프트로 폴백. 위 박스를 직접 영어로 "
+                       "수정하면 그대로 사용됩니다. (사이드바 🤖 AI Composer에 Gemini 키 입력 시 자동 변환)")
+        else:
+            st.caption("ℹ️ '영어 프롬프트 만들기'를 누르면 한글 서술을 반영해 변환합니다. "
+                       "누르지 않고 생성해도 자동 변환됩니다.")
+    else:
+        st.caption("ℹ️ 한글 서술이 비어 있어 **기존 방식**(국가/무드/인물 → N개 다양한 씬)으로 "
+                   "생성됩니다. 이 박스는 참고용 미리보기입니다.")
 
     # ── Project link + real image generation ──────────────────────────────
     col_p, col_r = st.columns([1, 1])
@@ -262,8 +309,23 @@ def _render_prompt_lab():
             # Clear stale prompt/brand display from the previous session
             st.session_state.pop("brand_results", None)
 
-        prompts = generate_prompt_batch(country_key, theme, count, include_person=include_person,
-                                        form=selected_form)
+        # Hybrid (v1.0.0-alpha.77): if the user wrote a Korean description, the
+        # (possibly edited) English box is the single source for all `count`
+        # candidates; otherwise fall back to the legacy varied-scene batch.
+        if freeform_ko:
+            override = (st.session_state.get("thumb_en_prompt") or "").strip()
+            if not override:
+                composed = compose_english_prompt(freeform_ko, country_key, theme,
+                                                  include_person=include_person, form=selected_form)
+                override = composed["main_prompt"]
+                st.session_state["thumb_en_prompt"] = override
+                st.session_state["thumb_en_prompt_source"] = composed["prompt_source"]
+            prompts = build_prompt_batch(country_key, theme, count, include_person=include_person,
+                                         form=selected_form, english_override=override,
+                                         freeform_ko=freeform_ko)
+        else:
+            prompts = build_prompt_batch(country_key, theme, count, include_person=include_person,
+                                         form=selected_form)
         if not use_real:
             mode_label = "목업"
         elif engine == "apiframe_nanobanana":

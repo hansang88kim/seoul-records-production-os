@@ -249,3 +249,42 @@ def generate_prompt_batch(
     """
     return [generate_flow_prompt(country, theme, track_no=i, include_person=include_person, form=form)
             for i in range(count)]
+
+
+def build_prompt_batch(
+    country: str,
+    theme: str,
+    count: int = 5,
+    include_person: bool = True,
+    form: str | None = None,
+    english_override: str | None = None,
+    freeform_ko: str = "",
+) -> list[dict]:
+    """
+    v1.0.0-alpha.77 — hybrid prompt batch for the Prompt Lab's Korean-freeform
+    flow.
+
+    * ``english_override`` empty/None → the exact legacy behavior:
+      generate_prompt_batch (``count`` prompts, each a varied scene). This is
+      the backward-compatible path used when the user leaves the free-form box
+      empty.
+    * ``english_override`` given → that single edited English prompt is the
+      source of truth: build ``count`` candidates that all carry it as
+      ``main_prompt`` (variety then comes from the provider's own seeds / the
+      Midjourney grid), while keeping every OTHER field (negative prompt with
+      the FORM_SPECS merge, title-safe area, palette, accent, etc.) from the
+      template so downstream candidate/branding code is unaffected.
+    """
+    override = (english_override or "").strip()
+    if not override:
+        return generate_prompt_batch(country, theme, count,
+                                     include_person=include_person, form=form)
+    prompts = []
+    for i in range(count):
+        d = generate_flow_prompt(country, theme, track_no=i,
+                                 include_person=include_person, form=form)
+        d["main_prompt"] = override
+        d["freeform_ko"] = freeform_ko
+        d["prompt_source"] = "freeform"
+        prompts.append(d)
+    return prompts
