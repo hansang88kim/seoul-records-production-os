@@ -69,6 +69,35 @@ def _gemini_key() -> str | None:
     return None
 
 
+def _openai_key() -> str | None:
+    v = os.environ.get("OPENAI_API_KEY", "").strip()
+    return v or None
+
+
+def _any_llm_key() -> bool:
+    return bool(_openai_key() or _gemini_key())
+
+
+def _call_llm(instruction: str) -> str | None:
+    """
+    Compose via the best available LLM. OpenAI (gpt-4o-mini class) tends to write
+    the most detailed, professional image prompts, so it's tried first; Gemini is
+    the fallback. Returns the composed text, or None if no key / both fail.
+    Never logs the key.
+    """
+    ok = _openai_key()
+    if ok:
+        out = _call_openai(instruction, ok)
+        if out:
+            return out
+    gk = _gemini_key()
+    if gk:
+        out = _call_gemini(instruction, gk)
+        if out:
+            return out
+    return None
+
+
 def _build_llm_instruction(korean_freeform: str, base: dict, include_person: bool) -> str:
     """Assemble the instruction sent to Gemini. ``base`` is a generate_flow_prompt
     dict (used as the style/composition reference)."""
@@ -84,32 +113,74 @@ def _build_llm_instruction(korean_freeform: str, base: dict, include_person: boo
         else "balanced negative space near a title-safe band for a text overlay"
     )
     return (
-        "You are an expert prompt engineer for AI image generators (Midjourney / "
-        "Nano Banana / GPT-Image), specializing in premium 1990s Korean/Asian "
-        "city-pop album-cover YouTube thumbnails.\n\n"
-        "Write ONE polished English image-generation prompt (a single flowing "
-        "paragraph — no line breaks, no markdown, no preamble, no quotes) for a "
-        "playlist thumbnail / city-pop album cover.\n\n"
+        "You are a world-class prompt engineer for AI image generators "
+        "(Midjourney, Google Nano Banana, GPT-Image), specializing in premium "
+        "1980s-1990s Korean/Asian city-pop album-cover YouTube thumbnails.\n\n"
+        "Write ONE richly detailed, professional English image-generation prompt "
+        "as a single flowing paragraph (roughly 60-110 words — no line breaks, no "
+        "markdown, no preamble, no quotes, no parameter flags like --ar). It must "
+        "read like a top-tier prompt that renders beautifully across Midjourney, "
+        "Nano Banana, and GPT-Image alike.\n\n"
         f"The user described, in Korean, what they want in the image:\n"
         f"\"{korean_freeform.strip()}\"\n\n"
         "Requirements you MUST honor:\n"
-        f"- Faithfully reflect the user's description above (their poses, clothing, "
-        f"objects, setting, mood).\n"
+        "- Faithfully and specifically reflect the user's description (their "
+        "subject, poses, wardrobe, props, setting, and mood) — expand it with "
+        "concrete, evocative visual detail rather than restating it.\n"
         f"- Country / setting: {base.get('country', '')} — {base.get('scene', '')}.\n"
         f"- Mood / theme: {base.get('theme', '') or 'wistful nostalgic city night'}.\n"
-        "- Era / style: premium 1990s retro city-pop record-sleeve aesthetic, "
-        "cinematic, moody neon reflections, glossy analog-film look, elegant and "
-        "sophisticated — NOT gaudy, NOT oversaturated.\n"
+        "- Era / style: premium 1980s-1990s retro city-pop record-sleeve "
+        "aesthetic, cinematic and elegant — NOT gaudy, NOT oversaturated.\n"
         f"- {subject_rule}\n"
         f"- Composition constraint (keep this): {composition_rule}.\n"
+        "- Include concrete craft detail woven naturally into the sentence: a "
+        "specific camera/lens feel (e.g. 35mm or 50mm, shallow depth of field, "
+        "cinematic anamorphic), lighting design (key/rim/practical neon, wet "
+        "reflections, volumetric haze, bokeh), a citypop color palette (teal-and-"
+        "magenta or amber-and-cyan night tones), and rich atmosphere and texture.\n"
         "- The image MUST contain no text, letters, logos, or watermarks.\n"
-        "- Ultra-detailed, sharp focus on the subject, high dynamic range, but "
-        "finish it as a nostalgic 1980s-1990s city-pop YouTube music-playlist "
+        "- Ultra-detailed and sharp on the focal subject with high dynamic range, "
+        "finished as a nostalgic 1980s-1990s city-pop YouTube music-playlist "
         "THUMBNAIL with a SUBTLE VHS analog-film filter mood (soft grain, gentle "
-        "chromatic haze, warm nostalgic color grade) — readable at small size, "
-        "16:9 aspect ratio.\n\n"
-        "Output ONLY the final English prompt text — nothing else."
+        "chromatic haze, warm nostalgic color grade) — still crisp and readable at "
+        "small thumbnail size, 16:9 aspect ratio.\n\n"
+        "Output ONLY the final English prompt paragraph — nothing else."
     )
+
+
+def _call_openai(instruction: str, api_key: str) -> str | None:
+    """Compose via OpenAI chat completions (plain-text prose). None on failure.
+    Never logs the key."""
+    try:
+        import requests
+        model = os.environ.get("SEOUL_PROMPT_LLM_MODEL_OPENAI", "gpt-4o-mini")
+        resp = requests.post(
+            "https://api.openai.com/v1/chat/completions",
+            headers={"Authorization": f"Bearer {api_key}",
+                     "Content-Type": "application/json"},
+            json={
+                "model": model,
+                "messages": [
+                    {"role": "system", "content":
+                     "You are a world-class prompt engineer for AI image generators "
+                     "(Midjourney, Google Nano Banana, GPT-Image). You write vivid, "
+                     "technically detailed, production-ready prompts."},
+                    {"role": "user", "content": instruction},
+                ],
+                "max_tokens": 1500,
+                "temperature": 0.9,
+            },
+            timeout=60,
+        )
+        if resp.status_code != 200:
+            logger.warning("Prompt compose: OpenAI HTTP %s", resp.status_code)
+            return None
+        data = resp.json()
+        text = data.get("choices", [{}])[0].get("message", {}).get("content", "")
+        return _clean(text) or None
+    except Exception as e:
+        logger.warning("Prompt compose: OpenAI call failed: %s", type(e).__name__)
+        return None
 
 
 def _call_gemini(instruction: str, api_key: str) -> str | None:
@@ -128,7 +199,7 @@ def _call_gemini(instruction: str, api_key: str) -> str | None:
             url,
             headers={"Content-Type": "application/json"},
             json={"contents": [{"parts": [{"text": instruction}]}],
-                  "generationConfig": {"maxOutputTokens": 1200, "temperature": 0.9}},
+                  "generationConfig": {"maxOutputTokens": 1500, "temperature": 0.9}},
             timeout=60,
         )
         if resp.status_code != 200:
@@ -193,16 +264,18 @@ def _country_city(country: str) -> str:
 
 
 def _build_suggest_instruction(city: str, mood: str, include_person: bool) -> str:
-    who = ("장면 중앙에 20대 초반 여성(레트로 시티팝 패션)을 포함하고, 포즈·의상·소품을 "
-           "구체적으로." if include_person else "인물 없이 도시 야경/배경 중심으로.")
+    who = ("장면 중앙에 20대 초반 여성(레트로 시티팝 패션)을 배치하고 헤어·의상·소품·포즈를 "
+           "구체적으로 묘사." if include_person else "인물 없이 도시 야경/배경 중심으로 묘사.")
     return (
-        "너는 유튜브 시티팝 플레이리스트 썸네일용 이미지 아이디어를 내는 아트 디렉터야.\n"
+        "너는 유튜브 시티팝 음악 플레이리스트 썸네일을 기획하는 감각적인 아트 디렉터야.\n"
         f"도시: {city}\n무드: {mood or '아련한 도시의 밤'}\n"
-        "1980~90년대 시티팝 앨범 자켓 감성의 이미지 한 장을 **한국어로 한두 문장** 구체적으로 "
+        "1980~90년대 시티팝 앨범 자켓 감성의 이미지 한 장을 **한국어로 두세 문장** 아주 구체적으로 "
         "묘사해줘. "
         f"{who} "
-        "조명·색감·배경 디테일 포함. 글자/로고/워터마크는 넣지 말 것.\n"
-        "출력은 묘사 문장만 (따옴표·머리말·설명 없이)."
+        "조명(네온·젖은 반사·역광·보케), 색감(틸/마젠타 또는 앰버/시안 야간 톤), 카메라 느낌"
+        "(얕은 심도, 시네마틱), 분위기·질감 디테일을 풍부하게 넣되 자연스러운 문장으로. "
+        "글자/로고/워터마크는 넣지 말 것.\n"
+        "출력은 묘사 문장만 (따옴표·머리말·설명·목록 없이)."
     )
 
 
@@ -217,9 +290,8 @@ def suggest_korean_prompt(theme: str, country: str, include_person: bool = True)
     """
     city = _country_city(country)
     mood = (theme or "").strip()
-    key = _gemini_key()
-    if key:
-        out = _call_gemini(_build_suggest_instruction(city, mood, include_person), key)
+    if _any_llm_key():
+        out = _call_llm(_build_suggest_instruction(city, mood, include_person))
         if out:
             return _append_ko_suffix(out)
     # Fallback: curated Korean template.
@@ -263,14 +335,13 @@ def compose_english_prompt(
     from services.thumbnail.prompt_generator import relax_vhs_negatives
     base["negative_prompt"] = relax_vhs_negatives(base["negative_prompt"])
 
-    key = _gemini_key()
-    if not key:
+    if not _any_llm_key():
         base["main_prompt"] = base["main_prompt"] + _EN_THUMBNAIL_FRAMING
         base["freeform_ko"] = freeform
         base["prompt_source"] = "fallback_nokey"
         return base
 
-    composed = _call_gemini(_build_llm_instruction(freeform, base, include_person), key)
+    composed = _call_llm(_build_llm_instruction(freeform, base, include_person))
     base["freeform_ko"] = freeform
     if composed:
         base["main_prompt"] = composed  # LLM already weaves in the thumbnail/VHS framing

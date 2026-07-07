@@ -153,7 +153,7 @@ def _render_prompt_lab():
             key="thumb_freeform_ko",
             placeholder="예: 비 오는 밤 홍대 골목, 짧은 흑발 보브에 베이지 트렌치코트를 입은 여성이 "
                         "워크맨을 들고 서 있음. 네온 간판이 젖은 바닥에 반사됨.",
-            height=90,
+            height=170,
         ).strip()
     with fc2:
         st.write("")  # nudge the button down to align with the box
@@ -176,7 +176,7 @@ def _render_prompt_lab():
     en_prompt = st.text_area(
         "영어 프롬프트 (편집 가능 · 한글 서술이 있으면 이 박스가 생성의 최종 소스)",
         key="thumb_en_prompt",
-        height=140,
+        height=200,
         help="여기 내용을 직접 수정할 수 있습니다. 한글 서술이 있으면 이 텍스트가 "
              "그대로 이미지 provider에 전달됩니다.",
     )

@@ -28,7 +28,7 @@ from services.thumbnail.prompt_generator import build_prompt_batch, generate_pro
 from services.thumbnail.form_prompt_builder import FORM_SPECS
 
 
-_KEY_VARS = ("GOOGLE_GEMINI_API_KEY", "GEMINI_API_KEY", "GOOGLE_API_KEY")
+_KEY_VARS = ("GOOGLE_GEMINI_API_KEY", "GEMINI_API_KEY", "GOOGLE_API_KEY", "OPENAI_API_KEY")
 
 
 @pytest.fixture(autouse=True)
@@ -83,6 +83,49 @@ def test_freeform_with_key_composes_via_gemini(monkeypatch):
     assert "비 오는 홍대 골목" in sent
     assert FORM_SPECS["A"]["composition_169"] in sent
     assert "no text" in sent.lower()
+
+
+def _openai_resp(text):
+    r = mock.Mock()
+    r.status_code = 200
+    r.json = mock.Mock(return_value={"choices": [{"message": {"content": text}}]})
+    return r
+
+
+def test_openai_used_first_when_key_present(monkeypatch):
+    monkeypatch.setattr(pc, "_openai_key", lambda: "sk-openai")
+    monkeypatch.setattr(pc, "_gemini_key", lambda: "AIza_should_not_be_used")
+    called = {"gemini": 0}
+    monkeypatch.setattr(pc, "_call_gemini", lambda *a, **k: called.__setitem__("gemini", called["gemini"] + 1) or "GEMINI")
+    with mock.patch("requests.post", return_value=_openai_resp("PRO OPENAI PROMPT")) as post:
+        r = pc.compose_english_prompt("비 오는 밤", "korea", "night", True, "A")
+    assert r["prompt_source"] == "llm"
+    assert r["main_prompt"] == "PRO OPENAI PROMPT"
+    assert called["gemini"] == 0                 # OpenAI succeeded → Gemini not tried
+    # request went to the OpenAI endpoint
+    assert "openai.com" in post.call_args.args[0]
+
+
+def test_openai_failure_falls_back_to_gemini(monkeypatch):
+    monkeypatch.setattr(pc, "_openai_key", lambda: "sk-openai")
+    monkeypatch.setattr(pc, "_gemini_key", lambda: "AIza_key")
+    bad = mock.Mock(); bad.status_code = 500; bad.json = mock.Mock(return_value={})
+
+    def _post(url, **kw):
+        return _gemini_resp("GEMINI FALLBACK PROMPT") if "generativelanguage" in url else bad
+    with mock.patch("requests.post", side_effect=_post), \
+         mock.patch("providers.ai.base.GeminiProvider.list_models", return_value=["gemini-2.5-flash"]):
+        r = pc.compose_english_prompt("비 오는 밤", "korea", "night", True, None)
+    assert r["prompt_source"] == "llm"
+    assert r["main_prompt"] == "GEMINI FALLBACK PROMPT"
+
+
+def test_instruction_asks_for_professional_detailed_prompt():
+    base = pc.compose_english_prompt("", "korea", "night", True, "A")
+    instr = pc._build_llm_instruction("비 오는 밤", base, include_person=True)
+    # richer craft guidance is present
+    for kw in ("lens", "lighting", "color palette", "professional", "60-110 words"):
+        assert kw in instr
 
 
 def test_freeform_llm_failure_falls_back(monkeypatch):
