@@ -141,13 +141,28 @@ def _render_prompt_lab():
     # country/mood/form styling. Leaving it empty keeps the legacy behavior
     # (country/mood/person dropdowns → N varied scenes).
     st.markdown("##### ✍️ 원하는 이미지 서술 (선택) — 한글로 자유롭게")
-    freeform_ko = st.text_area(
-        "이미지 내용 (비우면 기존 방식: 국가/무드/인물 조합으로 N장 다양하게 생성)",
-        key="thumb_freeform_ko",
-        placeholder="예: 비 오는 밤 홍대 골목, 짧은 흑발 보브에 베이지 트렌치코트를 입은 여성이 "
-                    "워크맨을 들고 서 있음. 네온 간판이 젖은 바닥에 반사됨.",
-        height=90,
-    ).strip()
+    # Staging-key pattern (see alpha.64): the 🎲 button can't write the
+    # text_area's own key after the widget is instantiated, so it stages the
+    # suggestion in a *_pending key and we move it in before the widget renders.
+    if "thumb_freeform_ko_pending" in st.session_state:
+        st.session_state["thumb_freeform_ko"] = st.session_state.pop("thumb_freeform_ko_pending")
+    fc1, fc2 = st.columns([9, 1])
+    with fc1:
+        freeform_ko = st.text_area(
+            "이미지 내용 (비우면 기존 방식: 국가/무드/인물 조합으로 N장 다양하게 생성)",
+            key="thumb_freeform_ko",
+            placeholder="예: 비 오는 밤 홍대 골목, 짧은 흑발 보브에 베이지 트렌치코트를 입은 여성이 "
+                        "워크맨을 들고 서 있음. 네온 간판이 젖은 바닥에 반사됨.",
+            height=90,
+        ).strip()
+    with fc2:
+        st.write("")  # nudge the button down to align with the box
+        if st.button("🎲", key="thumb_freeform_dice", use_container_width=True,
+                     help=f"선택한 무드('{theme}') 기반 시티팝 씬을 한글로 제안"):
+            from services.thumbnail.prompt_composer import suggest_korean_prompt
+            st.session_state["thumb_freeform_ko_pending"] = suggest_korean_prompt(
+                theme, country_key, include_person=include_person)
+            st.rerun()
 
     if st.button("🌐 영어 프롬프트 만들기 / 미리보기", key="thumb_compose_en",
                  help="한글 서술이 있으면 Gemini로 영어 이미지 프롬프트를 생성합니다. "

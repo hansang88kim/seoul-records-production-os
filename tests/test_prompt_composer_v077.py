@@ -118,6 +118,46 @@ def test_person_flag_changes_instruction(monkeypatch):
     assert "Background only" in instr_bg
 
 
+# ── 🎲 suggest_korean_prompt ─────────────────────────────────────────────────
+
+def test_suggest_korean_no_key_uses_curated_fallback_no_network():
+    with mock.patch("requests.post") as post:
+        s = pc.suggest_korean_prompt("rainy night drive", "korea", include_person=True)
+    assert isinstance(s, str) and s.strip()
+    assert "rainy night drive" in s          # mood woven in
+    # a curated person template mentions a woman ("여성")
+    assert "여성" in s
+    post.assert_not_called()
+
+
+def test_suggest_korean_background_pool_when_no_person():
+    with mock.patch("requests.post"):
+        s = pc.suggest_korean_prompt("neon nostalgia", "japan", include_person=False)
+    assert "여성" not in s                    # background pool has no person
+    assert "neon nostalgia" in s
+
+
+def test_suggest_korean_uses_gemini_when_key_present(monkeypatch):
+    monkeypatch.setattr(pc, "_gemini_key", lambda: "AIza_key")
+    with mock.patch("requests.post", return_value=_gemini_resp("서울 비 오는 밤, 트렌치코트 여성")) as post, \
+         mock.patch("providers.ai.base.GeminiProvider.list_models", return_value=["gemini-2.5-flash"]):
+        s = pc.suggest_korean_prompt("rainy night", "korea", include_person=True)
+    assert s == "서울 비 오는 밤, 트렌치코트 여성"
+    # instruction carried the mood + Korean-output directive
+    sent = post.call_args.kwargs["json"]["contents"][0]["parts"][0]["text"]
+    assert "rainy night" in sent
+    assert "한국어" in sent
+
+
+def test_suggest_korean_falls_back_when_gemini_fails(monkeypatch):
+    monkeypatch.setattr(pc, "_gemini_key", lambda: "AIza_key")
+    bad = mock.Mock(); bad.status_code = 500; bad.json = mock.Mock(return_value={})
+    with mock.patch("requests.post", return_value=bad), \
+         mock.patch("providers.ai.base.GeminiProvider.list_models", return_value=[]):
+        s = pc.suggest_korean_prompt("rainy night", "korea", include_person=True)
+    assert s.strip() and "rainy night" in s   # curated fallback still returns
+
+
 # ── build_prompt_batch (hybrid) ──────────────────────────────────────────────
 
 def test_build_prompt_batch_no_override_is_legacy_varied():

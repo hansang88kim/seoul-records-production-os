@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import logging
 import os
+import random
 
 from services.thumbnail.prompt_generator import generate_flow_prompt
 
@@ -123,6 +124,76 @@ def _clean(text: str) -> str:
     if len(t) >= 2 and t[0] in "\"'“”" and t[-1] in "\"'“”":
         t = t[1:-1].strip()
     return t
+
+
+# ── 🎲 Korean scene suggestion (mood-aware) ──────────────────────────────────
+# Curated Korean city-pop scene descriptions used when no LLM key is available
+# (or the LLM call fails). {city} = the country preset's city, {mood} = the
+# currently-selected shared mood. These are full free-form-style descriptions,
+# not just mood phrases — the point is to seed the Korean input box with a
+# ready-to-generate scene the user can then tweak.
+_KO_SCENE_PERSON = [
+    "{city} 비 오는 밤거리, 단발 보브 헤어에 베이지 트렌치코트를 입은 여성이 카세트 워크맨을 "
+    "손에 들고 네온 불빛 아래 서 있음. 젖은 아스팔트에 분홍·파랑 네온이 반사되는 {mood} 무드.",
+    "{city} 심야 육교 위, 오버사이즈 가죽 재킷 차림의 여성이 도시 야경을 등지고 카메라를 응시. "
+    "머리카락이 바람에 살짝 날리고 뒤로 고층 빌딩 불빛이 보케로 번지는 {mood}.",
+    "{city} 자정의 골목, 실크 블라우스에 진주 귀걸이를 한 여성이 공중전화 부스 옆에 기대 서 있음. "
+    "따뜻한 창문 불빛과 차가운 네온이 교차하는 {mood} 시티팝 자켓 분위기.",
+    "{city} 옥상, 니트 스웨터를 입은 여성이 캔커피를 들고 난간에 기대 도시를 내려다봄. "
+    "지평선에 남은 노을과 켜지기 시작한 도시 불빛, {mood} 감성.",
+    "{city} 레코드 가게 앞, 데님 재킷의 여성이 LP를 손에 들고 미소. 진열창 네온사인이 얼굴에 "
+    "부드럽게 물드는 {mood} 무드.",
+]
+_KO_SCENE_BG = [
+    "{city} 자정의 편의점 앞 골목, 분홍·파랑 네온 간판이 젖은 바닥에 길게 반사되는 시티팝 야경. {mood}.",
+    "{city} 고가도로 아래 텅 빈 도로, 지나간 차들의 붉은 라이트 트레일과 신호등 불빛이 번지는 {mood}.",
+    "{city} 한강(강변) 야경, 물결에 도시 불빛이 잔잔하게 흔들리고 멀리 다리 조명이 빛나는 {mood} 무드.",
+    "{city} 비 그친 뒤 네온 상점가, 물웅덩이에 간판 불빛이 거울처럼 비치는 {mood} 시티팝 배경.",
+    "{city} 심야 지하철 플랫폼, 형광등과 노란 조명이 섞인 텅 빈 승강장의 쓸쓸한 {mood} 분위기.",
+]
+
+
+def _country_city(country: str) -> str:
+    try:
+        from services.thumbnail.country_presets import get_country_preset
+        return get_country_preset(country).get("city", "").strip() or "도시"
+    except Exception:
+        return "도시"
+
+
+def _build_suggest_instruction(city: str, mood: str, include_person: bool) -> str:
+    who = ("장면 중앙에 20대 초반 여성(레트로 시티팝 패션)을 포함하고, 포즈·의상·소품을 "
+           "구체적으로." if include_person else "인물 없이 도시 야경/배경 중심으로.")
+    return (
+        "너는 유튜브 시티팝 플레이리스트 썸네일용 이미지 아이디어를 내는 아트 디렉터야.\n"
+        f"도시: {city}\n무드: {mood or '아련한 도시의 밤'}\n"
+        "1980~90년대 시티팝 앨범 자켓 감성의 이미지 한 장을 **한국어로 한두 문장** 구체적으로 "
+        "묘사해줘. "
+        f"{who} "
+        "조명·색감·배경 디테일 포함. 글자/로고/워터마크는 넣지 말 것.\n"
+        "출력은 묘사 문장만 (따옴표·머리말·설명 없이)."
+    )
+
+
+def suggest_korean_prompt(theme: str, country: str, include_person: bool = True) -> str:
+    """
+    Suggest ONE Korean free-form scene description in the city-pop mood, based on
+    the currently-selected mood (``theme``) and country. Used by the 🎲 button
+    next to the Korean input box.
+
+    Gemini when a key is present (richer, varied), else a curated Korean scene
+    template (mood/city woven in). Never raises; never logs the key.
+    """
+    city = _country_city(country)
+    mood = (theme or "").strip()
+    key = _gemini_key()
+    if key:
+        out = _call_gemini(_build_suggest_instruction(city, mood, include_person), key)
+        if out:
+            return out
+    # Fallback: curated Korean template.
+    pool = _KO_SCENE_PERSON if include_person else _KO_SCENE_BG
+    return random.choice(pool).format(city=city, mood=mood or "아련한 도시의 밤")
 
 
 def compose_english_prompt(
