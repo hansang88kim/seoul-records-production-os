@@ -345,6 +345,31 @@ def load_asset_manifest(session_id: str) -> list[dict]:
     return []
 
 
+def rebuild_manifest_from_disk(session_id: str) -> list[dict]:
+    """
+    Build asset entries for every standard export file currently on disk in the
+    session's exports dir (matched by the canonical export_filename per required
+    type). Source-agnostic: it registers whatever produced those files — the PIL
+    Exports flow OR the Premium (HTML/Playwright) form renderer, which as of
+    v1.0.0-alpha.81 writes the same standard filenames.
+    """
+    exports_dir = _exports_dir(session_id)
+    assets = []
+    for atype in AT.REQUIRED_OUTPUT_TYPES:
+        fpath = exports_dir / export_filename(session_id, atype)
+        if fpath.exists():
+            assets.append(_make_asset_entry(session_id, atype, str(fpath)))
+    return assets
+
+
+def register_exports(session_id: str) -> str:
+    """Rebuild + write the asset manifest from whatever standard export files
+    exist. Returns the manifest path. Used after the Premium form renderer
+    writes the 16:9 / 1:1 deliverables so downstream (Exports view, Production
+    QA, Video Renderer, YouTube Package) picks them up."""
+    return write_asset_manifest(session_id, rebuild_manifest_from_disk(session_id))
+
+
 def export_all_required_assets(
     session_id: str,
     bg_path: str,

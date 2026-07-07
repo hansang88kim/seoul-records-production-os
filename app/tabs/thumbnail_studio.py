@@ -842,6 +842,57 @@ def _render_form_studio():
         st.markdown("**미리보기**")
         st.image(last, use_container_width=True)
 
+    # ── Register as FINAL deliverables (16:9 + 1:1) ──────────────────────────
+    # v1.0.0-alpha.81: the Premium (form) render is already a finished thumbnail
+    # at the standard resolution (html_renderer outputs 1920x1080 / 3000x3000).
+    # This renders BOTH ratios with the current form/text/color settings and
+    # writes them to the STANDARD export filenames + asset manifest, so the
+    # 📦 Exports view, Production QA, Video Renderer and YouTube Package all pick
+    # them up (they scan for youtube_thumbnail_16x9* / streaming_cover_1x1* +
+    # the manifest). Fixes the Premium↔Exports disconnect.
+    st.divider()
+    st.caption("위 형태·텍스트·색상 그대로 **16:9 썸네일 + 1:1 커버**를 최종 산출물로 등록합니다 "
+               "→ 📦 Exports · Production QA · Video Renderer · YouTube Package에서 인식됩니다.")
+    if st.button("✅ 최종 산출물로 등록 (16:9 & 1:1 동시 렌더)", type="primary",
+                 use_container_width=True, key="form_studio_register_btn",
+                 disabled=not (bg_path and Path(bg_path).exists())):
+        from services.thumbnail import asset_exporter as ae
+        from services.thumbnail import asset_types as AT
+        exports_dir = ss.session_path(sess["session_id"]) / "exports"
+        exports_dir.mkdir(parents=True, exist_ok=True)
+
+        def _render_ratio(r: str, asset_type: str) -> str:
+            skw = {}
+            if r == "11" and form in hr.SPINE_FORMS:
+                skw["spine_bg"] = st.session_state.get("form_studio_spine_bg", "#1a1420")
+                skw["spine_text"] = st.session_state.get("form_studio_spine_text", "#f4efe4")
+            out_path = exports_dir / ae.export_filename(sess["session_id"], asset_type)
+            return hr.render_thumbnail(
+                form=form, ratio=r, bg_image_path=bg_path,
+                kicker=kicker, title1=title1, title2=title2, badge=badge, tracks=tracks,
+                title_font_css=title_font_css, kr_font_css=kr_font_css,
+                title_color=title_color, point_color=point_color,
+                out_path=str(out_path), **skw,
+            )
+
+        with st.spinner("16:9 · 1:1 두 비율을 렌더링하고 최종 산출물로 등록 중..."):
+            try:
+                p169 = _render_ratio("169", AT.YOUTUBE_THUMBNAIL_16X9)
+                p11 = _render_ratio("11", AT.STREAMING_COVER_1X1)
+                ae.register_exports(sess["session_id"])
+                st.session_state["form_studio_last_render"] = p169
+                st.success("✅ 최종 등록 완료 — 16:9 썸네일 + 1:1 커버가 Exports · Production QA · "
+                           "Video · YouTube에서 인식됩니다.")
+                rc1, rc2 = st.columns(2)
+                with rc1:
+                    st.image(p169, caption="YouTube 썸네일 16:9", use_container_width=True)
+                with rc2:
+                    st.image(p11, caption="스트리밍 커버 1:1", use_container_width=True)
+            except Exception as e:
+                st.error(f"등록 실패: {type(e).__name__}: {e}")
+                st.caption("Playwright/Chromium 미설치 시: `pip install playwright` 후 "
+                           "`playwright install chromium` 실행.")
+
 
 def _render_exports():
     """Mode 4 — export the 3 separated deliverables + crop tool."""
