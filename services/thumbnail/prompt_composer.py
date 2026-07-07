@@ -33,6 +33,33 @@ _GEMINI_ENDPOINT = (
     "https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={key}"
 )
 
+# v1.0.0-alpha.79: every Korean prompt (typed or 🎲-suggested) should read as a
+# thumbnail for a city-pop YouTube music-playlist channel — 16:9, with a subtle
+# nostalgic VHS analog-filter mood. This Korean tail is appended to suggestions;
+# the English equivalent is woven into the composed prompt and its fallback.
+KO_THUMBNAIL_SUFFIX = (
+    "16:9 비율, 시티팝 감성의 유튜브 음악 플레이리스트 채널 썸네일, "
+    "은은한 VHS 아날로그 필터의 감성적인 무드"
+)
+_EN_THUMBNAIL_FRAMING = (
+    " Styled as a nostalgic 1980s-1990s city-pop YouTube music-playlist "
+    "thumbnail with a subtle VHS analog-film filter aesthetic — soft grain, "
+    "gentle chromatic haze, warm nostalgic color grade — while keeping the "
+    "subject sharp and the composition clean and readable at small thumbnail "
+    "size, 16:9 aspect ratio."
+)
+
+
+def _append_ko_suffix(text: str) -> str:
+    t = (text or "").rstrip()
+    if not t:
+        return t
+    # avoid doubling if the model already added the framing
+    if "썸네일" in t and "VHS" in t.upper():
+        return t
+    sep = " — " if not t.endswith((".", "。", "!", "?", "…")) else " "
+    return f"{t}{sep}{KO_THUMBNAIL_SUFFIX}."
+
 
 def _gemini_key() -> str | None:
     for var in ("GOOGLE_GEMINI_API_KEY", "GEMINI_API_KEY", "GOOGLE_API_KEY"):
@@ -76,7 +103,11 @@ def _build_llm_instruction(korean_freeform: str, base: dict, include_person: boo
         f"- {subject_rule}\n"
         f"- Composition constraint (keep this): {composition_rule}.\n"
         "- The image MUST contain no text, letters, logos, or watermarks.\n"
-        "- Photorealistic, ultra-detailed, 4K, sharp focus, high dynamic range.\n\n"
+        "- Ultra-detailed, sharp focus on the subject, high dynamic range, but "
+        "finish it as a nostalgic 1980s-1990s city-pop YouTube music-playlist "
+        "THUMBNAIL with a SUBTLE VHS analog-film filter mood (soft grain, gentle "
+        "chromatic haze, warm nostalgic color grade) — readable at small size, "
+        "16:9 aspect ratio.\n\n"
         "Output ONLY the final English prompt text — nothing else."
     )
 
@@ -190,10 +221,11 @@ def suggest_korean_prompt(theme: str, country: str, include_person: bool = True)
     if key:
         out = _call_gemini(_build_suggest_instruction(city, mood, include_person), key)
         if out:
-            return out
+            return _append_ko_suffix(out)
     # Fallback: curated Korean template.
     pool = _KO_SCENE_PERSON if include_person else _KO_SCENE_BG
-    return random.choice(pool).format(city=city, mood=mood or "아련한 도시의 밤")
+    scene = random.choice(pool).format(city=city, mood=mood or "아련한 도시의 밤")
+    return _append_ko_suffix(scene)
 
 
 def compose_english_prompt(
@@ -226,8 +258,14 @@ def compose_english_prompt(
         base["prompt_source"] = "template"
         return base
 
+    # Freeform flow → subtle-VHS city-pop thumbnail look: relax the anti-VHS
+    # negatives so they don't cancel the aesthetic (alpha.79).
+    from services.thumbnail.prompt_generator import relax_vhs_negatives
+    base["negative_prompt"] = relax_vhs_negatives(base["negative_prompt"])
+
     key = _gemini_key()
     if not key:
+        base["main_prompt"] = base["main_prompt"] + _EN_THUMBNAIL_FRAMING
         base["freeform_ko"] = freeform
         base["prompt_source"] = "fallback_nokey"
         return base
@@ -235,8 +273,9 @@ def compose_english_prompt(
     composed = _call_gemini(_build_llm_instruction(freeform, base, include_person), key)
     base["freeform_ko"] = freeform
     if composed:
-        base["main_prompt"] = composed
+        base["main_prompt"] = composed  # LLM already weaves in the thumbnail/VHS framing
         base["prompt_source"] = "llm"
     else:
+        base["main_prompt"] = base["main_prompt"] + _EN_THUMBNAIL_FRAMING
         base["prompt_source"] = "fallback_error"
     return base

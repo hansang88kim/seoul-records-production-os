@@ -251,6 +251,26 @@ def generate_prompt_batch(
             for i in range(count)]
 
 
+# v1.0.0-alpha.79: the base NEGATIVE_PROMPT deliberately forbids VHS/film-grain/
+# retro-filter/scan-lines (clean generation; VHS was meant as a post-process).
+# The Korean-freeform flow now wants a *subtle VHS analog-filter* look baked in,
+# so for that flow only we drop these anti-VHS terms — otherwise the negative
+# would fight the positive. Everything else (no text/logos/nudity/lowres/blurry)
+# is kept so the thumbnail stays readable.
+_VHS_NEGATIVE_TERMS = {
+    "no vhs effect", "no film grain", "no retro filter", "no vintage filter",
+    "no scan lines", "no analog artifacts",
+}
+
+
+def relax_vhs_negatives(negative: str) -> str:
+    """Drop the anti-VHS terms from a comma-separated negative prompt so a
+    deliberate subtle-VHS aesthetic isn't cancelled out. Other terms kept."""
+    terms = [t.strip() for t in (negative or "").split(",") if t.strip()]
+    kept = [t for t in terms if t.lower() not in _VHS_NEGATIVE_TERMS]
+    return ", ".join(kept)
+
+
 def build_prompt_batch(
     country: str,
     theme: str,
@@ -284,6 +304,9 @@ def build_prompt_batch(
         d = generate_flow_prompt(country, theme, track_no=i,
                                  include_person=include_person, form=form)
         d["main_prompt"] = override
+        # Freeform flow wants the subtle-VHS thumbnail look — relax the
+        # anti-VHS negatives so they don't cancel it (alpha.79).
+        d["negative_prompt"] = relax_vhs_negatives(d["negative_prompt"])
         d["freeform_ko"] = freeform_ko
         d["prompt_source"] = "freeform"
         prompts.append(d)

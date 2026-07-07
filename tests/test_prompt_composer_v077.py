@@ -142,7 +142,9 @@ def test_suggest_korean_uses_gemini_when_key_present(monkeypatch):
     with mock.patch("requests.post", return_value=_gemini_resp("서울 비 오는 밤, 트렌치코트 여성")) as post, \
          mock.patch("providers.ai.base.GeminiProvider.list_models", return_value=["gemini-2.5-flash"]):
         s = pc.suggest_korean_prompt("rainy night", "korea", include_person=True)
-    assert s == "서울 비 오는 밤, 트렌치코트 여성"
+    # the LLM scene, plus the appended city-pop/VHS thumbnail framing suffix
+    assert s.startswith("서울 비 오는 밤, 트렌치코트 여성")
+    assert pc.KO_THUMBNAIL_SUFFIX in s
     # instruction carried the mood + Korean-output directive
     sent = post.call_args.kwargs["json"]["contents"][0]["parts"][0]["text"]
     assert "rainy night" in sent
@@ -184,6 +186,51 @@ def test_build_prompt_batch_override_is_single_source():
 def test_build_prompt_batch_blank_override_treated_as_legacy():
     got = build_prompt_batch("korea", "night", 2, True, None, english_override="   ")
     assert len({p["main_prompt"] for p in got}) == 2  # blank override → legacy
+
+
+# ── VHS / city-pop thumbnail framing (alpha.79) ──────────────────────────────
+
+def test_dice_suggestion_ends_with_thumbnail_vhs_framing():
+    with mock.patch("requests.post"):
+        s = pc.suggest_korean_prompt("rainy night", "korea", include_person=True)
+    assert pc.KO_THUMBNAIL_SUFFIX in s
+    assert "VHS" in s and "썸네일" in s
+
+
+def test_compose_freeform_relaxes_vhs_negatives_and_frames(monkeypatch):
+    for v in _KEY_VARS:
+        monkeypatch.delenv(v, raising=False)
+    r = pc.compose_english_prompt("비 오는 홍대", "korea", "night", True, "A")
+    # positive gains the VHS thumbnail framing
+    assert "VHS" in r["main_prompt"]
+    # anti-VHS negatives are dropped, but readability negatives stay
+    neg = r["negative_prompt"].lower()
+    assert "vhs effect" not in neg and "retro filter" not in neg and "scan lines" not in neg
+    assert "no text" in neg and "no logos" in neg
+
+
+def test_compose_empty_freeform_keeps_vhs_ban_legacy():
+    r = pc.compose_english_prompt("", "korea", "night", True, "A")
+    assert r["prompt_source"] == "template"
+    assert "vhs effect" in r["negative_prompt"].lower()   # legacy untouched
+
+
+def test_relax_vhs_negatives_helper():
+    from services.thumbnail.prompt_generator import relax_vhs_negatives, NEGATIVE_PROMPT
+    out = relax_vhs_negatives(NEGATIVE_PROMPT).lower()
+    for gone in ("no vhs effect", "no film grain", "no retro filter",
+                 "no vintage filter", "no scan lines", "no analog artifacts"):
+        assert gone not in out
+    for kept in ("no text", "no logos", "no low resolution", "no blurry"):
+        assert kept in out
+
+
+def test_build_override_relaxes_vhs_but_legacy_keeps_it():
+    over = build_prompt_batch("korea", "night", 1, True, "A",
+                              english_override="EN", freeform_ko="k")
+    legacy = build_prompt_batch("korea", "night", 1, True, "A")
+    assert "vhs effect" not in over[0]["negative_prompt"].lower()
+    assert "vhs effect" in legacy[0]["negative_prompt"].lower()
 
 
 @pytest.mark.parametrize("form", list("ABCDEF"))
