@@ -328,10 +328,13 @@ st.markdown("""
         }
         [data-testid="stSidebar"] .stButton > button { padding: 0.55rem 0.85rem; }
 
-        /* horizontal RADIO (mode selectors) wrap + compact so options fit */
-        .stRadio [role="radiogroup"] { flex-wrap: wrap; gap: 0.3rem; }
+        /* horizontal RADIO (mode selectors) wrap + BIGGER tap targets so each
+           option (e.g. 🤖 Auto Batch) is easy to tap on a phone */
+        .stRadio [role="radiogroup"] { flex-wrap: wrap; gap: 0.4rem; }
         .stRadio [role="radiogroup"] label {
-            font-size: 0.86rem; padding: 0.26rem 0.55rem; white-space: normal;
+            font-size: 0.9rem; padding: 0.55rem 0.75rem; white-space: normal;
+            min-height: 2.6rem; display: flex; align-items: center;
+            border: 1px solid var(--border); border-radius: 10px;
         }
 
         /* metrics fit a narrow card */

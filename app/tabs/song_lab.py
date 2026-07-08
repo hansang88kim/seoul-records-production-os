@@ -865,9 +865,30 @@ def _render_project_album():
             with col_open:
                 st.markdown(f"<div style='font-size:0.8rem;color:var(--muted)'>songs/ 폴더에 {count}곡 저장됨</div>", unsafe_allow_html=True)
             with col_del:
-                if st.button("🗑️ 삭제", key=f"delproj_{proj['slug']}", use_container_width=True):
-                    if delete_song_project(name):
-                        st.success(f"'{name}' 삭제됨")
+                # v1.0.0-alpha.91: two-step confirm — deleting a project removes
+                # the whole folder + all songs permanently, so require a confirm.
+                _ck = f"delproj_confirm_{proj['slug']}"
+                if st.button("🗑️ 프로젝트 삭제", key=f"delproj_{proj['slug']}",
+                             use_container_width=True):
+                    st.session_state[_ck] = True
+                    st.rerun()
+            if st.session_state.get(_ck):
+                st.warning(f"⚠️ **'{name}'** 프로젝트를 폴더·곡 전체까지 **영구 삭제**합니다. 되돌릴 수 없어요.")
+                dc1, dc2 = st.columns(2)
+                with dc1:
+                    if st.button("✅ 삭제 확정", key=f"delproj_yes_{proj['slug']}",
+                                 type="primary", use_container_width=True):
+                        ok = delete_song_project(name)
+                        st.session_state.pop(_ck, None)
+                        if ok:
+                            st.success(f"'{name}' 삭제됨")
+                        else:
+                            st.error("삭제 실패 — 폴더가 사용 중이거나 없습니다.")
+                        st.rerun()
+                with dc2:
+                    if st.button("취소", key=f"delproj_no_{proj['slug']}",
+                                 use_container_width=True):
+                        st.session_state.pop(_ck, None)
                         st.rerun()
 
             songs = get_song_project_songs(name)
