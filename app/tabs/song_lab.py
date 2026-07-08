@@ -227,19 +227,25 @@ def render_song_lab():
 def _generate_plan_only(concept: str, ai_provider_name: str, language: str = "korean",
                        locked_style: str = "", track_no: int = 0,
                        existing_titles: list[str] | None = None,
-                       total_tracks: int = 10) -> dict:
+                       total_tracks: int = 10, mood: str = "") -> dict:
     """
     AI writes ONE song's title/style/lyrics (no Suno generation yet).
     If locked_style is set, use it instead of AI-generated style.
     existing_titles: titles already generated in this batch (AI must avoid them).
+    mood (v1.0.0-alpha.94): overall vibe key from providers.ai.base.SONG_MOODS —
+    steers the AI style/lyrics AND is woven into the final (even locked) style.
     """
-    from providers.ai.base import get_ai_provider, _lyrics_char_count, _format_lyrics
+    from providers.ai.base import (get_ai_provider, _lyrics_char_count, _format_lyrics,
+                                    mood_directive, apply_mood_to_style)
 
     draft = {"status": "drafted", "title": "", "style": "", "lyrics": "", "error": ""}
     try:
         ai = get_ai_provider(ai_provider_name)
         # Diversify: tell AI what titles to AVOID (already used in this batch)
         diversified_concept = concept
+        _md = mood_directive(mood)
+        if _md:
+            diversified_concept = f"{_md}\n\n{diversified_concept}"
         if existing_titles:
             avoid_str = ", ".join(f'"{t}"' for t in existing_titles)
             diversified_concept = (
@@ -255,6 +261,9 @@ def _generate_plan_only(concept: str, ai_provider_name: str, language: str = "ko
         pkg.lyrics = _format_lyrics(pkg.lyrics)
         if locked_style:
             pkg.style = locked_style  # override with the locked preset
+        # Weave the chosen mood into the style (so even a locked preset shifts
+        # its emotional color per the selected 무드).
+        pkg.style = apply_mood_to_style(pkg.style, mood)
         # Apply composer variation so each batch song is slightly different
         from providers.ai.base import apply_batch_variation, get_batch_vocal
         draft["track_no"] = track_no
@@ -485,6 +494,18 @@ def _render_auto_batch():
     lock_note = "🔒 고정됨 (AI 생성 시 모든 곡에 이 스타일 적용)" if is_locked else "🔓 잠금 해제 (AI가 곡마다 다르게 생성)"
     st.caption(f"{len(auto_style)}/1000 · {lock_note}")
 
+    # v1.0.0-alpha.94: overall MOOD category — keeps citypop (bright/nostalgic,
+    # never enka/trot) but shifts the emotional color per selection.
+    from providers.ai.base import SONG_MOODS, DEFAULT_SONG_MOOD
+    _mkeys = list(SONG_MOODS.keys())
+    auto_mood = st.selectbox(
+        "🎭 전체 분위기 (무드)", _mkeys,
+        index=_mkeys.index(DEFAULT_SONG_MOOD),
+        format_func=lambda k: SONG_MOODS[k]["label"], key="auto_mood",
+        help="곡 전체의 감정 색. 시티팝(밝고 청량하면서 nostalgic)은 유지하고 분위기만 바뀝니다 "
+             "— 엔카/트로트가 아닌 세련된 시티팝. 스타일이 고정돼 있어도 무드 키워드가 반영됩니다.",
+    )
+
     st.divider()
 
     providers = get_available_ai_providers()
@@ -569,7 +590,7 @@ def _render_auto_batch():
                 draft = _generate_plan_only(concept.strip(), ai_provider_name,
                                             language=auto_language, locked_style=locked,
                                             track_no=n, existing_titles=existing_titles,
-                                            total_tracks=count)
+                                            total_tracks=count, mood=auto_mood)
                 plan.append(draft)
                 prog.progress((n + 1) / count)
             st.session_state["auto_plan_data"] = plan
@@ -643,7 +664,8 @@ def _render_auto_batch():
                             ai_name = available[prov_idx]["name"] if available else "mock"
                             new_draft = _generate_plan_only(
                                 concept.strip(), ai_name,
-                                language=auto_language, locked_style="", track_no=i)
+                                language=auto_language, locked_style="", track_no=i,
+                                mood=auto_mood)
                             plan[i].update({
                                 "title": new_draft.get("title", ""),
                                 "style": new_draft.get("style", ""),

@@ -39,7 +39,7 @@ from providers.ai.languages import get_language, DEFAULT_LANGUAGE
 
 
 # Language-independent STYLE guidance (the musical sound never changes).
-_STYLE_GUIDANCE = """STYLE FORMAT — write a RICH style: authentic 1980s-1990s JAPANESE CITY POP golden-age sound (300-500 chars). NO saxophone. The mood is deeply emotional, nostalgic, sophisticated, and wistfully lonely — evoking the golden era of Japanese citypop (Mariya Takeuchi, Anri, Tatsuro Yamashita vibe, but original). NOT bright/summery/upbeat — it's mellow, warm, and bittersweet. The musical style is ALWAYS Japanese city pop regardless of the lyric language. Match these examples:
+_STYLE_GUIDANCE = """STYLE FORMAT — write a RICH style: authentic 1980s-1990s JAPANESE CITY POP golden-age sound (300-500 chars). NO saxophone. Sophisticated, nostalgic golden-era Japanese citypop (Mariya Takeuchi, Anri, Tatsuro Yamashita vibe, but original). The EMOTIONAL COLOR follows the requested mood (a [MOOD DIRECTIVE] may ask for bright/refreshing, calm, dreamy, romantic, or wistful) — always classy, nostalgic city pop underneath, NEVER enka/trot. The musical style is ALWAYS Japanese city pop regardless of the lyric language. Match these examples:
 
 Example 1: "Authentic 1980s-1990s Japanese city pop, golden-age Tokyo sound, lush warm electric piano, glossy analog synths, smooth jazzy chord changes, silky funk guitar, melodic fretless bass, tight clean drums, BPM 112, emotional low female vocal with warm reverb and tender vibrato, deeply nostalgic and bittersweet, the wistful loneliness of city nights"
 
@@ -58,13 +58,69 @@ Required elements (vary each time):
 - Drums: soft steady drums with MINIMAL fills — no busy drum fills, no tom fills, no snare rolls (excessive fills sound like trot/뽕짝, WRONG for city pop)
 - Vocal: GENTLE, restrained, soft and lyrical low female vocal with warm reverb and tender vibrato. City pop vocals are quiet, intimate, and even — NEVER belting, NEVER soaring high notes, NEVER rock-style shouting.
 - DYNAMICS: keep dynamics calm and even THROUGHOUT, including the Final Chorus. City pop builds emotion through warmth and nuance, NOT through loud high belting. The Final Chorus should stay soft and lyrical, just slightly fuller — never a loud rock climax.
-- MOOD (critical): deeply nostalgic, bittersweet, sophisticated, the wistful/quiet loneliness of city nights, late-night city melancholy, golden-age warmth
+- MOOD: FOLLOW the requested vibe — if the request has a [MOOD DIRECTIVE], reflect THAT mood strongly in the STYLE. When none is given, default to nostalgic and bittersweet. Bright/refreshing/crisp, calm/mellow, dreamy, and romantic city-pop moods are ALL valid — the sound stays sophisticated golden-age city pop, ALWAYS nostalgic underneath, just with a different emotional color.
+- Genre discipline (critical): it is ALWAYS authentic 1980s-90s Japanese city pop — NEVER enka, trot/뽕짝, luk-thung, folk, or traditional music, no matter the mood.
 
-AVOID these words: bright, summer, crisp, upbeat, sparkling, refreshing, sunny, calm, dreamy, laid-back. Always say "Japanese city pop". Those are WRONG for this mood.
-AVOID these sounds: high belting, powerful belting, soaring high notes, rock vocals, screaming, busy drum fills, tom fills, snare rolls (these break the gentle city pop mood).
-USE these: nostalgic, bittersweet, mellow, sophisticated, wistful, warm, gentle, restrained, soft, lyrical, smooth, golden-age, lush, silky, tender, lonely city nights.
+AVOID these sounds: high belting, powerful belting, soaring high notes, rock vocals, screaming, busy drum fills, tom fills, snare rolls (these break the gentle city pop mood and drift toward trot/enka).
+USE freely (pick per the requested mood): nostalgic, bittersweet, mellow, sophisticated, wistful, warm, gentle, soft, lyrical, smooth, golden-age, lush, silky, tender — AND, for brighter moods, bright, refreshing, crisp, sunny, uplifting, sparkling, breezy, dreamy, hazy — always keeping the classy city-pop nostalgia.
 
 CRITICAL: NEVER mention saxophone, sax, brass solos, or horn leads. Keys+guitar+synth driven. Vocals stay gentle and soft — city pop is serene and lyrical, NOT rock."""
+
+
+# v1.0.0-alpha.94: selectable overall MOOD for song generation. All stay
+# authentic city pop (never enka/trot); only the emotional color shifts.
+# key → {label(Korean UI), style(EN keywords woven into the Suno style),
+#        directive(EN concept directive that steers the AI)}
+SONG_MOODS: dict[str, dict] = {
+    "refreshing": {
+        "label": "🌤 청량한 (밝고 상쾌)",
+        "style": "bright refreshing crisp uplifting sunny nostalgic city pop, breezy daytime warmth, sparkling clean synths, light airy groove",
+        "directive": "bright, refreshing, crisp and uplifting — sunny daytime city pop that still feels nostalgic and classy (think brighter Piper / Anri summer tracks). Airy, breezy, clean.",
+    },
+    "wistful": {
+        "label": "🌆 쓸쓸한 (아련·고독)",
+        "style": "wistful lonely bittersweet late-night city pop, nostalgic neon-city melancholy, warm reverb, tender restraint",
+        "directive": "wistful, lonely and bittersweet — the quiet melancholy of neon city nights, deeply nostalgic and tender.",
+    },
+    "calm": {
+        "label": "🌙 잔잔한 (차분·편안)",
+        "style": "calm mellow gentle laid-back city pop, soft soothing warmth, tender nostalgic glow, unhurried groove",
+        "directive": "calm, mellow and gentle — soft, soothing and laid-back, a tender nostalgic warmth that feels comforting.",
+    },
+    "romantic": {
+        "label": "💗 설레는 (로맨틱)",
+        "style": "romantic warm heart-fluttering city pop, sweet nostalgic longing, glowing tender melody, silky warmth",
+        "directive": "romantic, warm and heart-fluttering — sweet nostalgic longing, tender and glowing.",
+    },
+    "dreamy": {
+        "label": "✨ 몽환적 (드리미)",
+        "style": "dreamy hazy ethereal city pop, soft-focus nostalgic reverie, shimmering pads, floaty reverb-soaked warmth",
+        "directive": "dreamy, hazy and ethereal — a soft-focus nostalgic reverie, shimmering and floaty.",
+    },
+}
+DEFAULT_SONG_MOOD = "wistful"
+
+
+def mood_directive(mood_key: str) -> str:
+    """A concept prefix that steers the AI toward the chosen mood (or "")."""
+    m = SONG_MOODS.get((mood_key or "").strip())
+    if not m:
+        return ""
+    return (f"[MOOD DIRECTIVE] Overall vibe: {m['directive']} "
+            f"Keep it authentic 1980s-90s Japanese city pop (NEVER enka/trot/folk) "
+            f"and weave this mood strongly into the STYLE keywords.")
+
+
+def apply_mood_to_style(style: str, mood_key: str) -> str:
+    """Weave the mood's style keywords into a style string (covers locked
+    presets too, where the AI directive alone wouldn't change the sound)."""
+    m = SONG_MOODS.get((mood_key or "").strip())
+    if not m or not style:
+        return style
+    kw = m["style"]
+    if kw.split(",")[0].strip().split()[0].lower() in style.lower():
+        return style  # already flavored
+    return f"{style.rstrip().rstrip('.')}. Mood: {kw}."
 
 
 def build_system_prompt(lang_key: str = DEFAULT_LANGUAGE) -> str:
