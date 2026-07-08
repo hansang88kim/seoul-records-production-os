@@ -213,29 +213,20 @@ def generate_description(
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# v1.0.0-alpha.59: Seoul Records "DJ HANA" default title/description template.
-#
-# The user asked for a fixed, brand-consistent title + description frame, with
-# ONLY the tracklist being auto-filled from the actual uploaded audio (via the
-# chapters parsed from chapters.txt / the real video's segment timings). The
-# surrounding copy — title line, mood keywords, FAQ, copyright block — stays
-# constant. Everything that follows is the exact frame the user supplied.
+# v1.0.0-alpha.98: the tracklist renderer below is shared by the SEO playlist
+# description (services/youtube/seo_description.py). The old "DJ HANA" title +
+# description frame was removed — see seo_description.py for the current copy.
 # ─────────────────────────────────────────────────────────────────────────────
-
-DJHANA_DEFAULT_TITLE = (
-    "[Playlist] 서울 시티팝 한강에서 DJ가 말아주는 디스코 하우스 | "
-    "Seoul City Pop Sunset Nu Disco Mixset"
-)
 
 
 def _format_djhana_tracklist(chapters: list[dict]) -> str:
     """
-    Render the tracklist block for the DJ HANA description using the ACTUAL
-    uploaded audio. Each line: '00:00:00  01. <title>'. Timestamps are taken
-    verbatim from the parsed chapters (which come from the real assembled
-    video), and are normalised to HH:MM:SS so long (1h+) mixes read cleanly.
-    Track titles are used exactly as chapters provide them — no invented
-    '(feat. …)' names — so the list always matches what's really in the video.
+    Render the numbered tracklist block using the ACTUAL uploaded audio. Each
+    line: '00:00:00  01. <title>'. Timestamps are taken verbatim from the parsed
+    chapters (which come from the real assembled video / uploaded MP3s), and are
+    normalised to HH:MM:SS so long (1h+) playlists read cleanly. Track titles are
+    used exactly as chapters provide them — no invented names — so the list
+    always matches what's really in the video.
     """
     if not chapters:
         return ""
@@ -262,59 +253,6 @@ def _normalise_timestamp(ts: str) -> str:
     else:
         return ts
     return f"{h:02d}:{m:02d}:{s:02d}"
-
-
-def generate_djhana_description(chapters: list[dict] | None = None,
-                                mood: str = "") -> str:
-    """
-    Build the full Seoul Records / DJ HANA description with the fixed frame
-    the user specified, injecting ONLY the tracklist from the real uploaded
-    audio. If there are no chapters, a placeholder line is used instead of a
-    fabricated tracklist.
-
-    v1.0.0-alpha.62: an optional `mood` (shared across song/thumbnail/
-    YouTube) is woven into the opening line so the description reflects the
-    same mood as the song and thumbnail, without disturbing the fixed FAQ /
-    copyright frame.
-    """
-    chapters = chapters or []
-    tracklist = _format_djhana_tracklist(chapters)
-    if not tracklist:
-        tracklist = "00:00:00  01. (트랙 정보는 업로드된 음원 기준으로 자동 생성됩니다)"
-
-    mood_line = f"\n🌆 Tonight's mood — {mood.strip()}\n" if mood.strip() else ""
-
-    return f"""[Playlist] 서울 시티팝 한강에서 DJ가 말아주는 디스코 하우스 | Seoul Citypop Sunset Nu Disco Mixset
-{mood_line}
-🏖️ Mood Keywords
-DJ HANA, Seoul Sunset, Han River, Live DJ Set, Summer Night Drive, Nu Disco House, Tropical House, Disco House, Korean House Mix, Rooftop Lounge, Summer Playlist
-
-🎶 총 {len(chapters)}곡 연속 재생 (Full Playlist)
-
-🎧 Seoul City Pop / DJ HANA Mixset / Playlist
-
-{tracklist}
-
-FAQ 자주 묻는 질문
-
-Q1. 이 영상은 어떤 콘텐츠인가요?
-A. DJ HANA가 서울 한강의 여름 노을 감성을 바탕으로 구성한 누디스코 하우스, 디스코 하우스, 트로피컬 하우스 스타일의 라이브 믹스셋입니다. 청량하면서도 세련된 여름 하우스 무드를 담았습니다.
-
-Q2. 언제 듣기 좋은 믹스셋인가요?
-A. 한강 산책, 여름 드라이브, 루프탑 바, 카페 BGM, 선셋 파티, 휴양지 감성 플레이리스트로 잘 어울립니다. 해질 무렵부터 밤이 시작되는 시간대에 특히 좋습니다.
-
-Q3. DJ HANA는 어떤 스타일의 음악을 들려주나요?
-A. DJ HANA는 감각적인 선곡과 부드러운 전개를 중심으로, 세련된 누디스코 하우스와 트로피컬 하우스, 디스코 하우스 기반의 여름 믹스셋을 선보입니다.
-
-Q4. 카페나 Bar에서 재생해도 되나요?
-A. 이 라이브 믹스셋의 모든 곡은 제작자의 오리지널 창작곡입니다. 매장 분위기 연출용 BGM으로 자유롭게 감상하실 수 있습니다. 단, 음원의 무단 복제, 재업로드, 배포, 편집 및 2차 가공은 금지됩니다.
-
-🎵 저작권 안내
-이 라이브 믹스셋의 모든 음악과 이미지는 제작자가 AI 제작 도구를 활용해 만든 오리지널 창작물이며, 공식 발매된 음원입니다.
-
-무단 복제, 재배포, 재업로드, 편집, 2차 가공 및 상업적 재사용을 금지합니다.
-
-© All rights reserved. Unauthorized reproduction, distribution, re-uploading, editing, or secondary use is strictly prohibited."""
 
 
 # YouTube setup steps that the Data API cannot automate — the user must set
@@ -345,33 +283,37 @@ def generate_pinned_comment(country: str = "", volume: int = 1) -> str:
 def generate_all_metadata(
     playlist_title: str, country: str = "", volume: int = 1,
     mood: str = "", chapters_path: str = "", duration_min: int = 60,
-    use_djhana_template: bool = True,
+    use_seo_template: bool = True,
     language: str = "korean",
     translate: bool = True,
 ) -> dict:
     """
     Generate the full metadata bundle.
 
-    v1.0.0-alpha.59: use_djhana_template (default True) applies the Seoul
-    Records / DJ HANA fixed title + description frame the user requested,
-    with ONLY the tracklist auto-filled from the real uploaded audio
-    (chapters). Set it False to fall back to the older auto-generated
-    English description.
+    v1.0.0-alpha.98: use_seo_template (default True) applies the Seoul Records
+    city-pop PLAYLIST title + description frame — professional and SEO-optimized,
+    written by OpenAI→Gemini (mood-aware) with the tracklist auto-filled verbatim
+    from the real uploaded audio (chapters). The old "DJ HANA" mixset frame is
+    removed. Set it False to fall back to the older auto-generated English
+    description.
 
     v1.0.0-alpha.60: `language` is the song's lyric language key (korean,
-    japanese, thai, vietnamese, indonesian). When it is a non-Korean
-    supported language and `translate` is True, the DJ HANA description
-    frame is auto-translated into that language via OpenAI/Gemini (the
-    tracklist is preserved verbatim). Tags always stay English. On any
-    translation failure or missing API key, the Korean frame is kept.
+    japanese, thai, vietnamese, indonesian). When it is a non-Korean supported
+    language and `translate` is True, the description frame is auto-translated
+    into that language via OpenAI/Gemini (the tracklist is preserved verbatim).
+    Tags always stay English. On any translation failure or missing API key, the
+    Korean frame is kept.
     """
     chapters = parse_chapters_txt(chapters_path) if chapters_path else []
 
     translated_flag = False
     translated_language = "Korean"
-    if use_djhana_template:
-        title = DJHANA_DEFAULT_TITLE
-        description = generate_djhana_description(chapters, mood=mood)
+    if use_seo_template:
+        from services.youtube.seo_description import (
+            generate_seo_title, generate_seo_description)
+        title = generate_seo_title(country or "Korea", volume, mood, len(chapters))
+        description = generate_seo_description(chapters, mood=mood,
+                                              country=country or "Korea", volume=volume)
         if translate:
             from services.youtube.description_translator import (
                 translate_description, needs_translation)

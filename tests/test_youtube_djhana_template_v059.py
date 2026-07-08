@@ -17,6 +17,7 @@ import re
 import pytest
 
 from services.youtube import metadata_generator as MG
+from services.youtube import seo_description as MG_SEO
 
 
 def _chapters():
@@ -27,26 +28,30 @@ def _chapters():
     ]
 
 
-def test_default_title_is_the_djhana_frame():
-    meta = MG.generate_all_metadata("", "", 1, "", "", 60)
-    assert meta["title"] == MG.DJHANA_DEFAULT_TITLE
-    assert "서울 시티팝 한강" in meta["title"]
-    assert "Seoul City Pop Sunset Nu Disco Mixset" in meta["title"]
+def test_default_title_is_seo_playlist_frame():
+    # v1.0.0-alpha.98: DJ HANA removed → SEO city-pop PLAYLIST title frame.
+    meta = MG.generate_all_metadata("", "Korea", 61, "", "", 60)
+    assert "서울 시티팝" in meta["title"]
+    assert "Korean Seoul City pop Vol.61" in meta["title"]
+    assert "[Playlist]" in meta["title"]
+    assert "DJ HANA" not in meta["title"]
 
 
 def test_description_has_fixed_frame_sections():
-    desc = MG.generate_djhana_description(_chapters())
-    # Fixed frame pieces must all be present.
-    assert "🏖️ Mood Keywords" in desc
-    assert "DJ HANA" in desc
+    # no API key in tests → deterministic fallback template
+    desc = MG_SEO.generate_seo_description(_chapters(), use_llm=False)
+    assert "🏖️ 감성 키워드" in desc
+    assert "🎧 추천 무드" in desc
+    assert "DJ HANA" not in desc          # persona removed
     assert "FAQ 자주 묻는 질문" in desc
-    assert "Q1." in desc and "Q4." in desc
+    assert "Q1." in desc and "Q3." in desc
     assert "🎵 저작권 안내" in desc
     assert "© All rights reserved." in desc
+    assert "#KoreanCityPop" in desc       # SEO hashtags
 
 
 def test_tracklist_is_injected_from_real_chapters():
-    desc = MG.generate_djhana_description(_chapters())
+    desc = MG_SEO.generate_seo_description(_chapters(), use_llm=False)
     # Timestamps normalised to HH:MM:SS, numbered, real titles used verbatim.
     assert "00:00:00  01. Lazy Paradise" in desc
     assert "00:03:24  02. Sunset Fever" in desc
@@ -56,14 +61,13 @@ def test_tracklist_is_injected_from_real_chapters():
 
 
 def test_tracklist_does_not_fabricate_feat_names():
-    """The old example frame had invented '(feat. …)' names — the generated
-    tracklist must use ONLY the real chapter titles, never fabricate."""
-    desc = MG.generate_djhana_description(_chapters())
+    """The generated tracklist must use ONLY the real chapter titles."""
+    desc = MG_SEO.generate_seo_description(_chapters(), use_llm=False)
     assert "(feat." not in desc
 
 
 def test_no_chapters_uses_placeholder_not_fake_list():
-    desc = MG.generate_djhana_description([])
+    desc = MG_SEO.generate_seo_description([], use_llm=False)
     assert "자동으로 생성" in desc or "자동 생성" in desc
     # Must not contain a numbered real-looking track line.
     assert not re.search(r"\n00:00:00  01\. \w", desc)
@@ -110,7 +114,7 @@ def test_ui_renders_studio_checklist_helper():
 
 def test_legacy_template_still_available_when_opted_out():
     meta = MG.generate_all_metadata("Korea CityPop", "Korea", 1, "",
-                                    "", 60, use_djhana_template=False)
-    # Old English auto-description path, not the DJ HANA frame.
-    assert meta["title"] != MG.DJHANA_DEFAULT_TITLE
-    assert "Mood Keywords" not in meta["description"]
+                                    "", 60, use_seo_template=False)
+    # Old English auto-description path, not the SEO playlist frame.
+    assert "[Playlist]" not in meta["title"]
+    assert "감성 키워드" not in meta["description"]

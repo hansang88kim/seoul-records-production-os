@@ -44,7 +44,7 @@ _LANG_NAMES = {
     "indonesian": "Indonesian (Bahasa Indonesia)",
 }
 
-_TRACKLIST_MARKER = "🎧 Seoul City Pop / DJ HANA Mixset / Playlist"
+_TRACKLIST_MARKER = "🎧 Seoul City Pop / Retro Korean City Pop Playlist"
 
 
 def needs_translation(language_key: str) -> bool:
@@ -84,7 +84,7 @@ def _translation_prompt(text: str, target_language: str) -> str:
         f"native music blogger would write it.\n"
         f"- Keep ALL emoji exactly where they are.\n"
         f"- Do NOT translate or alter: the brand names 'Seoul Records', "
-        f"'DJ HANA', 'Seoul City Pop', hashtags (words starting with #), or the "
+        f"'Seoul City Pop', hashtags (words starting with #), or the "
         f"'© All rights reserved …' English legal line (keep that line in "
         f"English, you may append a natural {target_language} sentence before "
         f"it if helpful).\n"

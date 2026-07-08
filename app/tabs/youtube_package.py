@@ -253,13 +253,28 @@ def render_youtube_package():
             volume = st.number_input("Volume 번호", 1, 999, 1, key="yt_vol")
             duration_min = st.number_input("길이 (분)", 1, 600, 60, key="yt_dur")
         # v1.0.0-alpha.62: mood/theme is shared with the song + thumbnail.
+        # v1.0.0-alpha.98: 🎲 dice suggests a city-pop mood; the SEO description
+        # is written around this mood.
         from services import shared_mood as SM
+        # staging-key pattern: the dice can't write yt_mood after the widget is
+        # created, so it stages the suggestion and we apply it before rendering.
+        if "yt_mood_pending" in st.session_state:
+            st.session_state["yt_mood"] = st.session_state.pop("yt_mood_pending")
         _shared = SM.get_shared_mood(st.session_state)
-        mood = st.text_input("무드/테마 (곡·썸네일과 공유)", key="yt_mood",
-                             value=_shared,
-                             placeholder="예: Rainy Night Drive",
-                             help="곡/썸네일에서 고른 무드가 여기에 자동으로 "
-                                  "채워집니다. 이 무드가 제목·설명·태그에 반영됩니다.")
+        mcc1, mcc2 = st.columns([9, 1])
+        with mcc1:
+            mood = st.text_input("무드/테마 (곡·썸네일과 공유)", key="yt_mood",
+                                 value=_shared,
+                                 placeholder="예: 감성 터지는 청량한 여름밤",
+                                 help="곡/썸네일에서 고른 무드가 자동으로 채워집니다. "
+                                      "이 무드가 제목·설명·태그에 반영됩니다. 🎲로 제안받기.")
+        with mcc2:
+            if st.button("🎲", key="yt_mood_dice", use_container_width=True,
+                         help="시티팝 무드를 하나 제안합니다."):
+                from services.youtube.seo_description import suggest_mood
+                st.session_state["yt_mood_pending"] = suggest_mood(
+                    st.session_state.get("yt_mood", ""))
+                st.rerun()
         if mood:
             SM.set_shared_mood(st.session_state, mood)
 
@@ -302,17 +317,22 @@ def render_youtube_package():
             rc1, rc2, rc3 = st.columns(3)
             with rc1:
                 if st.button("🔄 제목", use_container_width=True, key="yt_regen_title"):
-                    # DJ HANA fixed title frame (alpha.59).
-                    meta["title"] = MG.DJHANA_DEFAULT_TITLE
+                    # v1.0.0-alpha.98: SEO city-pop playlist title (DJ HANA removed).
+                    from services.youtube.seo_description import generate_seo_title
+                    meta["title"] = generate_seo_title(
+                        country or "Korea", int(volume), mood,
+                        len(meta.get("chapters", [])))
                     st.session_state["yt_meta"] = meta
                     st.rerun()
             with rc2:
                 if st.button("🔄 설명", use_container_width=True, key="yt_regen_desc"):
-                    # DJ HANA description: fixed frame, tracklist from the
-                    # real uploaded audio (chapters), translated to the
-                    # selected song language if non-Korean.
-                    desc = MG.generate_djhana_description(meta.get("chapters", []),
-                                                         mood=mood)
+                    # v1.0.0-alpha.98: regenerate the SEO description (LLM-written,
+                    # mood-aware). Tracklist stays verbatim from the real uploaded
+                    # audio (chapters); translated to the song language if non-Korean.
+                    from services.youtube.seo_description import generate_seo_description
+                    desc = generate_seo_description(meta.get("chapters", []),
+                                                    mood=mood, country=country or "Korea",
+                                                    volume=int(volume))
                     lang = st.session_state.get("yt_language", "korean")
                     from services.youtube.description_translator import (
                         translate_description, needs_translation)

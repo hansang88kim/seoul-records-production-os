@@ -18,6 +18,7 @@ import pytest
 
 from services.youtube import metadata_generator as MG
 from services.youtube import description_translator as DT
+from services.youtube import seo_description as MG_SEO
 
 
 # ── Tags: English, fixed, SEO-expanded (>400, <500 chars) ──────────────────
@@ -64,8 +65,8 @@ def test_needs_translation_gating():
 
 
 def test_korean_is_never_translated():
-    desc = MG.generate_djhana_description(
-        [{"timestamp": "00:00", "title": "A"}])
+    desc = MG_SEO.generate_seo_description(
+        [{"timestamp": "00:00", "title": "A"}], use_llm=False)
     res = DT.translate_description(desc, "korean")
     assert res["translated"] is False
     assert res["description"] == desc
@@ -76,7 +77,7 @@ def test_tracklist_is_split_out_and_preserved(monkeypatch):
     and never sent to the model."""
     chapters = [{"timestamp": "00:00", "title": "แสงไฟเยาวราช"},
                 {"timestamp": "3:24", "title": "คืนที่อารีย์"}]
-    desc = MG.generate_djhana_description(chapters)
+    desc = MG_SEO.generate_seo_description(chapters, use_llm=False)
 
     sent_texts = []
 
@@ -99,8 +100,8 @@ def test_tracklist_is_split_out_and_preserved(monkeypatch):
 
 
 def test_translation_falls_back_to_korean_on_failure(monkeypatch):
-    desc = MG.generate_djhana_description(
-        [{"timestamp": "00:00", "title": "A"}])
+    desc = MG_SEO.generate_seo_description(
+        [{"timestamp": "00:00", "title": "A"}], use_llm=False)
 
     monkeypatch.setattr(DT, "_translate_text",
                         lambda *a, **k: None)  # simulate no key / failure
@@ -127,7 +128,7 @@ def test_generate_all_metadata_translates_when_language_non_korean(monkeypatch):
 def test_generate_all_metadata_korean_no_translation():
     meta = MG.generate_all_metadata("", "Korea", 1, "", "", 60, language="korean")
     assert meta["description_translated"] is False
-    assert "🏖️ Mood Keywords" in meta["description"]  # untouched Korean frame
+    assert "🏖️ 감성 키워드" in meta["description"]  # untouched Korean SEO frame
 
 
 def test_translate_can_be_disabled_even_for_foreign_language(monkeypatch):

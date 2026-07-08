@@ -13,6 +13,7 @@ from __future__ import annotations
 
 from services import shared_mood as SM
 from services.youtube import metadata_generator as MG
+from services.youtube import seo_description as MG_SEO
 
 
 def test_set_and_get_shared_mood():
@@ -60,16 +61,17 @@ def test_options_ring_dedupes_and_caps():
 # ── Mood woven into YouTube metadata ───────────────────────────────────────
 
 def test_mood_appears_in_description_when_set():
-    desc = MG.generate_djhana_description(
-        [{"timestamp": "00:00", "title": "A"}], mood="rainy night drive")
-    assert "Tonight's mood" in desc
+    # v1.0.0-alpha.98: SEO description (fallback, no key) weaves the mood in.
+    desc = MG_SEO.generate_seo_description(
+        [{"timestamp": "00:00", "title": "A"}], mood="rainy night drive", use_llm=False)
     assert "rainy night drive" in desc
 
 
 def test_no_mood_line_when_mood_empty():
-    desc = MG.generate_djhana_description(
-        [{"timestamp": "00:00", "title": "A"}], mood="")
-    assert "Tonight's mood" not in desc
+    desc = MG_SEO.generate_seo_description(
+        [{"timestamp": "00:00", "title": "A"}], mood="", use_llm=False)
+    assert "rainy night drive" not in desc      # nothing spurious injected
+    assert "한국형 시티팝" in desc               # still a valid description
 
 
 def test_english_mood_folds_into_tags():
