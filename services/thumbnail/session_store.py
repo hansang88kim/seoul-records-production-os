@@ -158,6 +158,81 @@ def image_target_dir(session_id: str) -> Path:
     return d
 
 
+def _generate_candidate_image(provider, target, c: dict, p: dict, i: int) -> list[dict]:
+    """
+    Generate the 16:9 image for one candidate ``c`` from prompt ``p``, derive its
+    1:1 crop, and mutate ``c`` in place with the result. Returns any EXTRA
+    candidates (Midjourney's other 3 grid quadrants; empty for single-image
+    engines). Shared by generate_images() and append_and_generate_images().
+    """
+    from services.thumbnail.image_provider import derive_aspect_crop
+    cid = c["candidate_id"]
+    path_169 = target / f"{cid}_16x9.png"
+    path_11 = target / f"{cid}_1x1.png"
+    meta = {"scene": p.get("scene", ""), "country": p.get("country", ""),
+            "theme": p.get("theme", "")}
+    r169 = provider.generate(p.get("main_prompt", ""), str(path_169),
+                             negative_prompt=p.get("negative_prompt", ""),
+                             index=i, meta=meta, aspect="16:9")
+    c["gen_provider"] = r169.get("provider")
+    c["gen_model"] = r169.get("model")
+    extras: list[dict] = []
+    if r169.get("ok"):
+        crop_ok = derive_aspect_crop(r169["path"], str(path_11), "1:1")
+        c["image_16x9"] = r169["path"]
+        c["image_1x1"] = str(path_11) if crop_ok else None
+        c["uploaded_image_path"] = r169["path"]   # default shown = 16:9
+        c["generated_image_path"] = r169["path"]
+        c["image_source"] = "generated"
+        c["status"] = "image_generated"
+        c["gen_error"] = None if crop_ok else "1:1 crop failed"
+        # Midjourney 4-grid: surface the other quadrants as extra candidates.
+        for qn, extra_path in enumerate(r169.get("extra_image_paths", []), start=2):
+            ec = dict(c)
+            ec_cid = f"{cid}_q{qn}"
+            ec["candidate_id"] = ec_cid
+            ec_path_11 = target / f"{ec_cid}_1x1.png"
+            crop_ok2 = derive_aspect_crop(extra_path, str(ec_path_11), "1:1")
+            ec["image_16x9"] = extra_path
+            ec["image_1x1"] = str(ec_path_11) if crop_ok2 else None
+            ec["uploaded_image_path"] = extra_path
+            ec["generated_image_path"] = extra_path
+            ec["image_source"] = "generated"
+            ec["status"] = "image_generated"
+            ec["gen_error"] = None if crop_ok2 else "1:1 crop failed"
+            ec["selected_for_branding"] = False
+            extras.append(ec)
+    else:
+        c["image_source"] = "generation_failed"
+        c["status"] = "generation_failed"
+        c["gen_error"] = r169.get("error")
+    return extras
+
+
+def _new_candidate(idx: int, p: dict) -> dict:
+    """Build a fresh candidate metadata stub for 1-based index ``idx``."""
+    now = datetime.now(timezone.utc).isoformat()
+    return {
+        "candidate_id": f"cand_{idx:03d}",
+        "prompt_id": f"prompt_{idx:03d}",
+        "country": p.get("country", ""),
+        "theme": p.get("theme", ""),
+        "concept": p.get("scene", ""),
+        "prompt_path": f"prompts/prompt_{idx:03d}.txt",
+        "negative_prompt_path": f"prompts/negative_prompt_{idx:03d}.txt",
+        "title_safe_area": p.get("title_safe_area", ""),
+        "color_palette": p.get("color_palette", []),
+        "canva_accent_color": p.get("canva_accent_color", ""),
+        "uploaded_image_path": None,
+        "selected_for_branding": False,
+        "rating": "Keep",
+        "notes": "",
+        "status": "generated_prompt",
+        "created_at": now,
+        "updated_at": now,
+    }
+
+
 def generate_images(session_id: str, prompts: list[dict],
                     use_real: bool = False, model: str | None = None,
                     engine: str = "gemini", progress_callback=None) -> list[dict]:
@@ -197,62 +272,58 @@ def generate_images(session_id: str, prompts: list[dict],
     total = len(list(zip(candidates, prompts)))
     extra_candidates: list[dict] = []  # v1.0.0-alpha.76: Midjourney's other 3 quadrants
     for i, (c, p) in enumerate(zip(candidates, prompts)):
-        cid = c["candidate_id"]
-        path_169 = target / f"{cid}_16x9.png"
-        path_11 = target / f"{cid}_1x1.png"
-        meta = {"scene": p.get("scene", ""), "country": p.get("country", ""),
-                "theme": p.get("theme", "")}
-        main = p.get("main_prompt", "")
-        neg = p.get("negative_prompt", "")
-
-        # Single generation at 16:9 (native for the YouTube thumbnail).
-        r169 = provider.generate(main, str(path_169), negative_prompt=neg,
-                                 index=i, meta=meta, aspect="16:9")
-        c["gen_provider"] = r169.get("provider")
-        c["gen_model"] = r169.get("model")
-        if r169.get("ok"):
-            # 1:1 = center-crop of the SAME image (no second API call). The
-            # subject is composed centered by prompt design, so this keeps it
-            # well-framed while trimming side background only.
-            crop_ok = derive_aspect_crop(r169["path"], str(path_11), "1:1")
-            c["image_16x9"] = r169["path"]
-            c["image_1x1"] = str(path_11) if crop_ok else None
-            c["uploaded_image_path"] = r169["path"]   # default shown = 16:9
-            c["generated_image_path"] = r169["path"]
-            c["image_source"] = "generated"
-            c["status"] = "image_generated"
-            c["gen_error"] = None if crop_ok else "1:1 crop failed"
-
-            # Midjourney returns a 4-image grid; the provider hands back the
-            # other 3 quadrants in ``extra_image_paths``. Surface each as its
-            # own candidate so all 4 appear in the gallery and are selectable.
-            # Other providers don't set this key, so this is a no-op for them.
-            for qn, extra_path in enumerate(r169.get("extra_image_paths", []), start=2):
-                ec = dict(c)
-                ec_cid = f"{cid}_q{qn}"
-                ec["candidate_id"] = ec_cid
-                ec_path_11 = target / f"{ec_cid}_1x1.png"
-                crop_ok2 = derive_aspect_crop(extra_path, str(ec_path_11), "1:1")
-                ec["image_16x9"] = extra_path
-                ec["image_1x1"] = str(ec_path_11) if crop_ok2 else None
-                ec["uploaded_image_path"] = extra_path
-                ec["generated_image_path"] = extra_path
-                ec["image_source"] = "generated"
-                ec["status"] = "image_generated"
-                ec["gen_error"] = None if crop_ok2 else "1:1 crop failed"
-                ec["selected_for_branding"] = False
-                extra_candidates.append(ec)
-        else:
-            c["image_source"] = "generation_failed"
-            c["status"] = "generation_failed"
-            c["gen_error"] = r169.get("error")
-
+        extra_candidates.extend(_generate_candidate_image(provider, target, c, p, i))
         if progress_callback:
             try:
                 progress_callback(i, total, c)
             except Exception:
                 pass  # never let a progress hook break generation
     candidates.extend(extra_candidates)
+    save_candidates(session_id, candidates)
+    return candidates
+
+
+def append_and_generate_images(session_id: str, prompts: list[dict],
+                               use_real: bool = False, model: str | None = None,
+                               engine: str = "gemini", progress_callback=None) -> list[dict]:
+    """
+    v1.0.0-alpha.84 — generate N MORE images and APPEND them to the session's
+    existing candidates (the "이미지 추가 생성" button). Existing candidates and
+    their image files are left untouched; new prompt files + candidate entries
+    are written at continuing indices. Returns the full candidate list.
+
+    ``progress_callback(j, total, candidate)`` fires after each new image so the
+    UI can show a live progress bar.
+    """
+    from services.thumbnail.image_provider import get_image_provider
+    sdir = _session_dir(session_id)
+    (sdir / "prompts").mkdir(parents=True, exist_ok=True)
+    target = image_target_dir(session_id)
+    provider = get_image_provider(use_real=use_real, model=model, engine=engine)
+
+    candidates = load_candidates(session_id)
+    start = len(candidates)  # continue IDs past everything already there
+
+    new_cands: list[dict] = []
+    for j, p in enumerate(prompts):
+        idx = start + j + 1
+        (sdir / "prompts" / f"prompt_{idx:03d}.txt").write_text(
+            p.get("main_prompt", ""), encoding="utf-8")
+        (sdir / "prompts" / f"negative_prompt_{idx:03d}.txt").write_text(
+            p.get("negative_prompt", ""), encoding="utf-8")
+        new_cands.append(_new_candidate(idx, p))
+
+    total = len(prompts)
+    extras: list[dict] = []
+    for j, (c, p) in enumerate(zip(new_cands, prompts)):
+        extras.extend(_generate_candidate_image(provider, target, c, p, start + j))
+        if progress_callback:
+            try:
+                progress_callback(j, total, c)
+            except Exception:
+                pass
+
+    candidates.extend(new_cands + extras)
     save_candidates(session_id, candidates)
     return candidates
 

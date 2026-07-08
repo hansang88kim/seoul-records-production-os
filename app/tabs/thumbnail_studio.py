@@ -306,6 +306,31 @@ def _render_prompt_lab():
         st.success(f"🆕 새 세션 시작: {sess['session_id']}")
         st.rerun()
 
+    def _build_prompts(n: int) -> list:
+        """Build ``n`` prompts with the current settings (hybrid v1.0.0-alpha.77:
+        Korean-freeform → the edited English box as the single source; else the
+        legacy varied-scene batch). Reused by generate + 이미지 추가 생성."""
+        if freeform_ko:
+            override = (st.session_state.get("thumb_en_prompt") or "").strip()
+            if not override:
+                composed = compose_english_prompt(freeform_ko, country_key, theme,
+                                                  include_person=include_person, form=selected_form)
+                override = composed["main_prompt"]
+                st.session_state["thumb_en_prompt"] = override
+                st.session_state["thumb_en_prompt_source"] = composed["prompt_source"]
+            return build_prompt_batch(country_key, theme, n, include_person=include_person,
+                                      form=selected_form, english_override=override,
+                                      freeform_ko=freeform_ko)
+        return build_prompt_batch(country_key, theme, n, include_person=include_person,
+                                  form=selected_form)
+
+    def _mode_label() -> str:
+        if not use_real:
+            return "목업"
+        return {"apiframe_nanobanana": "실제 (Nano Banana 2 · Apiframe)",
+                "gpt_image": "실제 (GPT Image 2 · OpenAI)",
+                "midjourney_linkr": "실제 (Midjourney · LinkrAPI)"}.get(engine, "실제 (Gemini)")
+
     if do_generate:
         # Decide whether to reuse the current session or create a new one.
         # If inputs changed vs the saved session_manifest, start a fresh
@@ -324,31 +349,8 @@ def _render_prompt_lab():
             # Clear stale prompt/brand display from the previous session
             st.session_state.pop("brand_results", None)
 
-        # Hybrid (v1.0.0-alpha.77): if the user wrote a Korean description, the
-        # (possibly edited) English box is the single source for all `count`
-        # candidates; otherwise fall back to the legacy varied-scene batch.
-        if freeform_ko:
-            override = (st.session_state.get("thumb_en_prompt") or "").strip()
-            if not override:
-                composed = compose_english_prompt(freeform_ko, country_key, theme,
-                                                  include_person=include_person, form=selected_form)
-                override = composed["main_prompt"]
-                st.session_state["thumb_en_prompt"] = override
-                st.session_state["thumb_en_prompt_source"] = composed["prompt_source"]
-            prompts = build_prompt_batch(country_key, theme, count, include_person=include_person,
-                                         form=selected_form, english_override=override,
-                                         freeform_ko=freeform_ko)
-        else:
-            prompts = build_prompt_batch(country_key, theme, count, include_person=include_person,
-                                         form=selected_form)
-        if not use_real:
-            mode_label = "목업"
-        elif engine == "apiframe_nanobanana":
-            mode_label = "실제 (Nano Banana 2 · Apiframe)"
-        elif engine == "gpt_image":
-            mode_label = "실제 (GPT Image 2 · OpenAI)"
-        else:
-            mode_label = "실제 (Gemini)"
+        prompts = _build_prompts(count)
+        mode_label = _mode_label()
 
         if use_queue:
             from services.thumbnail_job_manager import start_thumbnail_job
@@ -364,8 +366,20 @@ def _render_prompt_lab():
                 st.success(f"🔄 백그라운드로 {count}장 생성 시작됨 ({mode_label}) · "
                            f"job_id={job['job_id']} · Dashboard/Settings에서 진행 상태 확인 가능")
         else:
-            with st.spinner(f"{count}장 이미지 생성 중… ({mode_label})"):
-                cands = ss.generate_images(sid, prompts, use_real=use_real, engine=engine)
+            # Live progress bar (Song Lab-style) instead of a bare spinner.
+            _prog = st.progress(0.0, text=f"이미지 생성 준비 중… (0/{count}) · {mode_label}")
+
+            def _thumb_prog(j, total_n, c):
+                try:
+                    _prog.progress(min(1.0, (j + 1) / max(1, total_n)),
+                                   text=f"🎨 이미지 생성 중 {j+1}/{total_n} · "
+                                        f"{c.get('candidate_id','')} · {mode_label}")
+                except Exception:
+                    pass
+
+            cands = ss.generate_images(sid, prompts, use_real=use_real, engine=engine,
+                                       progress_callback=_thumb_prog)
+            _prog.empty()
             st.session_state["thumb_prompts"] = prompts
             ok = sum(1 for c in cands if c.get("status") == "image_generated")
             fail = len(cands) - ok
@@ -380,6 +394,14 @@ def _render_prompt_lab():
                     f"✅ {ok}개 이미지 생성 완료! ({mode_label} · 저장: {where}) "
                     f"→ **Candidate Gallery** 탭에서 선택하세요. (세션: {sid})"
                 )
+
+    # Live progress + 대기열(cue) — Song Lab-style: shows any active/queued
+    # background thumbnail job (백그라운드 대기열로 생성) with a progress bar.
+    try:
+        from app.ui.live_console import render_active_job_console
+        render_active_job_console()
+    except Exception:
+        pass
 
     # Show generated images (inline preview) FIRST, then the prompts for reference.
     prompts = st.session_state.get("thumb_prompts", [])
@@ -408,6 +430,34 @@ def _render_prompt_lab():
                            "GPT Image 2 → 🤖 AI Composer) → "
                            "위의 '실제 이미지 생성' 토글 ON.")
             st.caption("→ **🖼️ Candidate Gallery** 탭에서 이미지를 선택하면 Brand Thumbnail(Canva)로 넘어갑니다.")
+
+            # ── 이미지 추가 생성 ── (append more to THIS session, current settings)
+            st.divider()
+            ac1, ac2 = st.columns([1, 2])
+            with ac1:
+                add_n = int(st.number_input("추가 장수", min_value=1, max_value=10, value=count,
+                                            step=1, key="thumb_add_n"))
+            with ac2:
+                st.write("")
+                if st.button(f"➕ {add_n}장 추가 생성", use_container_width=True,
+                             key="thumb_add_btn",
+                             help="현재 설정(국가/무드/서술/형태/엔진) 그대로 이미지를 더 만들어 "
+                                  "위 갤러리에 이어 붙입니다."):
+                    add_prompts = _build_prompts(add_n)
+                    _ap = st.progress(0.0, text=f"추가 생성 준비 중… (0/{add_n})")
+
+                    def _add_prog(j, total_n, c):
+                        try:
+                            _ap.progress(min(1.0, (j + 1) / max(1, total_n)),
+                                         text=f"➕ 추가 생성 중 {j+1}/{total_n} · {c.get('candidate_id','')}")
+                        except Exception:
+                            pass
+
+                    ss.append_and_generate_images(sid, add_prompts, use_real=use_real,
+                                                  engine=engine, progress_callback=_add_prog)
+                    _ap.empty()
+                    st.success(f"✅ {add_n}장 추가 생성 완료 — 갤러리에 이어 붙였습니다.")
+                    st.rerun()
         if failed:
             st.error(f"❌ {len(failed)}개 생성 실패 — 사유: {failed[0].get('gen_error') or '알 수 없음'}")
         if not gen and not failed:

@@ -209,6 +209,66 @@ def test_non_midjourney_generation_stays_single_candidate(monkeypatch):
     assert len(cands) == 2  # mock returns no extra_image_paths
 
 
+def test_append_and_generate_appends_without_touching_existing():
+    """v1.0.0-alpha.84: 이미지 추가 생성 — appends new candidates, keeps old ones."""
+    sess = ss.create_session("korea", "night", "Add Vol.1")
+    sid = sess["session_id"]
+    first = ss.generate_images(sid, generate_prompt_batch("korea", "night", count=2),
+                               use_real=False)
+    first_ids = [c["candidate_id"] for c in first]
+    first_paths = {c["candidate_id"]: c["image_16x9"] for c in first}
+
+    both = ss.append_and_generate_images(sid, generate_prompt_batch("korea", "night", count=3),
+                                         use_real=False)
+    ids = [c["candidate_id"] for c in both]
+    assert ids == ["cand_001", "cand_002", "cand_003", "cand_004", "cand_005"]
+    # the 3 new candidates all have real files
+    for c in both[2:]:
+        assert c["status"] == "image_generated"
+        assert Path(c["image_16x9"]).exists()
+    # existing candidates untouched (same ids, same image paths)
+    persisted = {c["candidate_id"]: c.get("image_16x9") for c in ss.load_candidates(sid)}
+    for cid in first_ids:
+        assert persisted[cid] == first_paths[cid]
+
+
+def test_append_fires_progress_callback_per_new_image():
+    sess = ss.create_session("korea", "night", "Add Vol.2")
+    sid = sess["session_id"]
+    ss.generate_images(sid, generate_prompt_batch("korea", "night", count=1), use_real=False)
+    calls = []
+    ss.append_and_generate_images(sid, generate_prompt_batch("korea", "night", count=2),
+                                  use_real=False, progress_callback=lambda j, t, c: calls.append((j, t)))
+    assert calls == [(0, 2), (1, 2)]
+
+
+def test_append_midjourney_grid_adds_quadrant_candidates(monkeypatch):
+    """A Midjourney-style append (extra_image_paths) surfaces all 4 quadrants."""
+    from PIL import Image
+
+    def fake_generate(self, prompt, out_path, negative_prompt="", index=0,
+                      meta=None, aspect="16:9", ref_image_path=None):
+        p = Path(out_path); p.parent.mkdir(parents=True, exist_ok=True)
+        Image.new("RGB", (1280, 720), (10, 20, 30)).save(p)
+        extras = []
+        for n in (2, 3, 4):
+            sib = p.with_name(f"{p.stem}_q{n}{p.suffix}")
+            Image.new("RGB", (1280, 720), (10, 20, 30)).save(sib)
+            extras.append(str(sib))
+        return {"ok": True, "provider": "midjourney-linkr", "model": "midjourney",
+                "path": str(p), "error": None, "extra_image_paths": extras}
+
+    monkeypatch.setattr(ip.MockImageGenProvider, "generate", fake_generate)
+    sess = ss.create_session("korea", "night", "Add Vol.3")
+    sid = sess["session_id"]
+    both = ss.append_and_generate_images(sid, generate_prompt_batch("korea", "night", count=1),
+                                         use_real=False)
+    # 1 prompt → 4 candidates (primary + 3 quadrants)
+    assert len(both) == 4
+    assert [c["candidate_id"] for c in both] == ["cand_001", "cand_001_q2",
+                                                 "cand_001_q3", "cand_001_q4"]
+
+
 def test_generate_images_standalone_saves_in_session():
     sess = ss.create_session("korea", "neon", "Seoul Vol.1")
     prompts = generate_prompt_batch("korea", "neon", count=2)
