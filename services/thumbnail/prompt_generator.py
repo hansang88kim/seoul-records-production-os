@@ -41,6 +41,41 @@ NEGATIVE_PROMPT = (
 )
 
 
+# v1.0.0-alpha.96: art-style benchmark from top-viewed "tokyo citypop" YouTube
+# thumbnails (140M / 45M / 30M … views). The winning aesthetic is 1980s-90s
+# city-pop ANIME/MANGA illustration (Mayonaka no Door, Fly-Day Chinatown, Neo
+# City Pop, etc.) — NOT photoreal. We default to anime and keep photo/analog.
+THUMB_ART_STYLES: dict[str, dict] = {
+    "anime": {
+        "label": "🎨 시티팝 애니 일러스트 (유튜브 벤치마크 1위)",
+        "render": ("Art style: authentic 1980s-1990s CITY-POP ANIME / MANGA "
+                   "ILLUSTRATION — clean cel-shaded anime linework in the classic "
+                   "citypop album-sleeve look (Hiroshi Nagai / Eizin Suzuki era "
+                   "artwork), flat nostalgic color blocking, crisp retro anime "
+                   "aesthetic. NOT photorealistic, NOT 3D, NOT a photo."),
+    },
+    "photo": {
+        "label": "📷 시네마틱 실사 (포토리얼)",
+        "render": ("Art style: ultra-detailed photorealistic cinematic photograph, "
+                   "professional fashion photography, sharp focus, high dynamic range, "
+                   "glossy analog-film look."),
+    },
+    "analog": {
+        "label": "📼 아날로그 필름 (VHS·그레인)",
+        "render": ("Art style: grainy 1980s analog film photograph, soft VHS texture, "
+                   "vintage Kodak-film color, nostalgic haze, faded retro print look."),
+    },
+}
+DEFAULT_THUMB_ART_STYLE = "anime"
+
+
+def art_render(art_style: str) -> str:
+    """The render-style directive for a thumbnail art style (falls back to the
+    benchmark default = anime)."""
+    return THUMB_ART_STYLES.get(
+        (art_style or "").strip(), THUMB_ART_STYLES[DEFAULT_THUMB_ART_STYLE])["render"]
+
+
 def _camera_for(track_no: int, include_person: bool = True) -> str:
     if include_person:
         cameras = [
@@ -97,7 +132,8 @@ def _expression_for(track_no: int) -> str:
 def _portrait_prompt(preset: dict, culture: str, scene_var: str, theme_phrase: str,
                      time_of_day: str, camera: str, safe_area: str,
                      fashion: str = "an effortless, elegant outfit",
-                     expression: str = "a calm, wistful gaze") -> str:
+                     expression: str = "a calm, wistful gaze",
+                     render: str = "") -> str:
     """Centered city-pop portrait. v1.0.0-alpha.85: tasteful, emotional styling
     with VARIED wardrobe/expression (was a fixed over-the-top retro-glam look)."""
     return (
@@ -120,18 +156,17 @@ def _portrait_prompt(preset: dict, culture: str, scene_var: str, theme_phrase: s
         f"clean {safe_area}, balanced negative space only in that band for a title "
         f"overlay — never over her face or body. "
         f"Mood: bittersweet, dreamy city night, premium record-sleeve visual. "
-        f"Style: 1980s-1990s city-pop album cover, glossy analog-film look, gentle "
-        f"neon reflections, soft volumetric light, moody low-key high-contrast, "
-        f"elegant palette — NOT gaudy, NOT oversaturated. "
-        f"Quality: ultra-detailed photorealistic portrait, 4K, sharp focus on the "
-        f"subject, professional fashion photography. "
+        f"Style: 1980s-1990s city-pop album cover, gentle neon reflections, moody "
+        f"low-key high-contrast, elegant palette — NOT gaudy, NOT oversaturated. "
+        f"{render or art_render(DEFAULT_THUMB_ART_STYLE)} "
         f"IMPORTANT: tasteful styling only, fully clothed, no nudity — no text, "
         f"no letters, no logos, no watermarks anywhere in the image."
     )
 
 
 def _background_prompt(preset: dict, culture: str, scene_var: str, theme_phrase: str,
-                       time_of_day: str, camera: str, safe_area: str) -> str:
+                       time_of_day: str, camera: str, safe_area: str,
+                       render: str = "") -> str:
     """Pre-alpha.36 composition: background-only cityscape, no person."""
     return (
         f"A cinematic {culture} city night background for a premium music playlist "
@@ -146,12 +181,10 @@ def _background_prompt(preset: dict, culture: str, scene_var: str, theme_phrase:
         f"depth, layered foreground and background, leading lines, balanced negative "
         f"space near the center for a title overlay. "
         f"Mood: bittersweet, dreamy, slightly melancholic city night, premium playlist visual. "
-        f"Style: modern cinematic photography, clean high-resolution rendering, "
-        f"shallow depth of field, soft volumetric light, gentle neon reflections on "
-        f"wet surfaces, subtle lens bloom, moody low-key lighting with high contrast, "
-        f"elegant muted sophisticated palette — NOT gaudy, NOT oversaturated. "
-        f"Quality: ultra-detailed, photorealistic, 4K resolution, sharp focus, "
-        f"high dynamic range, professional cinematography, award-winning. "
+        f"Style: clean high-resolution rendering, gentle neon reflections on wet "
+        f"surfaces, moody low-key lighting with high contrast, elegant muted "
+        f"sophisticated palette — NOT gaudy, NOT oversaturated. "
+        f"{render or art_render(DEFAULT_THUMB_ART_STYLE)} "
         f"IMPORTANT: background image only — absolutely no text, no letters, no logos, "
         f"no watermarks, no people-facing camera anywhere in the image."
     )
@@ -177,6 +210,7 @@ def generate_flow_prompt(
     track_no: int = 0,
     include_person: bool = True,
     form: str | None = None,
+    art_style: str = DEFAULT_THUMB_ART_STYLE,
 ) -> dict:
     """
     Generate a single Google Flow prompt for a citypop thumbnail.
@@ -214,12 +248,14 @@ def generate_flow_prompt(
     time_of_day = _time_for(track_no)
 
     theme_phrase = f", {theme}" if theme else ""
+    _render = art_render(art_style)
 
     if include_person:
         main_prompt = _portrait_prompt(preset, culture, scene_var, theme_phrase,
                                        time_of_day, camera, safe_area,
                                        fashion=_fashion_for(track_no),
-                                       expression=_expression_for(track_no))
+                                       expression=_expression_for(track_no),
+                                       render=_render)
         composition_note = (
             f"{camera}, leave {safe_area}. "
             f"Never place the title over the subject's face or body. "
@@ -227,7 +263,8 @@ def generate_flow_prompt(
         )
     else:
         main_prompt = _background_prompt(preset, culture, scene_var, theme_phrase,
-                                          time_of_day, camera, safe_area)
+                                          time_of_day, camera, safe_area,
+                                          render=_render)
         composition_note = (
             f"{camera}, leave {safe_area} for the title overlay. "
             f"Avoid placing key faces/objects under the title area. "
@@ -258,6 +295,7 @@ def generate_flow_prompt(
         "include_person": include_person,
         "form": form,
         "form_composition": form_composition,
+        "art_style": art_style,
     }
 
 
@@ -267,13 +305,17 @@ def generate_prompt_batch(
     count: int = 5,
     include_person: bool = True,
     form: str | None = None,
+    art_style: str = DEFAULT_THUMB_ART_STYLE,
 ) -> list[dict]:
     """
     Generate a batch of varied Flow prompts. Each prompt varies scene,
     camera, time, composition, and title-safe area. `form` (optional, see
     generate_flow_prompt) is applied uniformly to every prompt in the batch.
+    `art_style` (v1.0.0-alpha.96, one of THUMB_ART_STYLES) sets the render
+    look — default 'anime' per the YouTube tokyo-citypop thumbnail benchmark.
     """
-    return [generate_flow_prompt(country, theme, track_no=i, include_person=include_person, form=form)
+    return [generate_flow_prompt(country, theme, track_no=i, include_person=include_person,
+                                 form=form, art_style=art_style)
             for i in range(count)]
 
 
@@ -305,6 +347,7 @@ def build_prompt_batch(
     form: str | None = None,
     english_override: str | None = None,
     freeform_ko: str = "",
+    art_style: str = DEFAULT_THUMB_ART_STYLE,
 ) -> list[dict]:
     """
     v1.0.0-alpha.77 — hybrid prompt batch for the Prompt Lab's Korean-freeform
@@ -324,11 +367,13 @@ def build_prompt_batch(
     override = (english_override or "").strip()
     if not override:
         return generate_prompt_batch(country, theme, count,
-                                     include_person=include_person, form=form)
+                                     include_person=include_person, form=form,
+                                     art_style=art_style)
     prompts = []
     for i in range(count):
         d = generate_flow_prompt(country, theme, track_no=i,
-                                 include_person=include_person, form=form)
+                                 include_person=include_person, form=form,
+                                 art_style=art_style)
         d["main_prompt"] = override
         # Freeform flow wants the subtle-VHS thumbnail look — relax the
         # anti-VHS negatives so they don't cancel it (alpha.79).

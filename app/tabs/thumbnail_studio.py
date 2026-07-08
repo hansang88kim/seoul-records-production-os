@@ -135,6 +135,20 @@ def _render_prompt_lab():
     )
     selected_form = list(HR_FORMS.keys())[form_idx - 1] if form_idx > 0 else None
 
+    # v1.0.0-alpha.96: ART STYLE — benchmarked from the top-viewed "tokyo
+    # citypop" YouTube thumbnails (140M/45M/30M views …), most of which are
+    # 1980s-90s city-pop ANIME/manga illustration rather than photoreal. Default
+    # to anime; photo (cinematic realism) and analog (VHS film) also offered.
+    from services.thumbnail.prompt_generator import THUMB_ART_STYLES, DEFAULT_THUMB_ART_STYLE
+    _askeys = list(THUMB_ART_STYLES.keys())
+    art_style = st.selectbox(
+        "🎨 아트 스타일 (유튜브 tokyo citypop 썸네일 벤치마크)",
+        _askeys, index=_askeys.index(DEFAULT_THUMB_ART_STYLE),
+        format_func=lambda k: THUMB_ART_STYLES[k]["label"], key="thumb_art_style",
+        help="조회수 상위 tokyo citypop 썸네일 다수가 1980-90년대 시티팝 애니/망가 일러스트라 "
+             "기본값을 애니로 했습니다. 시네마틱 실사·아날로그 필름도 선택 가능합니다.",
+    )
+
     # ── v1.0.0-alpha.77: Korean free-form description → English prompt box ──
     # Describe the exact image (pose, clothing, objects, setting) in Korean; an
     # LLM composes one polished English prompt that weaves it into the existing
@@ -168,7 +182,8 @@ def _render_prompt_lab():
                  help="한글 서술이 있으면 Gemini로 영어 이미지 프롬프트를 생성합니다. "
                       "비어 있으면 기본 템플릿 프롬프트를 미리보기로 채웁니다."):
         composed = compose_english_prompt(freeform_ko, country_key, theme,
-                                          include_person=include_person, form=selected_form)
+                                          include_person=include_person, form=selected_form,
+                                          art_style=art_style)
         st.session_state["thumb_en_prompt"] = composed["main_prompt"]
         st.session_state["thumb_en_prompt_source"] = composed["prompt_source"]
         st.rerun()
@@ -310,15 +325,16 @@ def _render_prompt_lab():
             override = (st.session_state.get("thumb_en_prompt") or "").strip()
             if not override:
                 composed = compose_english_prompt(freeform_ko, country_key, theme,
-                                                  include_person=include_person, form=selected_form)
+                                                  include_person=include_person, form=selected_form,
+                                                  art_style=art_style)
                 override = composed["main_prompt"]
                 st.session_state["thumb_en_prompt"] = override
                 st.session_state["thumb_en_prompt_source"] = composed["prompt_source"]
             return build_prompt_batch(country_key, theme, n, include_person=include_person,
                                       form=selected_form, english_override=override,
-                                      freeform_ko=freeform_ko)
+                                      freeform_ko=freeform_ko, art_style=art_style)
         return build_prompt_batch(country_key, theme, n, include_person=include_person,
-                                  form=selected_form)
+                                  form=selected_form, art_style=art_style)
 
     def _mode_label() -> str:
         if not use_real:

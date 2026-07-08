@@ -98,9 +98,28 @@ def _call_llm(instruction: str) -> str | None:
     return None
 
 
-def _build_llm_instruction(korean_freeform: str, base: dict, include_person: bool) -> str:
+def _build_llm_instruction(korean_freeform: str, base: dict, include_person: bool,
+                           art_style: str = "") -> str:
     """Assemble the instruction sent to Gemini. ``base`` is a generate_flow_prompt
-    dict (used as the style/composition reference)."""
+    dict (used as the style/composition reference). ``art_style`` (v1.0.0-alpha.96,
+    one of THUMB_ART_STYLES) sets the render look — default anime per the YouTube
+    tokyo-citypop thumbnail benchmark."""
+    from services.thumbnail.prompt_generator import art_render, DEFAULT_THUMB_ART_STYLE
+    _style = (art_style or DEFAULT_THUMB_ART_STYLE)
+    art_rule = art_render(_style)
+    is_anime = _style == "anime"
+    craft_rule = (
+        "Render as a clean cel-shaded 1980s-90s city-pop ANIME/MANGA illustration "
+        "— crisp linework, flat nostalgic color blocking, stylized cel-shaded "
+        "lighting with warm neon glow and gentle rim light, retro anime aesthetic "
+        "(Hiroshi Nagai / Eizin Suzuki album-art vibe), NOT a photo, NOT 3D, no "
+        "camera/lens realism; finish with a subtle retro-print grain."
+        if is_anime else
+        "Include concrete craft detail woven naturally: a specific camera/lens feel "
+        "(35mm/50mm, shallow depth of field, cinematic anamorphic), lighting design "
+        "(key/rim/practical neon, wet reflections, volumetric haze, bokeh), rich "
+        "atmosphere and texture, finished with a subtle VHS analog-film mood."
+    )
     subject_rule = (
         "Include a stylish woman in her early twenties as the centered subject, in "
         "TASTEFUL, emotional city-pop fashion — elegant and understated, a soft "
@@ -132,24 +151,18 @@ def _build_llm_instruction(korean_freeform: str, base: dict, include_person: boo
         "concrete, evocative visual detail rather than restating it.\n"
         f"- Country / setting: {base.get('country', '')} — {base.get('scene', '')}.\n"
         f"- Mood / theme: {base.get('theme', '') or 'wistful nostalgic city night'}.\n"
-        "- Era / style: premium 1980s-1990s retro city-pop record-sleeve "
-        "aesthetic, cinematic and elegant — NOT gaudy, NOT oversaturated.\n"
+        f"- Era / style: premium 1980s-1990s retro city-pop record-sleeve "
+        f"aesthetic — NOT gaudy, NOT oversaturated. {art_rule}\n"
         f"- {subject_rule}\n"
         f"- Composition constraint (keep this): {composition_rule}.\n"
         "- Give the street natural life: warm glowing neon signboards and a few "
         "softly out-of-focus passersby in the background — lively but not cluttered, "
         "the subject stays clearly dominant and the title-safe area stays clean.\n"
-        "- Include concrete craft detail woven naturally into the sentence: a "
-        "specific camera/lens feel (e.g. 35mm or 50mm, shallow depth of field, "
-        "cinematic anamorphic), lighting design (key/rim/practical neon, wet "
-        "reflections, volumetric haze, bokeh), a citypop color palette (teal-and-"
-        "magenta or amber-and-cyan night tones), and rich atmosphere and texture.\n"
+        f"- {craft_rule} Use a citypop color palette (teal-and-magenta or "
+        f"amber-and-cyan night tones) with rich nostalgic atmosphere.\n"
         "- The image MUST contain no text, letters, logos, or watermarks.\n"
-        "- Ultra-detailed and sharp on the focal subject with high dynamic range, "
-        "finished as a nostalgic 1980s-1990s city-pop YouTube music-playlist "
-        "THUMBNAIL with a SUBTLE VHS analog-film filter mood (soft grain, gentle "
-        "chromatic haze, warm nostalgic color grade) — still crisp and readable at "
-        "small thumbnail size, 16:9 aspect ratio.\n\n"
+        "- Finished as a nostalgic 1980s-1990s city-pop YouTube music-playlist "
+        "THUMBNAIL — crisp and readable at small thumbnail size, 16:9 aspect ratio.\n\n"
         "Output ONLY the final English prompt paragraph — nothing else."
     )
 
@@ -343,6 +356,7 @@ def compose_english_prompt(
     include_person: bool = True,
     form: str | None = None,
     track_no: int = 0,
+    art_style: str = "",
 ) -> dict:
     """
     Compose a single English image prompt from the Korean free-form description.
@@ -358,8 +372,11 @@ def compose_english_prompt(
     * korean_freeform given, LLM fails → template fallback (source "fallback_error").
     * korean_freeform given, LLM ok → composed English (source "llm").
     """
+    from services.thumbnail.prompt_generator import DEFAULT_THUMB_ART_STYLE
+    _art = (art_style or "").strip() or DEFAULT_THUMB_ART_STYLE
     base = generate_flow_prompt(country, theme, track_no=track_no,
-                                include_person=include_person, form=form)
+                                include_person=include_person, form=form,
+                                art_style=_art)
     freeform = (korean_freeform or "").strip()
     if not freeform:
         base["freeform_ko"] = ""
@@ -377,7 +394,7 @@ def compose_english_prompt(
         base["prompt_source"] = "fallback_nokey"
         return base
 
-    composed = _call_llm(_build_llm_instruction(freeform, base, include_person))
+    composed = _call_llm(_build_llm_instruction(freeform, base, include_person, art_style=_art))
     base["freeform_ko"] = freeform
     if composed:
         base["main_prompt"] = composed  # LLM already weaves in the thumbnail/VHS framing
