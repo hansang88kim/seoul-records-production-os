@@ -276,20 +276,20 @@ def _render_prompt_lab():
             else:
                 st.caption(f"🟢 실제 생성 ON · 모델 {dep['model']} ({dep['backend'].upper()})")
 
-    # Optional: explicit new-session button
-    use_queue = st.toggle(
-        "🔄 백그라운드 대기열로 생성", value=(count > 1 and use_real),
-        key="thumb_use_queue",
-        help="켜면: 별도 프로세스에서 생성하며 화면이 즉시 반응합니다 — 여러 장/실제 API 생성 시 추천. "
-             "진행 상태는 Dashboard/Settings의 '작업 상태'에서 실시간 확인 가능합니다. "
-             "끄면: 이 화면에서 완료까지 기다립니다(1장·목업 생성에 적합).",
-    )
+    # v1.0.0-alpha.89: real generation ALWAYS runs as an independent background
+    # job (each its own queue item — start another and the first keeps going,
+    # never interrupted). Only mock stays synchronous (instant). The old manual
+    # toggle is gone; use_queue False here means "mock → sync".
+    use_queue = False
+    if use_real:
+        st.caption("🔄 실제 생성은 **별도 백그라운드 작업**으로 처리됩니다 — 완성 전에 다른 생성을 "
+                   "시작해도 기존 작업이 끊기지 않고, 새 작업은 대기열에서 순서대로 자동 실행됩니다.")
     col_gen, col_new = st.columns([3, 1])
     with col_new:
         force_new = st.button("🆕 새 세션", use_container_width=True,
                               help="새 썸네일 세션을 시작합니다 (기존 세션 자산은 보존됨)")
     with col_gen:
-        gen_label = f"🔄 {count}개 이미지 생성 (대기열)" if use_queue else f"🎨 {count}개 이미지 생성"
+        gen_label = f"🔄 {count}개 이미지 생성 (백그라운드)" if use_real else f"🎨 {count}개 이미지 생성"
         do_generate = st.button(gen_label, type="primary", use_container_width=True)
 
     if force_new:
@@ -348,7 +348,12 @@ def _render_prompt_lab():
         prompts = _build_prompts(count)
         mode_label = _mode_label()
 
-        if use_queue:
+        # v1.0.0-alpha.89: REAL generation always runs as an independent
+        # background job (detached process). This makes each generation its own
+        # queue item that never gets interrupted by a Streamlit rerun — start
+        # another and the first keeps running; the new one queues and
+        # auto-starts when the first finishes. Mock is instant → stays sync.
+        if use_real or use_queue:
             from services.thumbnail_job_manager import start_thumbnail_job
             job = start_thumbnail_job(
                 sid, prompts,
@@ -356,11 +361,11 @@ def _render_prompt_lab():
             )
             st.session_state["thumb_prompts"] = prompts
             if job.get("queued"):
-                st.warning(f"⏳ 대기열에 추가됨 — 다른 작업(job {job['queued_behind']}) 완료 후 "
-                           f"Settings에서 다시 시도하세요.")
+                st.info(f"⏳ **{count}장 생성 대기열에 추가됨** — 진행 중인 작업이 끝나면 "
+                        f"자동으로 시작됩니다. (아래 '진행 상태'에서 확인)")
             else:
-                st.success(f"🔄 백그라운드로 {count}장 생성 시작됨 ({mode_label}) · "
-                           f"job_id={job['job_id']} · Dashboard/Settings에서 진행 상태 확인 가능")
+                st.success(f"🔄 **{count}장 생성 시작됨** ({mode_label}) · 별도 백그라운드 작업이라 "
+                           f"끊기지 않습니다 · 아래 '진행 상태'에서 실시간 확인")
         else:
             # Live progress bar (Song Lab-style) instead of a bare spinner.
             _prog = st.progress(0.0, text=f"이미지 생성 준비 중… (0/{count}) · {mode_label}")
@@ -391,8 +396,18 @@ def _render_prompt_lab():
                     f"→ **Candidate Gallery** 탭에서 선택하세요. (세션: {sid})"
                 )
 
+    # v1.0.0-alpha.89: chain the queue — if nothing is running, auto-start the
+    # oldest queued thumbnail job (fallback to the worker's own chaining, e.g.
+    # if a worker died). Guarded so it never runs two at once.
+    try:
+        from services.thumbnail_job_manager import start_next_queued_thumbnail_job
+        start_next_queued_thumbnail_job()
+    except Exception:
+        pass
+
     # Live progress + 대기열(cue) — Song Lab-style: shows any active/queued
-    # background thumbnail job (백그라운드 대기열로 생성) with a progress bar.
+    # background thumbnail job with a progress bar. Each generation is its own
+    # independent job, so starting another never interrupts the running one.
     try:
         from app.ui.live_console import render_active_job_console
         render_active_job_console()
@@ -438,22 +453,35 @@ def _render_prompt_lab():
                 if st.button(f"➕ {add_n}장 추가 생성", use_container_width=True,
                              key="thumb_add_btn",
                              help="현재 설정(국가/무드/서술/형태/엔진) 그대로 이미지를 더 만들어 "
-                                  "위 갤러리에 이어 붙입니다."):
+                                  "위 갤러리에 이어 붙입니다. (실제 생성은 별도 백그라운드 작업)"):
                     add_prompts = _build_prompts(add_n)
-                    _ap = st.progress(0.0, text=f"추가 생성 준비 중… (0/{add_n})")
+                    if use_real:
+                        # append as its own background job → never interrupts an
+                        # in-flight generation, queues + auto-starts (alpha.89).
+                        from services.thumbnail_job_manager import start_thumbnail_job
+                        job = start_thumbnail_job(sid, add_prompts, settings={
+                            "use_real": True, "model": None, "engine": engine, "append": True})
+                        if job.get("queued"):
+                            st.info(f"⏳ **{add_n}장 추가 대기열에 추가됨** — 진행 중 작업 완료 후 자동 시작.")
+                        else:
+                            st.success(f"🔄 **{add_n}장 추가 생성 시작됨** — 별도 백그라운드 작업(안 끊김). "
+                                       f"아래 진행 상태에서 확인.")
+                        st.rerun()
+                    else:
+                        _ap = st.progress(0.0, text=f"추가 생성 준비 중… (0/{add_n})")
 
-                    def _add_prog(j, total_n, c):
-                        try:
-                            _ap.progress(min(1.0, (j + 1) / max(1, total_n)),
-                                         text=f"➕ 추가 생성 중 {j+1}/{total_n} · {c.get('candidate_id','')}")
-                        except Exception:
-                            pass
+                        def _add_prog(j, total_n, c):
+                            try:
+                                _ap.progress(min(1.0, (j + 1) / max(1, total_n)),
+                                             text=f"➕ 추가 생성 중 {j+1}/{total_n} · {c.get('candidate_id','')}")
+                            except Exception:
+                                pass
 
-                    ss.append_and_generate_images(sid, add_prompts, use_real=use_real,
-                                                  engine=engine, progress_callback=_add_prog)
-                    _ap.empty()
-                    st.success(f"✅ {add_n}장 추가 생성 완료 — 갤러리에 이어 붙였습니다.")
-                    st.rerun()
+                        ss.append_and_generate_images(sid, add_prompts, use_real=use_real,
+                                                      engine=engine, progress_callback=_add_prog)
+                        _ap.empty()
+                        st.success(f"✅ {add_n}장 추가 생성 완료 — 갤러리에 이어 붙였습니다.")
+                        st.rerun()
         if failed:
             st.error(f"❌ {len(failed)}개 생성 실패 — 사유: {failed[0].get('gen_error') or '알 수 없음'}")
         if not gen and not failed:

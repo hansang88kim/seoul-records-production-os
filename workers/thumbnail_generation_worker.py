@@ -60,6 +60,7 @@ def main(job_id: str):
     use_real = settings.get("use_real", False)
     model = settings.get("model")
     engine = settings.get("engine", "gemini")
+    append = bool(settings.get("append", False))  # v1.0.0-alpha.89: 이미지 추가 생성
     total = len(prompts)
 
     _log(job_id, f"썸네일 생성 시작: {total}장 · engine={engine} · use_real={use_real}")
@@ -90,13 +91,22 @@ def main(job_id: str):
                      ("" if ok else f" — {candidate.get('gen_error', '')}"))
 
     try:
-        cands = ss.generate_images(session_id, prompts, use_real=use_real,
-                                   model=model, engine=engine,
-                                   progress_callback=_on_progress)
+        if append:
+            # Append N MORE to the session (existing candidates untouched).
+            new_cands = ss.append_and_generate_images(
+                session_id, prompts, use_real=use_real, model=model, engine=engine,
+                progress_callback=_on_progress)
+            # count only the newly-added ones for this job's success tally
+            cands = new_cands[-len(prompts):] if len(new_cands) >= len(prompts) else new_cands
+        else:
+            cands = ss.generate_images(session_id, prompts, use_real=use_real,
+                                       model=model, engine=engine,
+                                       progress_callback=_on_progress)
     except Exception as e:
         job_store.update_job(job_id, status="failed",
                              last_message=f"생성 중 오류: {e}")
         _log(job_id, f"generate_images crashed: {e}\n{traceback.format_exc()}", "error")
+        _chain_next()
         return
 
     ok_count = sum(1 for c in cands if c.get("status") == "image_generated")
@@ -111,6 +121,20 @@ def main(job_id: str):
         completed_at=datetime.now(timezone.utc).isoformat(),
     )
     _log(job_id, f"썸네일 생성 종료: {ok_count}/{len(cands)}장 성공 ({final_status})")
+    _chain_next()
+
+
+def _chain_next():
+    """v1.0.0-alpha.89: when this job finishes, auto-start the next QUEUED
+    thumbnail job so each generation runs as its own independent job (no
+    interruption, no manual retry). Guarded to never run two at once."""
+    try:
+        from services.thumbnail_job_manager import start_next_queued_thumbnail_job
+        started = start_next_queued_thumbnail_job()
+        if started:
+            _log(started["job_id"], "이전 작업 완료 → 대기열의 다음 썸네일 작업 자동 시작")
+    except Exception:
+        pass
 
 
 if __name__ == "__main__":

@@ -120,3 +120,24 @@ def _launch_worker_process(job_id: str) -> bool:
 def get_thumbnail_jobs(limit: int = 20) -> list[dict]:
     """Thumbnail-specific jobs only (mode == 'thumbnail_batch'), newest first."""
     return [j for j in list_jobs(limit=limit) if j.get("mode") == "thumbnail_batch"]
+
+
+def start_next_queued_thumbnail_job() -> dict | None:
+    """
+    v1.0.0-alpha.89 — start the oldest QUEUED thumbnail job IF nothing is
+    currently running (song OR thumbnail). Called by a finishing worker to
+    chain the queue, and polled by the UI as a fallback. Returns the started
+    job or None. Guarded so two heavy generations never run at once.
+    """
+    active = get_active_jobs()
+    if any(j.get("status") == "running" for j in active):
+        return None  # something already running — don't compete
+    queued = [j for j in list_jobs(limit=50)
+              if j.get("status") == "queued" and j.get("mode") == "thumbnail_batch"]
+    if not queued:
+        return None
+    queued.sort(key=lambda j: j.get("created_at", ""))
+    job_id = queued[0]["job_id"]
+    if _launch_worker_process(job_id):
+        return load_job(job_id)
+    return None

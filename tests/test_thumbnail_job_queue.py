@@ -77,6 +77,68 @@ def test_start_thumbnail_job_queues_behind_a_running_job(tmp_path):
     assert job_store.load_job(job["job_id"])["status"] == "queued"
 
 
+def test_start_next_queued_thumbnail_job_launches_oldest_when_idle(tmp_path):
+    # two queued thumbnail jobs, nothing running → the OLDEST launches
+    j1 = job_store.create_job(project="s1", mode="thumbnail_batch", total_tracks=1)
+    j2 = job_store.create_job(project="s2", mode="thumbnail_batch", total_tracks=1)
+    job_store.update_job(j1["job_id"], status="queued", created_at="2026-01-01T00:00:00")
+    job_store.update_job(j2["job_id"], status="queued", created_at="2026-01-02T00:00:00")
+
+    with mock.patch("subprocess.Popen") as popen:
+        popen.return_value.pid = 999
+        started = tjm.start_next_queued_thumbnail_job()
+
+    assert started is not None
+    assert started["job_id"] == j1["job_id"]           # oldest first
+    assert job_store.load_job(j1["job_id"])["status"] == "running"
+    assert job_store.load_job(j2["job_id"])["status"] == "queued"  # still waiting
+
+
+def test_start_next_queued_does_nothing_while_one_running(tmp_path):
+    running = job_store.create_job(project="r", mode="thumbnail_batch", total_tracks=1)
+    job_store.update_job(running["job_id"], status="running")
+    q = job_store.create_job(project="q", mode="thumbnail_batch", total_tracks=1)
+    job_store.update_job(q["job_id"], status="queued")
+
+    with mock.patch("subprocess.Popen") as popen:
+        started = tjm.start_next_queued_thumbnail_job()
+
+    popen.assert_not_called()                          # never two at once
+    assert started is None
+    assert job_store.load_job(q["job_id"])["status"] == "queued"
+
+
+def test_start_next_queued_ignores_non_thumbnail_jobs(tmp_path):
+    song = job_store.create_job(project="song", mode="auto_batch", total_tracks=3)
+    job_store.update_job(song["job_id"], status="queued")
+    with mock.patch("subprocess.Popen") as popen:
+        started = tjm.start_next_queued_thumbnail_job()
+    popen.assert_not_called()
+    assert started is None
+
+
+def test_worker_append_mode_calls_append(tmp_path):
+    sess = ss.create_session("korea", "night", "T", 1)
+    sid = sess["session_id"]
+    # seed one existing candidate
+    ss.generate_images(sid, generate_prompt_batch("korea", "night", 1), use_real=False)
+
+    prompts = generate_prompt_batch("korea", "night", 2)
+    job = job_store.create_job(project=sid, mode="thumbnail_batch", total_tracks=2)
+    jobs_dir = job_store._jobs_dir() / job["job_id"]
+    (jobs_dir / "plan.json").write_text(json.dumps(prompts), encoding="utf-8")
+    (jobs_dir / "settings.json").write_text(json.dumps(
+        {"session_id": sid, "use_real": False, "engine": "gemini", "append": True}),
+        encoding="utf-8")
+
+    with mock.patch("subprocess.Popen"):  # block any chaining launch
+        worker.main(job["job_id"])
+
+    cands = ss.load_candidates(sid)
+    assert len(cands) == 3  # 1 existing + 2 appended (not replaced)
+    assert job_store.load_job(job["job_id"])["status"] == "completed"
+
+
 def test_get_thumbnail_jobs_filters_by_mode(tmp_path):
     sess = ss.create_session("korea", "night", "T", 1)
     prompts = generate_prompt_batch("korea", "night", 1)
