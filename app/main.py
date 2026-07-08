@@ -300,6 +300,60 @@ st.markdown("""
     ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.12); border-radius: 4px; }
     ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.22); }
+
+    /* ══ Mobile (<=640px) — narrow-screen UX (v1.0.0-alpha.82) ═══════════════
+       Desktop is untouched; these only apply on phones. Fixes: content
+       squeezed by the 2.6rem/18px desktop scale, and BUTTON/RADIO labels being
+       clipped by the desktop white-space:nowrap; text-overflow:ellipsis. */
+    @media (max-width: 640px) {
+        html { font-size: 15px; }
+        .block-container { padding: 1.1rem 0.85rem 3.5rem; }
+
+        /* headings scale down so long titles don't clip or dominate */
+        .stApp h1 { font-size: 1.5rem; }
+        .stApp h2 { font-size: 1.18rem; }
+        .stApp h3 { font-size: 1.04rem; }
+        .stApp h4 { font-size: 0.98rem; }
+
+        /* let long text wrap Korean-friendly instead of overflowing */
+        p, span, label, .stMarkdown, [data-testid="stWidgetLabel"] p {
+            word-break: keep-all; overflow-wrap: break-word;
+        }
+
+        /* BUTTONS: wrap the label instead of ellipsis-clipping it */
+        .stButton > button, [data-testid="stFileUploader"] button {
+            white-space: normal; overflow: visible; text-overflow: clip;
+            height: auto; min-height: 2.5rem; line-height: 1.28;
+            padding: 0.5rem 0.75rem; word-break: keep-all;
+        }
+        [data-testid="stSidebar"] .stButton > button { padding: 0.55rem 0.85rem; }
+
+        /* horizontal RADIO (mode selectors) wrap + compact so options fit */
+        .stRadio [role="radiogroup"] { flex-wrap: wrap; gap: 0.3rem; }
+        .stRadio [role="radiogroup"] label {
+            font-size: 0.86rem; padding: 0.26rem 0.55rem; white-space: normal;
+        }
+
+        /* metrics fit a narrow card */
+        [data-testid="stMetricValue"] { font-size: 1.45rem; }
+        [data-testid="stMetricLabel"] { font-size: 0.7rem; }
+
+        /* inputs a touch smaller */
+        .stTextInput input, .stTextArea textarea, .stNumberInput input,
+        .stSelectbox [data-baseweb="select"] > div,
+        .stMultiSelect [data-baseweb="select"] > div { font-size: 0.9rem; }
+
+        /* in-page tab bar scrolls horizontally rather than overflowing */
+        .stTabs [data-baseweb="tab-list"] {
+            width: 100%; overflow-x: auto; flex-wrap: nowrap;
+        }
+        .stTabs [data-baseweb="tab"] {
+            padding: 0.45rem 0.8rem; font-size: 0.85rem; white-space: nowrap;
+        }
+
+        /* media never forces horizontal page scroll */
+        [data-testid="stImage"] img, img { max-width: 100%; height: auto; }
+    }
 </style>
 """, unsafe_allow_html=True)
 
