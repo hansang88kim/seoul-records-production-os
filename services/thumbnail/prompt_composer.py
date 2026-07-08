@@ -136,6 +136,9 @@ def _build_llm_instruction(korean_freeform: str, base: dict, include_person: boo
         "aesthetic, cinematic and elegant — NOT gaudy, NOT oversaturated.\n"
         f"- {subject_rule}\n"
         f"- Composition constraint (keep this): {composition_rule}.\n"
+        "- Give the street natural life: warm glowing neon signboards and a few "
+        "softly out-of-focus passersby in the background — lively but not cluttered, "
+        "the subject stays clearly dominant and the title-safe area stays clean.\n"
         "- Include concrete craft detail woven naturally into the sentence: a "
         "specific camera/lens feel (e.g. 35mm or 50mm, shallow depth of field, "
         "cinematic anamorphic), lighting design (key/rim/practical neon, wet "
@@ -303,9 +306,11 @@ def _build_suggest_instruction(city: str, mood: str, include_person: bool) -> st
         "감성적인 1980~90년대 시티팝 무드의 이미지 한 장을 **한국어로 두세 문장** 아주 구체적으로 "
         "묘사해줘 (과한 레트로 코스튬 느낌은 지양, 세련되고 절제된 톤). "
         f"{who} "
+        "주변에는 은은하게 빛나는 네온 간판과 멀리 흐릿하게 지나가는 행인 몇 명으로 거리에 "
+        "자연스러운 생기를 더하되(주인공보다 부각되지 않게, 어수선하지 않게). "
         "조명(네온·젖은 반사·역광·보케), 색감(틸/마젠타 또는 앰버/시안 야간 톤), 카메라 느낌"
         "(얕은 심도, 시네마틱), 분위기·질감 디테일을 풍부하게 넣되 자연스러운 문장으로. "
-        "글자/로고/워터마크는 넣지 말 것.\n"
+        "화면에 오버레이될 큰 글자/로고/워터마크는 넣지 말 것.\n"
         "출력은 묘사 문장만 (따옴표·머리말·설명·목록 없이)."
     )
 
