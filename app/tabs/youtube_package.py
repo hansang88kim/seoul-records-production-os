@@ -18,6 +18,123 @@ from services.youtube import thumbnail_validator as TV
 from services.youtube import youtube_package_service as YPS
 from services.youtube import youtube_api_client as YAC
 
+# v1.0.0-alpha.97: upload MP3s → auto-build the timestamp tracklist (chapters).
+_CHAP_AUDIO_EXTS = (".mp3", ".wav", ".m4a", ".flac", ".aac", ".ogg")
+
+
+def _chap_upload_dir() -> Path:
+    from services.video.playlist_builder import _outputs_root
+    d = _outputs_root() / "youtube_chapter_uploads"
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+def _audio_duration(path: str) -> float:
+    """Duration for any audio container (mutagen is format-generic)."""
+    try:
+        import mutagen
+        f = mutagen.File(path)
+        return float(getattr(getattr(f, "info", None), "length", 0) or 0)
+    except Exception:
+        return 0.0
+
+
+def _scan_chapter_uploads() -> list[dict]:
+    """Track dicts {path,name,duration_sec} for uploaded chapter audio."""
+    d = _chap_upload_dir()
+    out = []
+    for f in sorted(d.iterdir()) if d.exists() else []:
+        if f.suffix.lower() in _CHAP_AUDIO_EXTS:
+            out.append({"path": str(f), "name": f.name,
+                        "duration_sec": _audio_duration(str(f))})
+    return out
+
+
+def _render_mp3_chapter_builder():
+    """v1.0.0-alpha.97: upload MP3/audio → compute cumulative timestamps and
+    build a YouTube chapters.txt (the '⏱ Tracklist / MM:SS title / (반복 N)'
+    format), reusing build_playlist_plan + format_chapters_txt. Returns a
+    chapters-asset dict {path,name,parent} when one has been generated, else
+    None (so the caller falls back to the auto-scanned chapters.txt)."""
+    from services.video.playlist_builder import build_playlist_plan, format_chapters_txt
+
+    with st.expander("🎵 MP3 업로드 → 타임스탬프(챕터) 자동 생성", expanded=False):
+        st.caption("음원을 올리면 각 곡 길이로 누적 타임스탬프(00:00, 02:58 …)를 계산해 "
+                   "트랙리스트를 만듭니다. 순서는 아래에서 조정하세요.")
+        up = st.file_uploader(
+            "음원 업로드 (mp3·wav·flac·m4a·aac·ogg · 여러 개)",
+            type=[e.lstrip(".") for e in _CHAP_AUDIO_EXTS],
+            accept_multiple_files=True, key="yt_chap_upload",
+        )
+        if up:
+            d = _chap_upload_dir()
+            saved = 0
+            for uf in up:
+                dest = d / uf.name
+                if not dest.exists():
+                    dest.write_bytes(uf.getbuffer())
+                    saved += 1
+            if saved:
+                st.success(f"✅ {saved}개 업로드됨")
+                st.rerun()
+
+        tracks = _scan_chapter_uploads()
+        if not tracks:
+            st.info("아직 업로드된 음원이 없습니다.")
+            return _saved_chapter_asset()
+
+        names = [t["name"] for t in tracks]
+        order = st.multiselect(
+            "트랙 순서 (선택한 순서대로 타임스탬프 생성 · 비우면 전체·파일명 순)",
+            range(len(tracks)), format_func=lambda i: names[i],
+            key="yt_chap_order",
+        )
+        chosen = [tracks[i] for i in order] if order else tracks
+
+        c1, c2 = st.columns(2)
+        with c1:
+            target = st.radio("목표 길이", [60, 65, 70], horizontal=True,
+                              format_func=lambda m: f"{m}분", key="yt_chap_target")
+        with c2:
+            repeat = st.checkbox("목표 길이까지 반복 (반복분도 타임스탬프에 표시)",
+                                value=True, key="yt_chap_repeat")
+
+        # per-track durations that couldn't be read → warn (would break timing)
+        missing = [t["name"] for t in chosen if not t.get("duration_sec", 0) > 0]
+        if missing:
+            st.warning("길이를 읽지 못한 파일이 있어 타임스탬프에서 제외됩니다: "
+                       + ", ".join(missing[:5]) + ("…" if len(missing) > 5 else ""))
+
+        if st.button("⏱ 타임스탬프 트랙리스트 생성", key="yt_chap_gen",
+                     use_container_width=True, type="primary"):
+            plan = build_playlist_plan(chosen, target, repeat)
+            text = format_chapters_txt(plan)
+            path = _chap_upload_dir() / "uploaded_chapters.txt"
+            path.write_text("⏱ Tracklist\n" + text, encoding="utf-8")
+            st.session_state["yt_uploaded_chapters_path"] = str(path)
+            tot = int(plan["total_seconds"])
+            st.session_state["yt_uploaded_chapters_meta"] = (
+                f"{len(plan['chapters'])}개 챕터 · {tot // 60}:{tot % 60:02d}")
+            st.rerun()
+
+        asset = _saved_chapter_asset()
+        if asset:
+            st.success(f"✅ 생성된 트랙리스트: {st.session_state.get('yt_uploaded_chapters_meta','')}")
+            st.code(Path(asset["path"]).read_text(encoding="utf-8"), language=None)
+            if st.button("🗑️ 생성된 트랙리스트 지우기", key="yt_chap_clear"):
+                st.session_state.pop("yt_uploaded_chapters_path", None)
+                st.session_state.pop("yt_uploaded_chapters_meta", None)
+                st.rerun()
+        return asset
+
+
+def _saved_chapter_asset():
+    """The generated chapters file as an asset dict, if it still exists."""
+    p = st.session_state.get("yt_uploaded_chapters_path")
+    if p and Path(p).exists():
+        return {"path": p, "name": "uploaded_chapters.txt (업로드 MP3)", "parent": "업로드"}
+    return None
+
 
 def render_youtube_package():
     """YouTube Package Studio entry point."""
@@ -79,13 +196,20 @@ def render_youtube_package():
             st.warning("youtube_thumbnail_16x9를 찾을 수 없습니다. Thumbnail Studio에서 내보내세요.")
             sel_thumb = None
 
-        if chapters_files:
+        # v1.0.0-alpha.97: MP3 업로드로 타임스탬프 트랙리스트 자동 생성. 생성돼
+        # 있으면 그 챕터를 우선 사용하고, 없으면 기존 자동 스캔 chapters.txt 사용.
+        uploaded_chapters = _render_mp3_chapter_builder()
+        if uploaded_chapters:
+            sel_chapters = uploaded_chapters
+            st.caption(f"챕터: {uploaded_chapters['name']} (업로드 MP3에서 생성됨)")
+        elif chapters_files:
             clabels = [f"{c['name']} ({c['parent']})" for c in chapters_files]
             ch_idx = st.selectbox("챕터 파일", range(len(chapters_files)),
                                   format_func=lambda i: clabels[i], key="yt_chap")
             sel_chapters = chapters_files[ch_idx]
         else:
-            st.info("chapters.txt가 없습니다 (선택). 없어도 패키지는 생성됩니다.")
+            st.info("chapters.txt가 없습니다 (선택). 위에서 MP3를 올려 자동 생성하거나, "
+                    "없어도 패키지는 생성됩니다.")
             sel_chapters = None
 
         st.markdown("### 📤 업로드 모드")
