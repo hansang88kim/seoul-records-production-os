@@ -417,7 +417,26 @@ def _render_prompt_lab():
     # Show generated images (inline preview) FIRST, then the prompts for reference.
     prompts = st.session_state.get("thumb_prompts", [])
     sid = st.session_state.get("thumb_session_id")
-    if prompts and sid:
+    # v1.0.0-alpha.90: with background jobs the session that actually got the
+    # images may not be thumb_session_id (queue drift — the user started several
+    # and thumb_session_id points at one whose job is still queued). ONLY when
+    # the user has generated in this UI session (thumb_prompts set), fall back to
+    # the most recent thumbnail job's session that DOES have candidates, so
+    # generated images always appear instead of a false "0/0". This is a LOCAL
+    # display choice — we do NOT mutate thumb_session_id (that would leak into
+    # the Premium/Exports modes and make them think a session exists).
+    if prompts:
+        if not (sid and ss.load_candidates(sid)):
+            try:
+                from services.thumbnail_job_manager import get_thumbnail_jobs
+                for _j in get_thumbnail_jobs(limit=8):  # newest first
+                    _js = _j.get("project")
+                    if _js and ss.load_candidates(_js):
+                        sid = _js
+                        break
+            except Exception:
+                pass
+    if prompts and sid and ss.load_candidates(sid):
         cands = ss.load_candidates(sid)
         gen = [c for c in cands if c.get("uploaded_image_path")]
         failed = [c for c in cands if c.get("status") == "generation_failed"]
