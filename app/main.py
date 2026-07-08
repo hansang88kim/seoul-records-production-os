@@ -366,6 +366,11 @@ st.markdown("""
         [class*="st-key-srx-actrow"] [data-testid="stHorizontalBlock"] > [data-testid="stColumn"] {
             min-width: 0 !important; flex: 1 1 auto !important;
         }
+
+        /* breathing room so captions don't collide with the next widget's label
+           when both wrap on a narrow screen */
+        [data-testid="stCaptionContainer"] { margin: 0.15rem 0 0.35rem; }
+        [data-testid="stHorizontalBlock"] { margin-top: 0.3rem; }
     }
 </style>
 """, unsafe_allow_html=True)

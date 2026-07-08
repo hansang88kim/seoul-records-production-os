@@ -183,18 +183,14 @@ def _render_prompt_lab():
     _src = st.session_state.get("thumb_en_prompt_source")
     if freeform_ko:
         if _src == "llm":
-            st.caption("🟢 Gemini가 한글 서술을 반영해 생성 · 이 박스가 생성의 유일한 소스 "
-                       "(생성 개수만큼 이 프롬프트로 만듦)")
+            st.caption("🟢 Gemini 변환 완료 · 이 박스가 생성 소스")
         elif _src in ("fallback_nokey", "fallback_error"):
-            reason = "Gemini API 키 없음" if _src == "fallback_nokey" else "Gemini 호출 실패"
-            st.caption(f"⚠️ {reason} → 기본 템플릿 프롬프트로 폴백. 위 박스를 직접 영어로 "
-                       "수정하면 그대로 사용됩니다. (사이드바 🤖 AI Composer에 Gemini 키 입력 시 자동 변환)")
+            reason = "Gemini 키 없음" if _src == "fallback_nokey" else "Gemini 호출 실패"
+            st.caption(f"⚠️ {reason} → 템플릿 폴백 · 박스 직접 수정 가능")
         else:
-            st.caption("ℹ️ '영어 프롬프트 만들기'를 누르면 한글 서술을 반영해 변환합니다. "
-                       "누르지 않고 생성해도 자동 변환됩니다.")
+            st.caption("ℹ️ '영어 프롬프트 만들기'로 변환 (생성 시 자동 변환)")
     else:
-        st.caption("ℹ️ 한글 서술이 비어 있어 **기존 방식**(국가/무드/인물 → N개 다양한 씬)으로 "
-                   "생성됩니다. 이 박스는 참고용 미리보기입니다.")
+        st.caption("ℹ️ 한글 서술 비움 → 기존 방식(N개 다양) 생성 · 박스는 미리보기")
 
     # ── Project link + real image generation ──────────────────────────────
     col_p, col_r = st.columns([1, 1])
