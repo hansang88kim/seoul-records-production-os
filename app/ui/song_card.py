@@ -93,13 +93,12 @@ def render_song_list(songs: list[dict], project_name: str | None = None,
 
     st.markdown(f"**🎵 생성된 곡 ({len(songs)}곡)**")
 
-    # Table header
-    cols = st.columns([0.4, 3, 0.8, 0.8, 0.6, 2.4])
-    for c, label in zip(cols, ["상태", "제목", "길이", "모델", "형식", "액션"]):
-        with c:
-            st.caption(label)
+    # v1.0.0-alpha.83: compact card-per-song layout (was a 6-column table that
+    # stacked into ~10 lines/song on mobile → huge vertical scroll). Each song
+    # is now one info line + a horizontal action bar (kept horizontal on mobile
+    # via the st.container(key="srx-actrow…") CSS opt-out in app/main.py).
+    import html as _html
 
-    # Song rows
     for i, song in enumerate(songs):
         icon = _STATUS_ICONS.get(song.get("status", ""), "⚪")
         title = song.get("title", "제목 없음")
@@ -113,19 +112,18 @@ def render_song_list(songs: list[dict], project_name: str | None = None,
         row_id = f"{ns}_{i}"
         is_playing = st.session_state.get(play_key) == row_id
 
-        cols = st.columns([0.4, 3, 0.8, 0.8, 0.6, 2.4])
-        with cols[0]:
-            st.write(icon)
-        with cols[1]:
-            st.write(f"**{title}**")
-        with cols[2]:
-            st.write(_dur_str(duration))
-        with cols[3]:
-            st.write(model)
-        with cols[4]:
-            st.write(file_type)
-        with cols[5]:
-            bc = st.columns(4)
+        meta = f"{_dur_str(duration)} · {model} · {file_type}"
+        st.markdown(
+            f"<div style='display:flex;align-items:baseline;gap:0.5rem;flex-wrap:wrap;"
+            f"margin:0.15rem 0 0.1rem'>"
+            f"<span>{icon}</span>"
+            f"<span style='font-weight:650;color:var(--ink)'>{_html.escape(title)}</span>"
+            f"<span style='color:var(--muted-2);font-size:0.82rem'>· {_html.escape(meta)}</span>"
+            f"</div>",
+            unsafe_allow_html=True,
+        )
+        with st.container(key=f"srx-actrow-{ns}-{i}"):
+            bc = st.columns([1, 1, 1, 1, 6])
             with bc[0]:
                 if has_file:
                     if st.button("⏸" if is_playing else "▶️", key=f"p_{row_id}",

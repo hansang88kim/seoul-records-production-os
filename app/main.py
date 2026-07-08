@@ -353,6 +353,19 @@ st.markdown("""
 
         /* media never forces horizontal page scroll */
         [data-testid="stImage"] img, img { max-width: 100%; height: auto; }
+
+        /* STACK multi-column rows so inputs get full width (fixes cramped /
+           truncated selectboxes like the mood picker on a 3-col row) */
+        [data-testid="stHorizontalBlock"] { flex-wrap: wrap; }
+        [data-testid="stHorizontalBlock"] > [data-testid="stColumn"] {
+            min-width: 100% !important; flex: 1 1 100% !important;
+        }
+        /* …opt-out: tight icon-button rows wrapped in st.container(key="srx-actrow…")
+           stay horizontal instead of stacking into many lines */
+        [class*="st-key-srx-actrow"] [data-testid="stHorizontalBlock"] { flex-wrap: nowrap !important; }
+        [class*="st-key-srx-actrow"] [data-testid="stHorizontalBlock"] > [data-testid="stColumn"] {
+            min-width: 0 !important; flex: 1 1 auto !important;
+        }
     }
 </style>
 """, unsafe_allow_html=True)

@@ -47,5 +47,27 @@ def test_desktop_button_rule_still_clips():
     assert "white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" in desktop
 
 
+def test_mobile_stacks_columns_for_full_width_inputs():
+    # v1.0.0-alpha.83: multi-column rows stack on mobile so selectboxes/inputs
+    # get full width (fixes the cramped/truncated mood picker).
+    assert 'min-width: 100% !important' in MOBILE
+    assert '[data-testid="stHorizontalBlock"] > [data-testid="stColumn"]' in MOBILE
+
+
+def test_mobile_keeps_tight_action_rows_horizontal():
+    # song-list action buttons opt out of stacking via st.container(key="srx-actrow…")
+    assert 'st-key-srx-actrow' in MOBILE
+    assert 'flex-wrap: nowrap !important' in MOBILE
+
+
+def test_song_list_is_compact_card_layout():
+    # v1.0.0-alpha.83: the song list no longer uses the 6-column table (which
+    # stacked into ~10 lines/song on mobile); it uses a compact card + a
+    # keyed action row that stays horizontal.
+    src = Path("app/ui/song_card.py").read_text(encoding="utf-8")
+    assert 'st.container(key=f"srx-actrow-' in src
+    assert 'st.columns([0.4, 3, 0.8, 0.8, 0.6, 2.4])' not in src  # old 6-col table gone
+
+
 def test_style_block_braces_balanced():
     assert STYLE.count("{") == STYLE.count("}")
