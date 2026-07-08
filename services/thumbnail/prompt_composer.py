@@ -266,14 +266,42 @@ def _country_city(country: str) -> str:
         return "도시"
 
 
+# Tasteful, DIVERSE wardrobe seeds — one is injected at random into the 🎲
+# suggestion instruction so each press yields a different, modern-elegant look
+# instead of the same gaudy retro cliché (off-shoulder + high-waist jeans +
+# leopard earrings). The model is told to treat it as a starting point, not a rule.
+_KO_STYLE_SEEDS = [
+    "베이지 트렌치코트에 심플한 터틀넥",
+    "오버사이즈 니트 스웨터와 슬랙스",
+    "테일러드 블레이저 안에 실크 블라우스",
+    "미니멀한 새틴 슬립 드레스",
+    "데님 재킷과 무지 티셔츠의 편안한 스타일",
+    "파스텔 카디건과 미디스커트",
+    "라이트 코트에 니트, 얇은 머플러",
+    "모던한 셋업 정장(재킷+팬츠)",
+    "부드러운 셔츠 원피스",
+    "심플한 크롭 니트와 롱스커트",
+]
+
+
 def _build_suggest_instruction(city: str, mood: str, include_person: bool) -> str:
-    who = ("장면 중앙에 20대 초반 여성(레트로 시티팝 패션)을 배치하고 헤어·의상·소품·포즈를 "
-           "구체적으로 묘사." if include_person else "인물 없이 도시 야경/배경 중심으로 묘사.")
+    if include_person:
+        style_seed = random.choice(_KO_STYLE_SEEDS)
+        who = (
+            "장면 중앙에 20대 초반 여성을 배치하되, 패션은 감성적이고 세련된 시티팝 무드로 —\n"
+            "과하거나 촌스러운 레트로 클리셰(화려한 패턴 블라우스, 호피/표범 무늬, 오프숄더+하이웨이스트 "
+            "청바지, 큼지막한 액세서리 같은 뻔한 조합)는 피하고, 우아하고 절제된 현대적 감각으로.\n"
+            f"이번 착장의 핵심은 반드시 '{style_seed}' 계열로 구성할 것 (색·소재·디테일은 자유롭게 "
+            "변형하되 이 방향을 벗어나지 말 것) — 데님 재킷+티셔츠 같은 뻔한 기본 조합으로 매번 "
+            "수렴하지 말고. 헤어·의상·소품·포즈를 자연스럽고 구체적으로 묘사."
+        )
+    else:
+        who = "인물 없이 도시 야경/배경 중심으로 묘사."
     return (
         "너는 유튜브 시티팝 음악 플레이리스트 썸네일을 기획하는 감각적인 아트 디렉터야.\n"
         f"도시: {city}\n무드: {mood or '아련한 도시의 밤'}\n"
-        "1980~90년대 시티팝 앨범 자켓 감성의 이미지 한 장을 **한국어로 두세 문장** 아주 구체적으로 "
-        "묘사해줘. "
+        "감성적인 1980~90년대 시티팝 무드의 이미지 한 장을 **한국어로 두세 문장** 아주 구체적으로 "
+        "묘사해줘 (과한 레트로 코스튬 느낌은 지양, 세련되고 절제된 톤). "
         f"{who} "
         "조명(네온·젖은 반사·역광·보케), 색감(틸/마젠타 또는 앰버/시안 야간 톤), 카메라 느낌"
         "(얕은 심도, 시네마틱), 분위기·질감 디테일을 풍부하게 넣되 자연스러운 문장으로. "
