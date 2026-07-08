@@ -234,16 +234,15 @@ def auto_download_final_version(project_name: str, provider=None,
 
         if not delete_other:
             continue
-        if is_tie:
-            report["skipped"].append(
-                {"title": title,
-                 "reason": "두 버전 길이 동일 — 다운로드만 하고 Suno 삭제는 건너뜀"})
-            continue
-
+        # v1.0.0-alpha.95: the winner is already downloaded, so the loser is
+        # DEFINITIVELY the clip we're not keeping — delete it from Suno even when
+        # the two versions tie on length. (Previously a length tie skipped the
+        # delete and left both clips on Suno; the user wants exactly ONE kept and
+        # the other removed, always.)
         full = loser_info.get("id") or loser_id
         res = provider.delete_clips([full])
         if res.get("ok"):
-            report["deleted"].append({"title": title, "clip_id": full})
+            report["deleted"].append({"title": title, "clip_id": full, "tie": is_tie})
         else:
             report["failed"].append(
                 {"title": title, "clip_id": full,

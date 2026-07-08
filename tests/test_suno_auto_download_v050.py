@@ -303,8 +303,9 @@ def test_partial_info_failure_aborts_no_download_no_delete(monkeypatch, tmp_path
     assert rep["failed"] and "일부 클립 정보 조회 실패" in rep["failed"][0]["reason"]
 
 
-def test_exact_tie_downloads_but_never_deletes(monkeypatch, tmp_path):
-    """두 버전 길이가 정확히 같으면 다운로드만 하고 Suno 삭제는 금지."""
+def test_exact_tie_downloads_one_and_deletes_the_other(monkeypatch, tmp_path):
+    """v1.0.0-alpha.95: length tie still downloads exactly ONE and deletes the
+    other from Suno (user wants only one kept, always)."""
     root = _patch_song_root(monkeypatch, tmp_path)
     _make_project(root, "P", [
         {"title": "곡", "file_path": "", "task_id": "8df69261,b099c8aa"},
@@ -314,9 +315,9 @@ def test_exact_tie_downloads_but_never_deletes(monkeypatch, tmp_path):
         "b099c8aa": {"id": "bf", "duration": 200.0, "audio_url": "http://a/b"},
     })
     rep = auto_download_final_version("P", provider=fp, downloader=_fake_downloader)
-    assert len(rep["downloaded"]) == 1
-    assert fp.deleted == [] and rep["deleted"] == []
-    assert any("길이 동일" in s["reason"] for s in rep["skipped"])
+    assert len(rep["downloaded"]) == 1        # exactly one kept
+    assert len(fp.deleted) == 1               # the other deleted from Suno
+    assert len(rep["deleted"]) == 1 and rep["deleted"][0].get("tie") is True
 
 
 # ─── plan 길이 규칙 폴백 (웹 다운로드 곡) — 변경 없음, 그대로 유지 ───────────
