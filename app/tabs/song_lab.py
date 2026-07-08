@@ -60,11 +60,17 @@ def _project_selector(key_prefix: str) -> str:
     """
     Render a project name input/selector. Returns the chosen project name.
     Existing projects can be picked from a dropdown, or a new name typed.
+
+    v1.0.0-alpha.92: the dropdown shows each project's song count, a summary
+    line shows the total songs generated so far, and an existing project can be
+    deleted right here (two-step confirm) — no need to hop to 프로젝트 관리.
     """
-    from app.project_manager import list_song_projects
+    from app.project_manager import list_song_projects, delete_song_project
 
     existing = list_song_projects()
     names = [p["name"] for p in existing]
+    counts = {p["name"]: p.get("song_count", 0) for p in existing}
+    total_songs = sum(counts.values())
 
     col_mode, col_input = st.columns([1, 2])
     with col_mode:
@@ -86,9 +92,44 @@ def _project_selector(key_prefix: str) -> str:
             project = st.selectbox(
                 "프로젝트",
                 names,
+                format_func=lambda n: f"{n}  ·  {counts.get(n, 0)}곡",
                 key=f"{key_prefix}_proj_sel",
                 label_visibility="collapsed",
             )
+
+    if names:
+        sel = (project or "").strip()
+        st.caption(
+            f"📊 총 **{len(names)}개 프로젝트** · 현재까지 생성 **{total_songs}곡**"
+            + (f"  ·  '{sel}' {counts.get(sel, 0)}곡" if (sel and not use_new) else "")
+        )
+        # per-project delete (only when an EXISTING project is picked)
+        if sel and not use_new:
+            _ck = f"{key_prefix}_delproj_confirm"
+            _dc1, _dc2 = st.columns([2, 1])
+            with _dc2:
+                if st.button("🗑️ 프로젝트 삭제", key=f"{key_prefix}_delproj",
+                             use_container_width=True,
+                             help=f"'{sel}' 폴더+곡 전체를 영구 삭제합니다."):
+                    st.session_state[_ck] = sel
+                    st.rerun()
+            if st.session_state.get(_ck) == sel:
+                st.warning(f"⚠️ **'{sel}'** 프로젝트를 폴더·곡 전체까지 **영구 삭제**합니다. 되돌릴 수 없어요.")
+                _wc1, _wc2 = st.columns(2)
+                with _wc1:
+                    if st.button("✅ 삭제 확정", key=f"{key_prefix}_delproj_yes",
+                                 type="primary", use_container_width=True):
+                        ok = delete_song_project(sel)
+                        st.session_state.pop(_ck, None)
+                        st.session_state.pop(f"{key_prefix}_proj_sel", None)  # reset selection
+                        st.success(f"'{sel}' 삭제됨" if ok else "삭제 실패")
+                        st.rerun()
+                with _wc2:
+                    if st.button("취소", key=f"{key_prefix}_delproj_no",
+                                 use_container_width=True):
+                        st.session_state.pop(_ck, None)
+                        st.rerun()
+
     return project.strip() if project else ""
 
 
