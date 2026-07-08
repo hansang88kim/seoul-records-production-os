@@ -102,8 +102,11 @@ def _build_llm_instruction(korean_freeform: str, base: dict, include_person: boo
     """Assemble the instruction sent to Gemini. ``base`` is a generate_flow_prompt
     dict (used as the style/composition reference)."""
     subject_rule = (
-        "Include a glamorous, stylish woman in her early twenties as the centered, "
-        "dominant subject (1990s retro-glam fashion styling)."
+        "Include a stylish woman in her early twenties as the centered subject, in "
+        "TASTEFUL, emotional city-pop fashion — elegant and understated, a soft "
+        "modern-retro balance (NOT costume-y, NOT over-the-top retro, NOT gaudy). "
+        "Vary the wardrobe naturally (knitwear, a blazer, a trench, a simple dress, "
+        "denim, etc.) with natural makeup."
         if include_person else
         "Background only — no people facing the camera."
     )

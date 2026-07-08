@@ -71,19 +71,43 @@ def _time_for(track_no: int) -> str:
     return times[track_no % len(times)]
 
 
+# v1.0.0-alpha.85: tasteful, VARIED city-pop wardrobe (was a single fixed
+# "retro-glam bold-lip" look that read as costume-y / over-the-top retro).
+# Rotated by track_no so a batch is diverse.
+def _fashion_for(track_no: int) -> str:
+    looks = [
+        "a soft oversized knit sweater",
+        "a tailored blazer over a simple blouse",
+        "a light pastel cardigan and a midi skirt",
+        "a clean beige trench coat over a turtleneck",
+        "an effortless denim jacket and a plain tee",
+        "a minimalist satin slip dress with a subtle sheen",
+    ]
+    return looks[track_no % len(looks)]
+
+
+def _expression_for(track_no: int) -> str:
+    looks = [
+        "a calm, wistful gaze", "a soft natural smile", "a quiet, confident look",
+        "a gentle, pensive expression", "a warm, relaxed smile", "a dreamy, faraway gaze",
+    ]
+    return looks[track_no % len(looks)]
+
+
 def _portrait_prompt(preset: dict, culture: str, scene_var: str, theme_phrase: str,
-                     time_of_day: str, camera: str, safe_area: str) -> str:
-    """v1.0.0-alpha.36 composition: centered fashion/glamour portrait, 1990s
-    city-pop record-sleeve styling."""
+                     time_of_day: str, camera: str, safe_area: str,
+                     fashion: str = "an effortless, elegant outfit",
+                     expression: str = "a calm, wistful gaze") -> str:
+    """Centered city-pop portrait. v1.0.0-alpha.85: tasteful, emotional styling
+    with VARIED wardrobe/expression (was a fixed over-the-top retro-glam look)."""
     return (
-        f"A premium 1990s retro city-pop album cover AND a subscribe-worthy YouTube "
-        f"playlist thumbnail, evoking a wistful 1980s-1990s {culture} city-pop record "
-        f"sleeve. Foreground subject, centered in frame: a glamorous, stylish "
-        f"{culture} woman in her early twenties, confident sultry expression, "
-        f"retro-glam fashion styling (bold lip color, soft voluminous hair, era-"
-        f"appropriate chic outfit), fashion-magazine-cover presence, eye-catching "
-        f"and click-worthy — the kind of striking central portrait a viewer stops "
-        f"scrolling for. "
+        f"A premium 1980s-1990s city-pop album cover AND a subscribe-worthy YouTube "
+        f"playlist thumbnail, evoking a wistful {culture} city-pop record "
+        f"sleeve. Foreground subject, centered in frame: a stylish "
+        f"{culture} woman in her early twenties with {expression}, wearing {fashion}, "
+        f"natural tasteful makeup and soft, modern styling — elegant and understated, "
+        f"an emotional city-pop mood rather than a costume-y or overly retro look, "
+        f"yet eye-catching and click-worthy. "
         f"Background setting: {preset['city']} — {preset['scene']}. "
         f"Featured scene: {scene_var}{theme_phrase}, {time_of_day}, softly out of "
         f"focus behind her. "
@@ -193,7 +217,9 @@ def generate_flow_prompt(
 
     if include_person:
         main_prompt = _portrait_prompt(preset, culture, scene_var, theme_phrase,
-                                       time_of_day, camera, safe_area)
+                                       time_of_day, camera, safe_area,
+                                       fashion=_fashion_for(track_no),
+                                       expression=_expression_for(track_no))
         composition_note = (
             f"{camera}, leave {safe_area}. "
             f"Never place the title over the subject's face or body. "
