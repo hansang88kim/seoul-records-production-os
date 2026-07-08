@@ -476,3 +476,35 @@ def test_music_and_thumbnail_unaffected_v071():
     from services.thumbnail.prompt_generator import generate_flow_prompt
     assert len(MOCK_SONGS) >= 2
     assert generate_flow_prompt("korea", "n", 0)["main_prompt"]
+
+
+# ─── v1.0.0-alpha.92: title-first labels + WAV/audio upload ───────────────────
+
+def test_title_first_label_leads_with_song_title():
+    import app.tabs.video_renderer as vr
+    lbl = vr._title_first_label({"title": "밤이 지나면", "duration_sec": 212,
+                                 "project": "서울-시티팝-Vol.01", "name": "x.mp3"})
+    # title comes FIRST (was hidden behind the project prefix before)
+    assert lbl.startswith("밤이 지나면 (3:32)")
+    assert "서울-시티팝-Vol.01" in lbl  # project still shown, but after the title
+
+
+def test_title_first_label_marks_uploads():
+    import app.tabs.video_renderer as vr
+    lbl = vr._title_first_label({"name": "my_master.wav", "duration_sec": 100,
+                                 "source": "upload"})
+    assert lbl.startswith("my_master (1:40)")
+    assert "업로드" in lbl
+
+
+def test_scan_uploaded_audio_finds_wav(monkeypatch, tmp_path):
+    import app.tabs.video_renderer as vr
+    up = tmp_path / "uploads"
+    up.mkdir()
+    (up / "song.wav").write_bytes(b"RIFF\x00\x00\x00\x00WAVE")
+    (up / "note.txt").write_text("ignore me")
+    monkeypatch.setattr(vr, "_upload_dir", lambda: up)
+    got = vr._scan_uploaded_audio()
+    names = {t["name"] for t in got}
+    assert names == {"song.wav"}                 # wav found, txt ignored
+    assert got[0]["source"] == "upload"

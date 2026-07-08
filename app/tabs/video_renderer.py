@@ -21,6 +21,50 @@ from services.video.visualizer import (
 )
 from services.video import render_plan as rp
 
+# v1.0.0-alpha.92: users can upload their own WAV/audio directly (not just the
+# auto-scanned MP3s). Uploads land here and are merged into the track list.
+_AUDIO_EXTS = (".wav", ".mp3", ".m4a", ".flac", ".aac", ".ogg")
+
+
+def _upload_dir() -> Path:
+    from services.video.playlist_builder import _outputs_root
+    d = _outputs_root() / "manual_uploads"
+    d.mkdir(parents=True, exist_ok=True)
+    return d
+
+
+def _any_audio_duration(path: str) -> float:
+    """Duration for any audio container (WAV/FLAC/… — mutagen is format-generic,
+    unlike the MP3-only scanner)."""
+    try:
+        import mutagen
+        f = mutagen.File(path)
+        return float(getattr(getattr(f, "info", None), "length", 0) or 0)
+    except Exception:
+        return 0.0
+
+
+def _scan_uploaded_audio() -> list[dict]:
+    """Track dicts for user-uploaded audio in the manual-uploads folder."""
+    d = _upload_dir()
+    out = []
+    for f in sorted(d.iterdir()) if d.exists() else []:
+        if f.suffix.lower() in _AUDIO_EXTS:
+            out.append({"path": str(f), "name": f.name,
+                        "duration_sec": _any_audio_duration(str(f)), "source": "upload"})
+    return out
+
+
+def _title_first_label(t: dict) -> str:
+    """Title-first label so the song name is visible (the project is chosen
+    separately above; leading with the project prefix truncated the title)."""
+    from services.library_labels import format_duration
+    title = t.get("title") or Path(t.get("name", "")).stem or "?"
+    proj = t.get("project") or ""
+    tag = "  ⬆업로드" if t.get("source") == "upload" else ""
+    dur = format_duration(t.get("duration_sec"))
+    return f"{title} ({dur})" + (f"  ·  {proj}" if proj else "") + tag
+
 
 def _linked_slider(label: str, min_v, max_v, default, step, key: str,
                    help: str | None = None, is_float: bool = False):
@@ -63,21 +107,49 @@ def render_video_renderer():
 
     # ── 1. MP3 playlist ──────────────────────────────────────────────
     st.markdown("#### 1️⃣ MP3 플레이리스트")
-    tracks = scan_mp3_files()
+
+    # v1.0.0-alpha.92: direct WAV/audio upload (not just auto-scanned MP3s).
+    up = st.file_uploader(
+        "🎵 WAV/오디오 직접 업로드 (플레이리스트에 추가) — mp3·wav·flac·m4a·aac·ogg",
+        type=[e.lstrip(".") for e in _AUDIO_EXTS], accept_multiple_files=True,
+        key="vr_upload",
+    )
+    if up:
+        d = _upload_dir()
+        saved = 0
+        for uf in up:
+            dest = d / uf.name
+            if not dest.exists():
+                dest.write_bytes(uf.getbuffer())
+                saved += 1
+        if saved:
+            st.success(f"✅ {saved}개 업로드됨 — 아래 목록에 추가됐습니다.")
+            st.rerun()
+
+    # Merge auto-scanned MP3s + user uploads (dedup by resolved path).
+    _raw = scan_mp3_files()
+    _seen = {str(Path(t["path"]).resolve()) for t in _raw}
+    for t in _scan_uploaded_audio():
+        if str(Path(t["path"]).resolve()) not in _seen:
+            _raw.append(t)
+    tracks = _raw
     if not tracks:
-        st.warning("⚠️ outputs/ 에서 MP3를 찾을 수 없습니다. 먼저 Song Lab에서 곡을 생성하세요.")
-        st.caption("WAV는 필요하지 않습니다 — MP3만 있으면 됩니다.")
+        st.warning("⚠️ MP3를 찾을 수 없습니다. Song Lab에서 곡을 생성하거나 위에서 오디오를 업로드하세요.")
         return
 
-    # Library-identical names/meta (v1.0.0-alpha.43): the same
-    # "{프로젝트} · {곡제목} (m:ss)" labels the sidebar Library shows.
+    # Library-identical meta (v1.0.0-alpha.43). alpha.92: the track picker now
+    # leads with the SONG TITLE (the project is chosen separately below, and the
+    # project prefix was truncating the title in the multiselect chips).
     from services.library_labels import (
         enrich_tracks_with_song_library, group_track_indices_by_project,
     )
     tracks = enrich_tracks_with_song_library(tracks)
-    labels = [t["library_label"] for t in tracks]
+    labels = [_title_first_label(t) for t in tracks]
 
-    st.caption(f"발견된 MP3: {len(tracks)}개 (WAV 불필요) · 이름은 좌측 Library와 동일")
+    n_up = sum(1 for t in tracks if t.get("source") == "upload")
+    st.caption(f"발견된 트랙: {len(tracks)}개"
+               + (f" (업로드 {n_up}개 포함)" if n_up else " (WAV 불필요)")
+               + " · 제목 우선 표시")
 
     # ── Project-folder bulk selection ────────────────────────────────
     proj_groups = group_track_indices_by_project(tracks)
