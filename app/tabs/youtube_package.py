@@ -58,9 +58,10 @@ def _render_mp3_chapter_builder():
     None (so the caller falls back to the auto-scanned chapters.txt)."""
     from services.video.playlist_builder import build_playlist_plan, format_chapters_txt
 
-    with st.expander("🎵 MP3 업로드 → 타임스탬프(챕터) 자동 생성", expanded=False):
-        st.caption("음원을 올리면 각 곡 길이로 누적 타임스탬프(00:00, 02:58 …)를 계산해 "
-                   "트랙리스트를 만듭니다. 순서는 아래에서 조정하세요.")
+    with st.expander("🎵 MP3 업로드 (→ 설명에 트랙리스트 자동 포함)", expanded=False):
+        st.caption("음원을 올리면 각 곡 길이로 누적 타임스탬프를 계산해, 아래 "
+                   "'YouTube 메타데이터 생성' 시 설명 안에 트랙리스트로 자동 들어갑니다. "
+                   "순서는 아래에서 조정하세요.")
         up = st.file_uploader(
             "음원 업로드 (mp3·wav·flac·m4a·aac·ogg · 여러 개)",
             type=[e.lstrip(".") for e in _CHAP_AUDIO_EXTS],
@@ -81,7 +82,7 @@ def _render_mp3_chapter_builder():
         tracks = _scan_chapter_uploads()
         if not tracks:
             st.info("아직 업로드된 음원이 없습니다.")
-            return _saved_chapter_asset()
+            return None
 
         names = [t["name"] for t in tracks]
         order = st.multiselect(
@@ -105,35 +106,18 @@ def _render_mp3_chapter_builder():
             st.warning("길이를 읽지 못한 파일이 있어 타임스탬프에서 제외됩니다: "
                        + ", ".join(missing[:5]) + ("…" if len(missing) > 5 else ""))
 
-        if st.button("⏱ 타임스탬프 트랙리스트 생성", key="yt_chap_gen",
-                     use_container_width=True, type="primary"):
-            plan = build_playlist_plan(chosen, target, repeat)
-            text = format_chapters_txt(plan)
-            path = _chap_upload_dir() / "uploaded_chapters.txt"
-            path.write_text("⏱ Tracklist\n" + text, encoding="utf-8")
-            st.session_state["yt_uploaded_chapters_path"] = str(path)
-            tot = int(plan["total_seconds"])
-            st.session_state["yt_uploaded_chapters_meta"] = (
-                f"{len(plan['chapters'])}개 챕터 · {tot // 60}:{tot % 60:02d}")
-            st.rerun()
-
-        asset = _saved_chapter_asset()
-        if asset:
-            st.success(f"✅ 생성된 트랙리스트: {st.session_state.get('yt_uploaded_chapters_meta','')}")
-            st.code(Path(asset["path"]).read_text(encoding="utf-8"), language=None)
-            if st.button("🗑️ 생성된 트랙리스트 지우기", key="yt_chap_clear"):
-                st.session_state.pop("yt_uploaded_chapters_path", None)
-                st.session_state.pop("yt_uploaded_chapters_meta", None)
-                st.rerun()
-        return asset
-
-
-def _saved_chapter_asset():
-    """The generated chapters file as an asset dict, if it still exists."""
-    p = st.session_state.get("yt_uploaded_chapters_path")
-    if p and Path(p).exists():
-        return {"path": p, "name": "uploaded_chapters.txt (업로드 MP3)", "parent": "업로드"}
-    return None
+        # v1.0.0-alpha.99: no separate "타임스탬프 생성/미리보기" step — as soon as
+        # audio is uploaded the tracklist is built and fed into 메타데이터 생성, where
+        # it appears inside the SEO description (and the 챕터 section). The tracklist
+        # is NOT shown standalone here (removed per request).
+        plan = build_playlist_plan(chosen, target, repeat)
+        path = _chap_upload_dir() / "uploaded_chapters.txt"
+        path.write_text("⏱ Tracklist\n" + format_chapters_txt(plan), encoding="utf-8")
+        tot = int(plan["total_seconds"])
+        st.success(f"✅ {len(plan['chapters'])}곡 · {tot // 60}:{tot % 60:02d} — "
+                   f"'YouTube 메타데이터 생성' 시 설명에 자동 포함됩니다.")
+        return {"path": str(path), "name": "uploaded_chapters.txt (업로드 MP3)",
+                "parent": "업로드"}
 
 
 def render_youtube_package():

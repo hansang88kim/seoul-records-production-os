@@ -42,8 +42,9 @@ def test_generated_tracklist_has_cumulative_timestamps_and_repeats(tmp_path):
     assert any("(반복 2)" in e["title"] for e in ents)
 
 
-def test_saved_chapter_asset_none_when_missing(monkeypatch):
-    import streamlit as st
-    # no session file set → None (caller falls back to scanned chapters.txt)
-    monkeypatch.setattr(st, "session_state", {}, raising=False)
-    assert yp._saved_chapter_asset() is None
+def test_scan_chapter_uploads_empty_when_dir_absent(monkeypatch, tmp_path):
+    # v1.0.0-alpha.99: the standalone timestamp-preview step was removed; the
+    # builder now auto-feeds the tracklist into 메타데이터 생성. With no uploads
+    # there are simply no tracks.
+    monkeypatch.setattr(yp, "_chap_upload_dir", lambda: tmp_path / "nope")
+    assert yp._scan_chapter_uploads() == []
