@@ -131,9 +131,7 @@ def test_mock_provider_has_fast_mode():
     assert "_FAST_WAV_SECONDS" in src
 
 
-def test_candidate_override_uses_track_folder_path():
-    """Fix 6: Candidate override must not scan all song folders."""
-    src = (ROOT / "app" / "tabs" / "tab1_song_generation.py").read_text(encoding="utf-8")
-    assert "track_folder_path" in src
-    # Must NOT iterate over all folders
-    assert "for folder in (songs_root" not in src
+# v1.0.0-alpha.100: test_candidate_override_uses_track_folder_path removed —
+# it guarded a fix inside app/tabs/tab1_song_generation.py, which was DEAD legacy
+# code (never imported by the live app; the real tab is app/tabs/song_lab.py) and
+# has been deleted in the AI-readiness Sanity pass (fake entry-point removal).

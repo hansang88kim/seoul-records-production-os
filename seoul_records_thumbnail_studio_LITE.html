@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Seoul Records — 썸네일 스튜디오</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;0,700;0,800;1,600;1,700&family=Cormorant+Garamond:ital,wght@0,500;0,600;0,700;1,600;1,700&family=Bodoni+Moda:ital,wght@0,500;0,700;1,600&family=DM+Serif+Display:ital@0;1&family=Prata&family=Anton&family=Bebas+Neue&family=Montserrat:wght@400;500;600;700;800&family=Marcellus&family=Italiana&family=Dancing+Script:wght@600;700&family=Noto+Sans+KR:wght@300;400;500;700&family=Nanum+Myeongjo:wght@400;700;800&family=Gowun+Batang:wght@400;700&family=Song+Myung&display=swap" rel="stylesheet">
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{font-family:'Montserrat',sans-serif;background:#0e0e12;color:#e9e2d3;padding:16px;}
+  h1{font-size:18px;color:#e4be6a;margin-bottom:4px;letter-spacing:.05em;}
+  .sub{font-size:12px;opacity:.6;margin-bottom:16px;}
+  .layout{display:grid;grid-template-columns:300px 1fr;gap:20px;}
+  @media(max-width:900px){.layout{grid-template-columns:1fr;}}
+  .panel{background:#17171d;border:1px solid #26262e;border-radius:12px;padding:16px;}
+  .panel h2{font-size:12px;text-transform:uppercase;letter-spacing:.15em;color:#e4be6a;margin-bottom:12px;border-bottom:1px solid #2a2a32;padding-bottom:8px;}
+  label{display:block;font-size:11px;opacity:.7;margin:10px 0 4px;text-transform:uppercase;letter-spacing:.08em;}
+  input[type=text],select{width:100%;background:#0e0e12;border:1px solid #33333d;border-radius:6px;color:#e9e2d3;padding:8px 10px;font-size:13px;font-family:inherit;}
+  input[type=text]:focus,select:focus{outline:none;border-color:#e4be6a;}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+  .forms{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:6px;}
+  .fbtn{flex:1;min-width:0;background:#0e0e12;border:1px solid #33333d;border-radius:6px;color:#e9e2d3;padding:8px 4px;font-size:11px;cursor:pointer;text-align:center;transition:.15s;}
+  .fbtn:hover{border-color:#e4be6a;}
+  .fbtn.active{background:#e4be6a;color:#1a1420;font-weight:700;border-color:#e4be6a;}
+  .ratio{display:flex;gap:6px;margin-bottom:10px;}
+  .ratio button{flex:1;background:#0e0e12;border:1px solid #33333d;border-radius:6px;color:#e9e2d3;padding:8px;font-size:12px;cursor:pointer;}
+  .ratio button.active{background:#2a2320;border-color:#e4be6a;color:#e4be6a;font-weight:700;}
+  .stage-wrap{background:#17171d;border:1px solid #26262e;border-radius:12px;padding:16px;overflow:auto;}
+  .stage-scroll{display:flex;justify-content:center;width:100%;}
+  #stageWrap{position:relative;}
+  .hint{font-size:11px;opacity:.5;margin-top:10px;line-height:1.6;}
+  .rec{font-size:10px;color:#8ad;opacity:.85;margin-top:3px;}
+  .swatch{display:inline-block;width:14px;height:14px;border-radius:3px;border:1px solid #555;vertical-align:middle;margin-right:6px;}
+  .colorline{display:flex;align-items:center;gap:8px;}
+  .colorline input[type=color]{width:36px;height:30px;border:none;background:none;padding:0;cursor:pointer;}
+  .dl{margin-top:12px;width:100%;background:#e4be6a;color:#1a1420;border:none;border-radius:8px;padding:11px;font-weight:700;font-size:13px;cursor:pointer;}
+  .dl:hover{background:#f0cd82;}
+  .note{font-size:10px;opacity:.45;margin-top:6px;}
+
+  /* ===== STAGE ===== */
+  #stage{position:relative;overflow:hidden;background:#000;transform-origin:top center;}
+  #stage img.bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;}
+  .ov{position:absolute;inset:0;}
+  .corner{position:absolute;z-index:8;font-family:'Montserrat',sans-serif;font-weight:600;letter-spacing:.2em;opacity:.9;text-transform:uppercase;text-shadow:0 2px 8px rgba(0,0,0,.6);}
+  .kicker{font-family:'Montserrat',sans-serif;font-weight:700;letter-spacing:.42em;text-transform:uppercase;text-shadow:0 2px 16px rgba(0,0,0,.85);}
+  .tracks{position:absolute;z-index:8;left:0;right:0;text-align:center;font-family:'Noto Sans KR',sans-serif;font-weight:400;letter-spacing:.02em;opacity:.92;line-height:1.75;text-shadow:0 2px 10px rgba(0,0,0,.8);}
+  .badge{position:absolute;z-index:8;border-radius:100px;font-family:'Montserrat',sans-serif;font-weight:600;text-transform:uppercase;text-shadow:0 2px 10px rgba(0,0,0,.6);}
+  .arch svg{overflow:visible;}
+</style>
+</head>
+<body>
+<h1>◈ SEOUL RECORDS — 썸네일 스튜디오</h1>
+<div class="sub">형태 · 폰트 · 텍스트 · 색상을 실시간으로 바꿔보세요. JazzNe 벤치마킹 6형태 / 16:9 · 1:1</div>
+
+<div class="layout">
+  <!-- ============ CONTROLS ============ -->
+  <div class="panel">
+    <h2>1 · 비율</h2>
+    <div class="ratio">
+      <button data-ratio="169" class="active" onclick="setRatio('169')">16:9 (썸네일)</button>
+      <button data-ratio="11" onclick="setRatio('11')">1:1 (커버)</button>
+    </div>
+
+    <h2>2 · 형태</h2>
+    <div class="forms" id="formBtns"></div>
+    <div class="rec" id="formRec"></div>
+
+    <h2>3 · 폰트 (제목)</h2>
+    <select id="titleFont" onchange="render()"></select>
+    <div class="rec" id="fontRec"></div>
+    <label>한글 폰트 (트랙리스트)</label>
+    <select id="krFont" onchange="render()"></select>
+
+    <h2>4 · 텍스트</h2>
+    <label>키커 (상단 소형)</label>
+    <input type="text" id="kicker" value="CITYPOP PLAYLIST" oninput="render()">
+    <div class="row2">
+      <div><label>제목 1</label><input type="text" id="t1" value="Seoul" oninput="render()"></div>
+      <div><label>제목 2</label><input type="text" id="t2" value="Nights" oninput="render()"></div>
+    </div>
+    <label>뱃지 텍스트 (D형)</label>
+    <input type="text" id="badge" value="NEON SEOUL" oninput="render()">
+    <label>트랙리스트 (/ 로 구분)</label>
+    <input type="text" id="tracks" value="밤이 지나면 / 서울의 뒷골목 / 한강의 노을 / 이별의 택시 / 을지로의 기억 / 압구정 불빛 / 마포의 그림자 / 종로의 우산 / 신촌의 창가 / 여의도 야경 / 명동의 불빛 / 서울역 새벽 열차" oninput="render()">
+
+    <h2>5 · 색상</h2>
+    <label>제목 색</label>
+    <div class="colorline"><input type="color" id="titleColor" value="#f6efe2" oninput="render()"><span id="tcv">#f6efe2</span></div>
+    <label>키커/포인트 색</label>
+    <div class="colorline"><input type="color" id="pointColor" value="#e4be6a" oninput="render()"><span id="pcv">#e4be6a</span></div>
+
+    <div id="spineControls" style="display:none;">
+      <h2>6 · 스파인 (1:1 전용)</h2>
+      <label>스파인 배경색</label>
+      <div class="colorline"><input type="color" id="spineBg" value="#1a1420" oninput="render()"><span id="sbv">#1a1420</span></div>
+      <label>스파인 글씨색</label>
+      <div class="colorline"><input type="color" id="spineText" value="#f4efe4" oninput="render()"><span id="stv">#f4efe4</span></div>
+    </div>
+
+    <button class="dl" onclick="downloadPNG()">⬇ PNG 다운로드 (2x)</button>
+    <div class="note">* 실제 앱에서는 배경 이미지가 곡 무드에 맞게 자동 생성/선택됩니다. 여기선 형태·타이포 미리보기용 샘플 이미지입니다.</div>
+  </div>
+
+  <!-- ============ STAGE ============ -->
+  <div class="stage-wrap">
+    <div class="stage-scroll">
+      <div id="stageWrap"><div id="stage"></div></div>
+    </div>
+    <div class="hint" id="hint"></div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script>
+const IMG = {
+  /* [이미지 데이터 제거됨 — 실제 앱에서는 생성/선택된 배경 이미지가 들어감]
+     각 키(A_bg, A_subj, B, C, D, E)는 form별 배경 샘플 자리.
+     이 파일은 레이아웃/CSS/JS 로직 참조용이므로 이미지는 비워둠. */
+};
+
+
+// ===== 폰트 풀 (10+) =====
+const FONTS = [
+  {name:"Playfair Display (이탤릭 세리프)", css:"'Playfair Display', serif", italic:true},
+  {name:"Cormorant Garamond (클래식 세리프)", css:"'Cormorant Garamond', serif", italic:true},
+  {name:"Bodoni Moda (하이패션)", css:"'Bodoni Moda', serif", italic:false},
+  {name:"DM Serif Display (모던 세리프)", css:"'DM Serif Display', serif", italic:false},
+  {name:"Prata (우아한 디돈)", css:"'Prata', serif", italic:false},
+  {name:"Marcellus (로만 캐피탈)", css:"'Marcellus', serif", italic:false},
+  {name:"Italiana (얇은 세리프)", css:"'Italiana', serif", italic:false},
+  {name:"Anton (임팩트 산세리프)", css:"'Anton', sans-serif", italic:false},
+  {name:"Bebas Neue (컨덴스드)", css:"'Bebas Neue', sans-serif", italic:false},
+  {name:"Montserrat 800 (지오메트릭)", css:"'Montserrat', sans-serif", weight:800, italic:false},
+];
+const KR_FONTS = [
+  {name:"Noto Sans KR (고딕)", css:"'Noto Sans KR', sans-serif"},
+  {name:"나눔명조 (세리프)", css:"'Nanum Myeongjo', serif"},
+  {name:"고운바탕 (모던 명조)", css:"'Gowun Batang', serif"},
+  {name:"송명 (클래식 명조)", css:"'Song Myung', serif"},
+];
+
+// ===== 6 형태 정의 + 형태별 추천 폰트 =====
+const FORMS = {
+  A:{label:"A 인물형", rec:"중앙 인물 · 좌우 분할", recFont:1, layout:"split"},
+  B:{label:"B 배경형", rec:"풍경 위 중앙 대형 제목", recFont:0, layout:"center"},
+  C:{label:"C 교차형", rec:"오브젝트 좌우 · 가운데 &", recFont:2, layout:"split_amp"},
+  D:{label:"D 뱃지형", rec:"상단 타원 뱃지 + 중앙 제목", recFont:4, layout:"badge"},
+  E:{label:"E 플랫레이", rec:"위에서 본 구도 · 좌우 분할", recFont:7, layout:"split"},
+  F:{label:"F 아치형", rec:"제목을 곡선(아치)으로 배치", recFont:5, layout:"arch"},
+};
+const FORM_IMG = {A:"A",B:"B",C:"C",D:"D",E:"E",F:"B"};
+
+let state = {ratio:"169", form:"A"};
+
+// build form buttons
+const fb = document.getElementById('formBtns');
+Object.keys(FORMS).forEach(k=>{
+  const b=document.createElement('button'); b.className='fbtn'+(k==='A'?' active':''); b.textContent=FORMS[k].label;
+  b.onclick=()=>{state.form=k; document.querySelectorAll('.fbtn').forEach(x=>x.classList.remove('active')); b.classList.add('active');
+    // 형태 추천 폰트 자동 적용
+    document.getElementById('titleFont').value = FORMS[k].recFont;
+    render();};
+  fb.appendChild(b);
+});
+// build font selects
+const tf=document.getElementById('titleFont');
+FONTS.forEach((f,i)=>{const o=document.createElement('option');o.value=i;o.textContent=f.name;tf.appendChild(o);});
+const kf=document.getElementById('krFont');
+KR_FONTS.forEach((f,i)=>{const o=document.createElement('option');o.value=i;o.textContent=f.name;kf.appendChild(o);});
+
+function setRatio(r){state.ratio=r;document.querySelectorAll('.ratio button').forEach(b=>b.classList.toggle('active',b.dataset.ratio===r));
+  document.getElementById('spineControls').style.display = r==='11'?'block':'none'; render();}
+
+function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+// 좌우 분할 제목의 폰트 크기를 프레임 폭에 맞게 자동 축소
+function fitSplit(W){
+  requestAnimationFrame(()=>{
+    const stage=document.getElementById('stage');
+    const sr=stage.getBoundingClientRect(); const sc=sr.width/W;
+    const words=[...stage.querySelectorAll('.fit-word')];
+    words.forEach(w=>{
+      let fs=parseFloat(getComputedStyle(w).fontSize);
+      let guard=0;
+      while(guard<40){
+        const r=w.getBoundingClientRect();
+        const left=(r.left-sr.left)/sc, right=(r.right-sr.left)/sc;
+        if(left>=54 && right<=W-54) break;
+        fs -= 6; if(fs<48) break;
+        w.style.fontSize=fs+'px';
+        guard++;
+      }
+    });
+  });
+}
+
+function render(){
+  // sync color labels
+  tcv.textContent=titleColor.value; pcv.textContent=pointColor.value;
+  if(document.getElementById('sbv')){sbv.textContent=spineBg.value; stv.textContent=spineText.value;}
+  document.getElementById('formRec').textContent = "◆ "+FORMS[state.form].rec;
+  const tfont=FONTS[document.getElementById('titleFont').value];
+  document.getElementById('fontRec').textContent = "추천: "+FONTS[FORMS[state.form].recFont].name;
+  const krfont=KR_FONTS[document.getElementById('krFont').value];
+
+  const K=document.getElementById('kicker').value;
+  const T1=document.getElementById('t1').value, T2=document.getElementById('t2').value;
+  const BADGE=document.getElementById('badge').value;
+  const TR=document.getElementById('tracks').value.split('/').map(s=>s.trim()).filter(Boolean);
+  const tc=titleColor.value, pc=pointColor.value;
+
+  const is169 = state.ratio==='169';
+  const W = is169?1280:1080, H = is169?720:1080;
+  const stage=document.getElementById('stage');
+  stage.style.width=W+'px'; stage.style.height=H+'px';
+  // scale to fit container — transform-origin top left + wrapper 크기 보정
+  const wrapEl=document.querySelector('.stage-wrap');
+  const maxW = Math.min(920, wrapEl.clientWidth-32);
+  const sc = maxW/W;
+  stage.style.transformOrigin='top left';
+  stage.style.transform='scale('+sc+')';
+  const sw=document.getElementById('stageWrap');
+  sw.style.width=(W*sc)+'px';
+  sw.style.height=(H*sc)+'px';
+
+  const img = IMG[FORM_IMG[state.form]] || IMG['B'];
+  const fi = tfont.italic?'italic':'normal';
+  const fw = tfont.weight||700;
+  const tsh = "0 8px 34px rgba(0,0,0,.82),0 0 46px rgba(0,0,0,.6)";
+
+  // corners + tracks (공통)
+  const trackLines = chunk(TR, is169?6:99);
+  const trackHtml = state.ratio==='169' ? 
+     `<div class="tracks" style="bottom:22px;font-size:14px;font-family:${krfont.css};color:${tc}">${trackLines.map(l=>l.join(' / ')).join('<br>')}</div>` : '';
+  const corners = `
+    <div class="corner" style="top:24px;left:34px;font-size:13px;color:${tc}">Seoul Records<br>&copy;2026</div>
+    <div class="corner" style="top:24px;right:34px;font-size:13px;text-align:right;color:${tc}">Present by<br>Seoul Records</div>
+    <div class="corner" style="bottom:64px;left:34px;font-size:11px;letter-spacing:.12em;color:${tc}">For every<br>seoul night</div>`;
+
+  let inner = `<img class="bg" src="${img}">`;
+  inner += `<div class="ov" style="background:linear-gradient(180deg,rgba(6,5,12,.5)0%,rgba(6,5,12,.14)36%,rgba(6,5,12,.2)62%,rgba(6,5,12,.74)100%)"></div>`;
+
+  // A형은 인물 컷아웃 오버레이
+  if(state.form==='A'){ inner += `<img class="bg" style="z-index:2" src="${IMG['A_subj']}">`; }
+
+  const L = FORMS[state.form].layout;
+  const bigStyle = `font-family:${tfont.css};font-weight:${fw};font-style:${fi};color:${tc};text-shadow:${tsh};`;
+
+  if(state.ratio==='11'){
+    // ===== 1:1 =====
+    render11(stage, {inner,corners,K,T1,T2,BADGE,TR,tc,pc,tfont,krfont,bigStyle,img});
+    return;
+  }
+
+  // ===== 16:9 =====
+  if(L==='split' || L==='split_amp'){
+    const kick = `<div class="kicker" style="position:absolute;z-index:6;top:28px;left:50%;transform:translateX(-50%);font-size:22px;color:${pc}">${esc(K)}</div>`;
+    const amp = L==='split_amp' ? `<div style="position:absolute;z-index:5;left:50%;top:44%;transform:translate(-50%,-50%);font-size:70px;${bigStyle}">&amp;</div>`:'';
+    inner += kick + `<div style="position:absolute;inset:0;z-index:5;display:flex;justify-content:space-between;align-items:center;padding:0 60px;">
+      <span class="fit-word" style="font-size:132px;line-height:.95;${bigStyle}">${esc(T1)}</span>
+      <span class="fit-word" style="font-size:132px;line-height:.95;${bigStyle}">${esc(T2)}</span></div>` + amp;
+  } else if(L==='center'){
+    inner += `<div style="position:absolute;inset:0;z-index:5;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;">
+      <div class="kicker" style="font-size:20px;margin-bottom:16px;color:${pc}">${esc(K)}</div>
+      <div style="font-size:120px;line-height:.98;${bigStyle}">${esc(T1)} ${esc(T2)}</div></div>`;
+  } else if(L==='badge'){
+    inner += `<div class="badge" style="top:52px;left:50%;transform:translateX(-50%);border:1.5px solid ${pc};padding:9px 30px;font-size:16px;letter-spacing:.34em;color:${pc}">${esc(BADGE)}</div>
+      <div style="position:absolute;inset:0;z-index:5;display:flex;justify-content:center;align-items:center;top:6%;">
+      <span style="font-size:126px;line-height:.95;${bigStyle}">${esc(T1)} ${esc(T2)}</span></div>`;
+  } else if(L==='arch'){
+    // 아치형: SVG textPath
+    inner += `<div class="kicker" style="position:absolute;z-index:6;top:30px;left:50%;transform:translateX(-50%);font-size:20px;color:${pc}">${esc(K)}</div>`;
+    inner += archSVG(W, esc(T1+' '+T2), tfont, fw, fi, tc);
+  }
+  inner += corners + trackHtml;
+  stage.innerHTML = inner;
+  if(L==='split'||L==='split_amp') fitSplit(W);
+}
+
+function archSVG(W, text, tfont, fw, fi, tc){
+  const id='arch'+Math.random().toString(36).slice(2,7);
+  const cx=W/2, y0=480, rise=155;
+  const d=`M 150 ${y0} Q ${cx} ${y0-rise} ${W-150} ${y0}`;
+  return `<div class="arch" style="position:absolute;inset:0;z-index:5;">
+    <svg xmlns:xlink="http://www.w3.org/1999/xlink" width="${W}" height="720" viewBox="0 0 ${W} 720">
+      <defs>
+        <path id="${id}" d="${d}"/>
+        <filter id="${id}s" x="-20%" y="-20%" width="140%" height="140%">
+          <feDropShadow dx="0" dy="6" stdDeviation="10" flood-color="#000" flood-opacity="0.8"/>
+        </filter>
+      </defs>
+      <text fill="${tc}" font-family="${tfont.css.replace(/'/g,'')}" font-weight="${fw}" font-style="${fi}"
+        font-size="128" letter-spacing="1" filter="url(#${id}s)">
+        <textPath href="#${id}" xlink:href="#${id}" startOffset="50%" text-anchor="middle">${text}</textPath>
+      </text>
+    </svg></div>`;
+}
+
+function render11(stage, o){
+  const {corners,K,T1,T2,BADGE,TR,tc,pc,tfont,krfont,bigStyle,img}=o;
+  const W=1080,H=1080;
+  const hasSpine = (state.form==='A' || state.form==='B'); // 스파인 있는 2형태
+  let inner='';
+  if(hasSpine){
+    const sbg=document.getElementById('spineBg').value, st=document.getElementById('spineText').value;
+    const spineW=134;
+    const rows = TR.map((t,i)=>`<div style="white-space:nowrap;display:flex;align-items:baseline;gap:6px;">
+      <span style="font-family:'Montserrat';font-weight:700;font-size:12px;color:${pc}">${String(i+1).padStart(2,'0')}</span>
+      <span style="font-family:${krfont.css};font-weight:500;font-size:14px;color:${st}">${esc(t)}</span></div>`).join('');
+    inner = `<div style="position:absolute;inset:0;display:flex;">
+      <div style="width:${spineW}px;height:100%;flex-shrink:0;background:${sbg};border-right:1px solid ${pc}55;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px 0;">
+        <div style="writing-mode:vertical-rl;text-orientation:mixed;display:flex;flex-shrink:0;">
+          <span style="font-family:${tfont.css};font-weight:700;font-size:24px;color:${st};letter-spacing:.1em">SEOUL RECORDS</span>
+          <span style="font-family:${tfont.css};font-weight:500;font-style:italic;font-size:16px;color:${pc};letter-spacing:.08em;margin-top:12px">Vol.01 &middot; ${esc(T1)} ${esc(T2)}</span>
+        </div>
+        <div style="writing-mode:vertical-rl;text-orientation:sideways;display:flex;flex-direction:row;flex-wrap:wrap;align-content:flex-end;gap:13px 8px;margin-top:22px;">${rows}</div>
+      </div>
+      <div style="flex:1;height:100%;position:relative;overflow:hidden;">
+        <img src="${img}" style="width:100%;height:100%;object-fit:cover;object-position:0% 30%;">
+        <div style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(8,4,16,.28)0%,transparent 24%,transparent 62%,rgba(8,4,16,.5)100%)"></div>
+      </div></div>`;
+  } else {
+    // 스파인 없는 4형태 (C/D/E/F) — 정사각 풀블리드
+    inner = `<img class="bg" src="${img}">`;
+    inner += `<div class="ov" style="background:linear-gradient(180deg,rgba(6,5,12,.48)0%,rgba(6,5,12,.12)34%,rgba(6,5,12,.22)64%,rgba(6,5,12,.72)100%)"></div>`;
+    const L=FORMS[state.form].layout;
+    const kick=`<div class="kicker" style="position:absolute;z-index:6;top:34px;left:50%;transform:translateX(-50%);font-size:19px;color:${pc}">${esc(K)}</div>`;
+    if(L==='split_amp'){
+      inner+=kick+`<div style="position:absolute;inset:0;z-index:5;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:6px;">
+        <span style="font-size:120px;${bigStyle}">${esc(T1)}</span>
+        <span style="font-size:56px;${bigStyle}">&amp;</span>
+        <span style="font-size:120px;${bigStyle}">${esc(T2)}</span></div>`;
+    } else if(L==='badge'){
+      inner+=`<div class="badge" style="top:60px;left:50%;transform:translateX(-50%);border:1.5px solid ${pc};padding:9px 30px;font-size:16px;letter-spacing:.34em;color:${pc}">${esc(BADGE)}</div>
+        <div style="position:absolute;inset:0;z-index:5;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;">
+        <span style="font-size:118px;line-height:1;${bigStyle}">${esc(T1)}<br>${esc(T2)}</span></div>`;
+    } else if(L==='arch'){
+      inner+=kick+arch11SVG(esc(T1+' '+T2),tfont,tc);
+    } else { // split / center → 정사각은 상하 2줄 중앙
+      inner+=kick+`<div style="position:absolute;inset:0;z-index:5;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;line-height:.98;">
+        <span style="font-size:126px;${bigStyle}">${esc(T1)}</span>
+        <span style="font-size:126px;${bigStyle}">${esc(T2)}</span></div>`;
+    }
+    // 하단 트랙 (스파인 없을 때만, 정사각)
+    const trs=chunk(TR,99).map(l=>l.join(' / ')).join('<br>');
+    inner+=`<div class="tracks" style="bottom:30px;font-size:13px;font-family:${krfont.css};color:${tc}">${trs}</div>`;
+    inner+=`<div class="corner" style="top:24px;left:34px;font-size:12px;color:${tc}">Seoul Records &copy;2026</div>`;
+  }
+  stage.innerHTML=inner;
+}
+
+function arch11SVG(text,tfont,tc){
+  const id='a11'+Math.random().toString(36).slice(2,7);
+  const d=`M 120 640 Q 540 430 960 640`;
+  return `<div style="position:absolute;inset:0;z-index:5;"><svg xmlns:xlink="http://www.w3.org/1999/xlink" width="1080" height="1080" viewBox="0 0 1080 1080" style="overflow:visible">
+    <defs><path id="${id}" d="${d}"/>
+    <filter id="${id}s" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="6" stdDeviation="10" flood-color="#000" flood-opacity="0.8"/></filter></defs>
+    <text fill="${tc}" font-family="${tfont.css.replace(/'/g,'')}" font-weight="700" font-size="118" filter="url(#${id}s)">
+      <textPath href="#${id}" xlink:href="#${id}" startOffset="50%" text-anchor="middle">${text}</textPath></text></svg></div>`;
+}
+
+function chunk(a,n){const r=[];for(let i=0;i<a.length;i+=n)r.push(a.slice(i,i+n));return r;}
+
+function downloadPNG(){
+  const stage=document.getElementById('stage');
+  const prevT=stage.style.transform, prevO=stage.style.transformOrigin;
+  stage.style.transform='none';
+  html2canvas(stage,{scale:2,useCORS:true,backgroundColor:null,width:stage.offsetWidth,height:stage.offsetHeight}).then(c=>{
+    stage.style.transform=prevT; stage.style.transformOrigin=prevO;
+    const a=document.createElement('a');
+    a.download=`seoul_records_${state.form}_${state.ratio}.png`;
+    a.href=c.toDataURL('image/png'); a.click();
+  });
+}
+
+document.getElementById('hint').innerHTML = "◆ 형태를 바꾸면 그 형태에 <b>가장 잘 어울리는 폰트</b>가 자동 적용됩니다 (수동 변경 가능). ◆ 1:1은 A·B형만 좌측 스파인, 나머지는 풀블리드. ◆ 모든 텍스트·색상·폰트는 실시간 편집됩니다.";
+render();
+</script>
+</body>
+</html>

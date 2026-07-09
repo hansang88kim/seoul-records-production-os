@@ -87,7 +87,7 @@
   delete_other=True)` 이미 기본 ON이었음(tie일 때만 안 지우던 것만 고침).
 - **타임스탬프 트랙리스트**: `video/playlist_builder.build_playlist_plan` + `format_chapters_txt`가
   이미 그 포맷(⏱ Tracklist, 반복 N) 생성. 재사용하면 끝.
-- **HTML 텍스트 오버레이 폼**: `thumbnail/html_renderer.py`, `form_prompt_builder.FORM_SPECS`.
+- **HTML 텍스트 오버레이 폼**: `services/thumbnail/html_renderer.py`, `services/thumbnail/form_prompt_builder.py`(FORM_SPECS).
 → 교훈: **grep 30초가 구현 30분을 아낀다.** 특히 "추가해줘" 요청은 이미 있을 확률 높음.
 
 ---

@@ -1,0 +1,36 @@
+<!doctype html><html><head><meta charset="utf-8">
+<title>AI-Readiness · Seoul Records Production OS</title><style>
+*{box-sizing:border-box;margin:0}
+body{font-family:Inter,system-ui,'Segoe UI',sans-serif;background:#fafafa;color:#1a1a1a;padding:32px;line-height:1.5}
+.mono{font-family:'JetBrains Mono',ui-monospace,Consolas,monospace}
+.wrap{max-width:960px;margin:0 auto} h1{font-size:20px} .meta{color:#6b7280;font-size:12px;margin:4px 0 24px}
+.hero{display:flex;align-items:center;gap:24px;background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:24px;margin-bottom:20px}
+.num{font-size:56px;font-weight:800;font-family:'JetBrains Mono',monospace;line-height:1} .num small{font-size:20px;color:#6b7280}
+.badge{display:inline-block;padding:6px 14px;border-radius:999px;color:#fff;font-weight:700;font-size:13px;background:#d64545}
+.desc{color:#6b7280;font-size:13px;margin-top:8px;max-width:440px}
+.stats{margin-left:auto;display:flex;gap:20px;text-align:center} .stat b{display:block;font-size:22px;font-family:'JetBrains Mono',monospace} .stat span{font-size:11px;color:#6b7280}
+.card{background:#fff;border:1px solid #e5e7eb;border-radius:14px;padding:20px;margin-bottom:20px}
+.card h2{font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:#6b7280;margin-bottom:12px}
+.row{display:flex;align-items:center;gap:12px;margin-top:12px} .rl{width:240px;font-size:13px;font-weight:600}
+.tag{display:inline-block;background:#eef1f4;color:#374151;border-radius:5px;padding:1px 6px;font-size:11px;font-weight:700;font-family:'JetBrains Mono',monospace}
+.track{flex:1;height:9px;background:#eef1f4;border-radius:5px;overflow:hidden} .fill{height:100%;border-radius:5px}
+.rs{width:46px;text-align:right;font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:600}
+.sub{margin:2px 0 0 252px;color:#6b7280;font-size:11px}
+.act{border-top:1px solid #e5e7eb;padding:10px 0;font-size:13px} .act:first-child{border-top:0}
+.eff{color:#6b7280;font-family:'JetBrains Mono',monospace;font-size:11px;margin:0 6px} .imp{color:#6b7280;font-size:11px;margin-top:2px}
+.lf{display:flex;justify-content:space-between;font-size:12px;padding:5px 0;border-top:1px dashed #e5e7eb} .lf code{font-family:'JetBrains Mono',monospace}
+.foot{color:#6b7280;font-size:11px;text-align:center;margin-top:24px}
+</style></head><body><div class="wrap">
+<h1>AI-Readiness · Seoul Records Production OS</h1>
+<div class="meta mono">2026-07-09 · branch main · modules 17 · context files 5</div>
+<div class="hero"><div><div class="num">32<small>/100</small></div>
+<div style="margin-top:10px"><span class="badge">AI-Hostile</span></div>
+<div class="desc">최약점: Navigation(A) · Tribal Knowledge(C) · Agent Outcomes(G) — 팀·모노레포용 인프라 항목. 강점: Dependency map(D) · Verification(E).</div></div>
+<div class="stats"><div class="stat"><b>17</b><span>modules</span></div>
+<div class="stat"><b>5</b><span>context files</span></div>
+<div class="stat"><b>30</b><span>files &gt;300L</span></div></div></div>
+<div class="card"><h2>7-Category Score (v2 rubric · 100pt)</h2><div class="row"><div class="rl"><span class="tag">A</span> AI Navigation & Coverage</div><div class="track"><div class="fill" style="width:6.7%;background:#d64545"></div></div><div class="rs">1/15</div></div><div class="sub">context 미보유 핵심 module 16개: agents, api, app, providers, scripts, storage</div><div class="row"><div class="rl"><span class="tag">B</span> Context Document Quality</div><div class="track"><div class="fill" style="width:40.0%;background:#d64545"></div></div><div class="rs">8/20</div></div><div class="sub">conciseness 초과(>100 lines) context 3건: AGENTS.md (135), CLAUDE.md (204), README.md (426)</div><div class="row"><div class="rl"><span class="tag">C</span> Tribal Knowledge Externalization</div><div class="track"><div class="fill" style="width:0.0%;background:#d64545"></div></div><div class="rs">0/20</div></div><div class="sub">MEMORY.md / ADR / docs/decisions 부재 — tribal knowledge 외부화 store 없음</div><div class="row"><div class="rl"><span class="tag">D</span> Cross-Module Dependency Mapping</div><div class="track"><div class="fill" style="width:53.3%;background:#d99000"></div></div><div class="rs">8/15</div></div><div class="sub">mermaid 다이어그램 없음 — 시각적 의존도 표현 부재</div><div class="row"><div class="rl"><span class="tag">E</span> Verification & Quality Gates</div><div class="track"><div class="fill" style="width:53.3%;background:#d99000"></div></div><div class="rs">8/15</div></div><div class="sub">hallucinated path 1건 (총 49 참조 중) — 예: CLAUDE.md: claude/skills/karpathy-guidelines/SKILL.md</div><div class="row"><div class="rl"><span class="tag">F</span> Freshness & Self-Maintenance</div><div class="track"><div class="fill" style="width:60.0%;background:#d99000"></div></div><div class="rs">6/10</div></div><div class="sub">CI에 context / docs validation step 없음</div><div class="row"><div class="rl"><span class="tag">G</span> Agent Performance Outcomes</div><div class="track"><div class="fill" style="width:20.0%;background:#d64545"></div></div><div class="rs">1/5</div></div><div class="sub">agent eval / benchmark 디렉터리·결과 파일 부재 — 성능 측정 인프라 없음</div></div>
+<div class="card"><h2>Top ROI Actions</h2><div class="act"><span class="tag">E</span><span class="eff">S</span> <div class="imp">agent의 잘못된 path-following 방지 — stale = worse than missing</div></div><div class="act"><span class="tag">F</span><span class="eff">S</span> <div class="imp">stale reference를 코드 머지 시점에 차단 — 회귀 방지</div></div><div class="act"><span class="tag">B</span><span class="eff">M</span> <div class="imp">agent context 로드 시간 단축 + 핵심 정보 가시성 ↑</div></div><div class="act"><span class="tag">C</span><span class="eff">M</span> <div class="imp">senior 의존 의사결정 외부화 → 신규 agent run 시 오류 ↓</div></div><div class="act"><span class="tag">A</span><span class="eff">S</span> <div class="imp">task당 ~3 min × ~5 task/일 절감 → 모듈 1개당 주 1-2 hr 회수</div></div><div class="act"><span class="tag">G</span><span class="eff">L</span> <div class="imp">AI 회귀 측정 가능 — 개선 ROI 자체를 정량화</div></div></div>
+<div class="card"><h2>Large Files (&gt;300 lines · split candidates)</h2><div class="lf"><code>app/tabs/thumbnail_studio.py</code><b>1191</b></div><div class="lf"><code>app/tabs/song_lab.py</code><b>1103</b></div><div class="lf"><code>providers/ai/base.py</code><b>1082</b></div><div class="lf"><code>providers/suno/suno_cli_provider.py</code><b>760</b></div><div class="lf"><code>tests/test_suno_cli_provider.py</code><b>703</b></div><div class="lf"><code>app/main.py</code><b>652</b></div><div class="lf"><code>services/thumbnail/canva_branding.py</code><b>638</b></div><div class="lf"><code>app/tabs/youtube_package.py</code><b>627</b></div></div>
+<div class="foot mono">Seoul Records Production OS · AI-Readiness v2 · scored 2026-07-09</div>
+</div></body></html>
