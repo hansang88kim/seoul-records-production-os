@@ -9,6 +9,22 @@
 
 ---
 
+## 0. 작업 철학 (먼저 읽어라 · 최우선)
+
+이 4가지는 다른 어떤 규칙보다 앞선다. 매 작업의 사고 방식이다.
+
+1. **코딩 전에 먼저 생각해라.** 손부터 대지 마라. 요청의 진짜 의도·제약·영향 범위·성공 기준을
+   먼저 정리하고, 접근을 정한 뒤에 코드를 건드린다. 애매하면 만들기 전에 묻는다.
+2. **단순함이 우선이다.** 가능한 가장 단순한 해법을 택한다. 과설계, 불필요한 추상화/레이어,
+   요청하지 않은 범위 확장 금지. "영리한" 코드보다 읽기 쉬운 코드.
+3. **외과적인 수정.** 필요한 부분만 최소로 바꾼다. 주변 코드의 스타일·관례를 따르고, 무관한
+   리팩터/포맷팅/개선을 같은 변경에 섞지 않는다. 건드린 만큼만 책임진다.
+4. **목표중심의 실행.** 시작 전에 **성공 기준(무엇이 되면 끝인가)을 명시적으로 정의**하고,
+   그 기준이 **검증(테스트/실물 확인)될 때까지 반복**한다. "된 것 같다"가 아니라 "검증됐다"일 때만
+   완료로 보고한다. 검증 못 한 부분은 정직하게 명시한다.
+
+---
+
 ## 1. 앱이 뭐냐
 
 **AI 음악 레이블 프로덕션 OS.** 한국형 **시티팝(city pop)** 플레이리스트를 만들어 YouTube에
@@ -136,6 +152,22 @@ tests/          ── pytest. 기능마다 test_*_vNNN.py. 현재 1090+ 통과.
 5. **정직하게 보고**: 테스트 실패면 실패라고, 스킵했으면 스킵했다고. 실물 확인이 필요한 부분은 명시.
 6. **환경**: Windows 11 / PowerShell(주) + Bash 툴 / `.venv`. 임시파일은 스크래치패드 디렉토리에.
    포트 8501을 OneDrive 복사본 인스턴스가 잡는 사고 주의(그 사본으로 실행하지 말 것).
+
+### Quick Start (copy-paste)
+```bash
+# 설치 (최초 1회)
+python -m venv .venv && source .venv/Scripts/activate && pip install -r requirements.txt
+# 실행 (항상 이 옵션으로 — LAN/외부 접속)
+source .venv/Scripts/activate && streamlit run app/main.py --server.address=0.0.0.0 --server.port=8501 --server.headless=true
+# 테스트 (전체)
+python -m pytest --basetemp=/c/pytest_tmp_run -q -p no:cacheprovider
+```
+
+### 주요 환경변수 (전부 env 전용 · 코드 하드코딩 금지)
+- `OPENAI_API_KEY`, `GOOGLE_GEMINI_API_KEY` — 작사/스타일, 썸네일 프롬프트 합성, YouTube SEO 설명·번역, Gemini 이미지. **둘 중 하나라도 있어야 LLM 경로 동작**(없으면 템플릿 폴백).
+- `LINKRAPI_API_KEY` — 썸네일 Midjourney(LinkrAPI) 엔진. `SEOUL_IMAGE_BACKEND`/`SEOUL_IMAGE_MODEL` — 이미지 엔진/모델 오버라이드.
+- `SUNO_COOKIE` / `SUNO_CLI_BIN` — 곡 생성(suno-cli). YouTube 업로드는 OAuth(토큰은 `services/youtube/token_store`).
+- 그 외 `SEOUL_MJ_*`/`SEOUL_NANOBANANA_TIMEOUT`/`SEOUL_GPTIMAGE_*` 등 provider 타임아웃·재시도 튜닝(선택).
 
 ---
 
