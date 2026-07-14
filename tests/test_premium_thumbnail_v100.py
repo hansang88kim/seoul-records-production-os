@@ -227,13 +227,13 @@ def test_image_prompt_uses_selected_country():
     from services.thumbnail.country_presets import get_culture
     # The image prompt must reflect the selected country, not always Japan.
     th = generate_flow_prompt("thailand", "night", 0)["main_prompt"]
-    assert "Thai city-pop" in th and "Bangkok" in th
+    assert "Thai" in th and "Bangkok" in th
     assert "Japanese" not in th
     kr = generate_flow_prompt("korea", "night", 0)["main_prompt"]
-    assert "Korean city-pop" in kr and "Seoul" in kr
+    assert "Korean" in kr and "Seoul" in kr
     # Japan still maps to Japanese
     jp = generate_flow_prompt("japan", "night", 0)["main_prompt"]
-    assert "Japanese city-pop" in jp
+    assert "Japanese" in jp
     assert get_culture("vietnam") == "Vietnamese"
 
 
@@ -245,7 +245,7 @@ def test_include_person_default_true_has_portrait_wording():
     assert p["include_person"] is True
     mp = p["main_prompt"].lower()
     assert "korean woman" in mp
-    assert "album cover" in mp
+    assert "documentary" in mp          # v1.0.0-alpha.101: documentary everyday-life
 
 
 def test_include_person_false_reverts_to_background_only():
@@ -255,7 +255,7 @@ def test_include_person_false_reverts_to_background_only():
     mp = p["main_prompt"].lower()
     assert "woman" not in mp
     assert "no people-facing camera" in mp
-    assert "korean city night" in mp
+    assert "seoul" in mp and "documentary" in mp   # v1.0.0-alpha.101
 
 
 def test_include_person_false_uses_full_title_safe_area_set():

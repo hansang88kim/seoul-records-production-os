@@ -108,6 +108,7 @@ def _build_llm_instruction(korean_freeform: str, base: dict, include_person: boo
     _style = (art_style or DEFAULT_THUMB_ART_STYLE)
     art_rule = art_render(_style)
     is_anime = _style == "anime"
+    is_doc = _style in ("documentary", "analog")
     craft_rule = (
         "Render as a clean cel-shaded 1980s-90s city-pop ANIME/MANGA illustration "
         "— crisp linework, flat nostalgic color blocking, stylized cel-shaded "
@@ -115,17 +116,22 @@ def _build_llm_instruction(korean_freeform: str, base: dict, include_person: boo
         "(Hiroshi Nagai / Eizin Suzuki album-art vibe), NOT a photo, NOT 3D, no "
         "camera/lens realism; finish with a subtle retro-print grain."
         if is_anime else
+        "Shoot it like a HYPER-REAL DOCUMENTARY photograph on analogue 35mm Kodak "
+        "color film — candid and unposed, a natural lens feel (35mm, shallow depth "
+        "of field), soft natural warm lighting, close-up macro everyday details, a "
+        "glossy golden 'olive-oil' summer glow, fine film grain. Realistic, not "
+        "staged glamour."
+        if is_doc else
         "Include concrete craft detail woven naturally: a specific camera/lens feel "
         "(35mm/50mm, shallow depth of field, cinematic anamorphic), lighting design "
-        "(key/rim/practical neon, wet reflections, volumetric haze, bokeh), rich "
-        "atmosphere and texture, finished with a subtle VHS analog-film mood."
+        "(key/rim/practical light, wet reflections, volumetric haze, bokeh), rich "
+        "atmosphere and texture, finished with a subtle analog-film mood."
     )
     subject_rule = (
-        "Include a stylish woman in her early twenties as the centered subject, in "
-        "TASTEFUL, emotional city-pop fashion — elegant and understated, a soft "
-        "modern-retro balance (NOT costume-y, NOT over-the-top retro, NOT gaudy). "
-        "Vary the wardrobe naturally (knitwear, a blazer, a trench, a simple dress, "
-        "denim, etc.) with natural makeup."
+        "Include a beautiful woman in her early twenties as the centered subject, "
+        "caught in a REAL everyday moment — candid and unposed, natural minimal makeup, "
+        "NOT a studio glamour or costume look. Vary the wardrobe naturally (a simple "
+        "summer dress, knitwear, a blazer, a trench, denim, etc.)."
         if include_person else
         "Background only — no people facing the camera."
     )
@@ -137,7 +143,7 @@ def _build_llm_instruction(korean_freeform: str, base: dict, include_person: boo
     return (
         "You are a world-class prompt engineer for AI image generators "
         "(Midjourney, Google Nano Banana, GPT-Image), specializing in premium "
-        "1980s-1990s Korean/Asian city-pop album-cover YouTube thumbnails.\n\n"
+        "Korean/Asian YouTube music-playlist thumbnails.\n\n"
         "Write ONE richly detailed, professional English image-generation prompt "
         "as a single flowing paragraph (roughly 60-110 words — no line breaks, no "
         "markdown, no preamble, no quotes, no parameter flags like --ar). It must "
@@ -150,18 +156,18 @@ def _build_llm_instruction(korean_freeform: str, base: dict, include_person: boo
         "subject, poses, wardrobe, props, setting, and mood) — expand it with "
         "concrete, evocative visual detail rather than restating it.\n"
         f"- Country / setting: {base.get('country', '')} — {base.get('scene', '')}.\n"
-        f"- Mood / theme: {base.get('theme', '') or 'wistful nostalgic city night'}.\n"
-        f"- Era / style: premium 1980s-1990s retro city-pop record-sleeve "
-        f"aesthetic — NOT gaudy, NOT oversaturated. {art_rule}\n"
+        f"- Mood / theme: {base.get('theme', '') or 'warm everyday-life summer'}.\n"
+        f"- Style: premium, tasteful YouTube music-playlist thumbnail — natural and "
+        f"cinematic, NOT gaudy, NOT oversaturated. {art_rule}\n"
         f"- {subject_rule}\n"
         f"- Composition constraint (keep this): {composition_rule}.\n"
         "- Give the street natural life: warm glowing neon signboards and a few "
         "softly out-of-focus passersby in the background — lively but not cluttered, "
         "the subject stays clearly dominant and the title-safe area stays clean.\n"
-        f"- {craft_rule} Use a citypop color palette (teal-and-magenta or "
-        f"amber-and-cyan night tones) with rich nostalgic atmosphere.\n"
+        f"- {craft_rule} Use a warm Kodak-film color palette (amber, honey, golden "
+        f"'olive-oil' summer tones) with rich nostalgic atmosphere.\n"
         "- The image MUST contain no text, letters, logos, or watermarks.\n"
-        "- Finished as a nostalgic 1980s-1990s city-pop YouTube music-playlist "
+        "- Finished as a warm, documentary everyday-life YouTube music-playlist "
         "THUMBNAIL — crisp and readable at small thumbnail size, 16:9 aspect ratio.\n\n"
         "Output ONLY the final English prompt paragraph — nothing else."
     )

@@ -41,13 +41,22 @@ NEGATIVE_PROMPT = (
 )
 
 
-# v1.0.0-alpha.96: art-style benchmark from top-viewed "tokyo citypop" YouTube
-# thumbnails (140M / 45M / 30M … views). The winning aesthetic is 1980s-90s
-# city-pop ANIME/MANGA illustration (Mayonaka no Door, Fly-Day Chinatown, Neo
-# City Pop, etc.) — NOT photoreal. We default to anime and keep photo/analog.
+# v1.0.0-alpha.101: default aesthetic overhauled per the user's reference —
+# hyper-realistic DOCUMENTARY photography of everyday Seoul life, analogue Kodak
+# color film, close-up macro details, warm "olive-oil" summer glow, a 20s Korean
+# woman. Documentary is now the default; the alpha.96 anime + photo/analog styles
+# stay available as options.
 THUMB_ART_STYLES: dict[str, dict] = {
+    "documentary": {
+        "label": "📷 다큐 실사 · Kodak 필름 (기본)",
+        "render": ("Art style: hyper-realistic DOCUMENTARY photograph, candid and "
+                   "unposed, shot on analogue 35mm Kodak color film — natural warm "
+                   "light, glossy 'olive-oil' summer glow, fine film grain, sharp "
+                   "macro detail with shallow depth of field. Realistic, NOT anime, "
+                   "NOT 3D render, NOT over-stylized."),
+    },
     "anime": {
-        "label": "🎨 시티팝 애니 일러스트 (유튜브 벤치마크 1위)",
+        "label": "🎨 시티팝 애니 일러스트",
         "render": ("Art style: authentic 1980s-1990s CITY-POP ANIME / MANGA "
                    "ILLUSTRATION — clean cel-shaded anime linework in the classic "
                    "citypop album-sleeve look (Hiroshi Nagai / Eizin Suzuki era "
@@ -55,7 +64,7 @@ THUMB_ART_STYLES: dict[str, dict] = {
                    "aesthetic. NOT photorealistic, NOT 3D, NOT a photo."),
     },
     "photo": {
-        "label": "📷 시네마틱 실사 (포토리얼)",
+        "label": "🎞️ 시네마틱 실사 (포토리얼)",
         "render": ("Art style: ultra-detailed photorealistic cinematic photograph, "
                    "professional fashion photography, sharp focus, high dynamic range, "
                    "glossy analog-film look."),
@@ -66,7 +75,7 @@ THUMB_ART_STYLES: dict[str, dict] = {
                    "vintage Kodak-film color, nostalgic haze, faded retro print look."),
     },
 }
-DEFAULT_THUMB_ART_STYLE = "anime"
+DEFAULT_THUMB_ART_STYLE = "documentary"
 
 
 def art_render(art_style: str) -> str:
@@ -134,30 +143,29 @@ def _portrait_prompt(preset: dict, culture: str, scene_var: str, theme_phrase: s
                      fashion: str = "an effortless, elegant outfit",
                      expression: str = "a calm, wistful gaze",
                      render: str = "") -> str:
-    """Centered city-pop portrait. v1.0.0-alpha.85: tasteful, emotional styling
-    with VARIED wardrobe/expression (was a fixed over-the-top retro-glam look)."""
+    """Centered documentary everyday-life portrait. v1.0.0-alpha.101: hyper-real
+    documentary Kodak-film aesthetic (everyday {culture} city life, macro details,
+    warm olive-oil summer glow) per the user's reference — replaced the previous
+    citypop album-sleeve / night-neon glamour framing."""
     return (
-        f"A premium 1980s-1990s city-pop album cover AND a subscribe-worthy YouTube "
-        f"playlist thumbnail, evoking a wistful {culture} city-pop record "
-        f"sleeve. Foreground subject, centered in frame: a stylish "
-        f"{culture} woman in her early twenties with {expression}, wearing {fashion}, "
-        f"natural tasteful makeup and soft, modern styling — elegant and understated, "
-        f"an emotional city-pop mood rather than a costume-y or overly retro look, "
-        f"yet eye-catching and click-worthy. "
-        f"Background setting: {preset['city']} — {preset['scene']}. "
-        f"Featured scene: {scene_var}{theme_phrase}, {time_of_day}, softly out of "
-        f"focus behind her. "
-        f"Around her, warm neon signboards glow and a few blurred passersby give "
-        f"the street natural life — lively but never cluttered or over her. "
-        f"Lighting: {preset['lighting']}, warm rim light on her silhouette. "
-        f"{preset['signage']}. "
-        f"Color tone: {preset['color_tone']}. "
-        f"Composition: {camera}, cinematic framing, subject centered and dominant, "
+        f"A hyper-realistic DOCUMENTARY photograph of everyday life in {preset['city']} "
+        f"— a candid, cinematic YouTube music-playlist thumbnail ({culture} everyday-life "
+        f"mood). Foreground subject, centered in frame: a beautiful {culture} woman in "
+        f"her early twenties with {expression}, wearing {fashion}, natural minimal "
+        f"makeup — caught in a REAL everyday moment, candid and unposed, NOT a studio "
+        f"glamour or costume look, yet eye-catching and click-worthy. "
+        f"Setting: {preset['city']} everyday life — {scene_var}{theme_phrase}, with "
+        f"iconic local city landmarks softly in the background, {time_of_day}. "
+        f"Around her, ordinary city life breathes — passersby, small street details, a "
+        f"few warm signboards — natural and alive, never cluttered or over her. "
+        f"Close-up macro details of everyday life, shallow depth of field, a warm "
+        f"golden 'olive-oil' summer glow — sun-warmed, glossy, nostalgic. "
+        f"Lighting: soft natural warm light, {preset['lighting']}. "
+        f"Color tone: warm Kodak-film palette, amber-and-honey tones ({preset['color_tone']}). "
+        f"Composition: {camera}, candid documentary framing, subject clearly dominant, "
         f"clean {safe_area}, balanced negative space only in that band for a title "
         f"overlay — never over her face or body. "
-        f"Mood: bittersweet, dreamy city night, premium record-sleeve visual. "
-        f"Style: 1980s-1990s city-pop album cover, gentle neon reflections, moody "
-        f"low-key high-contrast, elegant palette — NOT gaudy, NOT oversaturated. "
+        f"Mood: warm, nostalgic, everyday-life summer intimacy — real and cinematic. "
         f"{render or art_render(DEFAULT_THUMB_ART_STYLE)} "
         f"IMPORTANT: tasteful styling only, fully clothed, no nudity — no text, "
         f"no letters, no logos, no watermarks anywhere in the image."
@@ -167,23 +175,24 @@ def _portrait_prompt(preset: dict, culture: str, scene_var: str, theme_phrase: s
 def _background_prompt(preset: dict, culture: str, scene_var: str, theme_phrase: str,
                        time_of_day: str, camera: str, safe_area: str,
                        render: str = "") -> str:
-    """Pre-alpha.36 composition: background-only cityscape, no person."""
+    """Background-only cityscape, no person. v1.0.0-alpha.101: documentary
+    everyday-life Kodak-film aesthetic (was wistful citypop night-neon)."""
     return (
-        f"A cinematic {culture} city night background for a premium music playlist "
-        f"thumbnail, evoking a wistful 1980s-1990s city-pop atmosphere. "
+        f"A hyper-realistic DOCUMENTARY photograph of everyday life in {preset['city']} "
+        f"for a premium music-playlist thumbnail — candid and cinematic, no central person. "
         f"Setting: {preset['city']} — {preset['scene']}. "
-        f"Featured scene: {scene_var}{theme_phrase}, {time_of_day}. "
-        f"The street is alive with warm glowing neon signboards and a few distant, "
-        f"softly-blurred passersby giving it natural life (background only, not the focus). "
+        f"Featured scene: {scene_var}{theme_phrase}, {time_of_day}, with iconic local "
+        f"landmarks and ordinary street life. "
+        f"Warm signboards glow and a few distant, softly-blurred passersby give it "
+        f"natural life (background only, not the focus). "
+        f"Close-up macro details of everyday life, shallow depth of field, a warm golden "
+        f"'olive-oil' summer glow. "
         f"Lighting: {preset['lighting']}. {preset['signage']}. "
-        f"Color tone: {preset['color_tone']}. "
+        f"Color tone: warm Kodak-film palette ({preset['color_tone']}). "
         f"Composition: {camera}, cinematic 16:9 widescreen framing, rich atmospheric "
-        f"depth, layered foreground and background, leading lines, balanced negative "
-        f"space near the center for a title overlay. "
-        f"Mood: bittersweet, dreamy, slightly melancholic city night, premium playlist visual. "
-        f"Style: clean high-resolution rendering, gentle neon reflections on wet "
-        f"surfaces, moody low-key lighting with high contrast, elegant muted "
-        f"sophisticated palette — NOT gaudy, NOT oversaturated. "
+        f"depth, layered foreground and background, balanced negative space near the "
+        f"center for a title overlay. "
+        f"Mood: warm, nostalgic everyday-life summer — real and cinematic. "
         f"{render or art_render(DEFAULT_THUMB_ART_STYLE)} "
         f"IMPORTANT: background image only — absolutely no text, no letters, no logos, "
         f"no watermarks, no people-facing camera anywhere in the image."

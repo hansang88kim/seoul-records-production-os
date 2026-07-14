@@ -15,25 +15,29 @@ from services.thumbnail.prompt_generator import (
 from services.thumbnail import prompt_composer as pc
 
 
-def test_three_styles_default_anime():
-    assert set(THUMB_ART_STYLES) == {"anime", "photo", "analog"}
-    assert DEFAULT_THUMB_ART_STYLE == "anime"
+def test_styles_default_documentary():
+    # v1.0.0-alpha.101: documentary (hyper-real Kodak everyday-life) is the default;
+    # anime + photo/analog stay as options.
+    assert set(THUMB_ART_STYLES) == {"documentary", "anime", "photo", "analog"}
+    assert DEFAULT_THUMB_ART_STYLE == "documentary"
     for s in THUMB_ART_STYLES.values():
         assert s["label"] and s["render"]
 
 
-def test_art_render_falls_back_to_anime():
-    assert "ANIME" in art_render("")
-    assert "ANIME" in art_render("bogus")
+def test_art_render_falls_back_to_documentary():
+    assert "DOCUMENTARY" in art_render("")
+    assert "DOCUMENTARY" in art_render("bogus")
+    assert "Kodak" in art_render("")            # analogue Kodak film default
     assert "photorealistic" in art_render("photo")
+    assert "ANIME" in art_render("anime")
 
 
-def test_flow_prompt_defaults_to_anime_illustration():
+def test_flow_prompt_defaults_to_documentary_kodak():
     d = generate_flow_prompt("korea", "night", 0)
-    assert d["art_style"] == "anime"
-    assert "ANIME" in d["main_prompt"] and "album cover" in d["main_prompt"]
-    # anime explicitly negates photoreal rather than requesting it
-    assert "NOT photorealistic" in d["main_prompt"]
+    assert d["art_style"] == "documentary"
+    mp = d["main_prompt"]
+    assert "DOCUMENTARY" in mp and "Kodak" in mp and "everyday life" in mp.lower()
+    assert "olive-oil" in mp                     # the reference's warm summer glow
 
 
 def test_flow_prompt_photo_style_is_photoreal():
@@ -45,7 +49,7 @@ def test_flow_prompt_photo_style_is_photoreal():
 def test_anime_style_never_says_japanese_for_other_countries():
     # regression: the art directive must not leak "Japanese" into a Thai prompt
     th = generate_flow_prompt("thailand", "night", 0, art_style="anime")["main_prompt"]
-    assert "Japanese" not in th and "Thai city-pop" in th
+    assert "Japanese" not in th and "Thai" in th
 
 
 def test_batch_helpers_thread_art_style():

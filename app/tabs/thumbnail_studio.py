@@ -142,11 +142,12 @@ def _render_prompt_lab():
     from services.thumbnail.prompt_generator import THUMB_ART_STYLES, DEFAULT_THUMB_ART_STYLE
     _askeys = list(THUMB_ART_STYLES.keys())
     art_style = st.selectbox(
-        "🎨 아트 스타일 (유튜브 tokyo citypop 썸네일 벤치마크)",
+        "🎨 아트 스타일",
         _askeys, index=_askeys.index(DEFAULT_THUMB_ART_STYLE),
         format_func=lambda k: THUMB_ART_STYLES[k]["label"], key="thumb_art_style",
-        help="조회수 상위 tokyo citypop 썸네일 다수가 1980-90년대 시티팝 애니/망가 일러스트라 "
-             "기본값을 애니로 했습니다. 시네마틱 실사·아날로그 필름도 선택 가능합니다.",
+        help="기본값 = 다큐 실사(하이퍼리얼 다큐멘터리 · 아날로그 Kodak 필름 · 서울 일상 · "
+             "매크로 클로즈업 · 올리브오일 여름 무드). 시티팝 애니 일러스트·시네마틱 실사·"
+             "아날로그 VHS도 선택 가능합니다.",
     )
 
     # ── v1.0.0-alpha.77: Korean free-form description → English prompt box ──
