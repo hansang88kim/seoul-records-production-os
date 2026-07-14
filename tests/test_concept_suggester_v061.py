@@ -55,18 +55,17 @@ def test_next_concept_walks_whole_pool_before_repeating():
 
 
 def test_next_concept_uses_llm_when_available(monkeypatch):
-    # v1.0.0-alpha.104: with a key present, each press GENERATES a fresh concept.
+    # v1.0.0-alpha.104/109: with a key present, each press GENERATES a fresh
+    # concept via the shared RAW LLM caller.
     import services.youtube.description_translator as DT
-    monkeypatch.setattr(DT, "_call_openai", lambda p: "면접을 마치고 나온 오후")
-    monkeypatch.setattr(DT, "_call_gemini", lambda p: None)
+    monkeypatch.setattr(DT, "call_llm_raw", lambda p, json_mode=False: "면접을 마치고 나온 오후")
     c = CS.next_concept({}, use_llm=True)
     assert c == "면접을 마치고 나온 오후"          # fresh, not necessarily in the pool
 
 
 def test_llm_fresh_concept_falls_back_on_failure(monkeypatch):
     import services.youtube.description_translator as DT
-    monkeypatch.setattr(DT, "_call_openai", lambda p: None)
-    monkeypatch.setattr(DT, "_call_gemini", lambda p: None)
+    monkeypatch.setattr(DT, "call_llm_raw", lambda p, json_mode=False: None)
     assert CS._llm_fresh_concept("x") == ""       # no key/failure → empty → caller uses pool
 
 

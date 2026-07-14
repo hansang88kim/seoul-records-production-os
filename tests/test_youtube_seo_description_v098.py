@@ -66,10 +66,9 @@ def test_extract_json_tolerates_prose_wrapping():
 def test_llm_sections_used_when_available(monkeypatch):
     good = ('{"intro":"밤의 서울","keywords":"Neon, Retro","moods":"드라이브 🚗",'
             '"faq":[{"q":"a","a":"b"},{"q":"c","a":"d"},{"q":"e","a":"f"}]}')
-    monkeypatch.setattr(SEO, "_call_ORDER", None, raising=False)
+    # v1.0.0-alpha.109: seo_description now uses the shared RAW LLM caller.
     import services.youtube.description_translator as DT
-    monkeypatch.setattr(DT, "_call_openai", lambda p: good)
-    monkeypatch.setattr(DT, "_call_gemini", lambda p: None)
+    monkeypatch.setattr(DT, "call_llm_raw", lambda p, json_mode=True: good)
     d = SEO.generate_seo_description(_chapters(), mood="x", use_llm=True)
     assert "밤의 서울" in d and "Neon, Retro" in d
     # tracklist still verbatim (never from the LLM)

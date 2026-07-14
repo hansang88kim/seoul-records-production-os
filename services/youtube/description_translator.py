@@ -96,37 +96,43 @@ def _translation_prompt(text: str, target_language: str) -> str:
     )
 
 
-def _call_openai(prompt: str) -> str | None:
+# ── General-purpose RAW LLM callers (v1.0.0-alpha.109) ───────────────────────
+# Return the model's raw text output (NOT a translation-specific field). Env-only
+# keys, never logged. Reused by seo_description (sections JSON) and
+# concept_suggester (plain concept) — those need the raw output, not {"translated"}.
+def _openai_chat(prompt: str, json_mode: bool = True) -> str | None:
     api_key = os.getenv("OPENAI_API_KEY", "").strip()
     if not api_key:
         return None
     try:
         import requests
-        from providers.ai.base import OpenAIProvider
-        model = getattr(OpenAIProvider, "MODEL_NAME", "gpt-4o-mini")
+        # NOTE: OpenAIProvider.MODEL_NAME is an INSTANCE @property — reading it off
+        # the CLASS returns the property object (→ JSON TypeError). Read the env
+        # directly, exactly like the working song-generation path does.
+        model = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+        body = {
+            "model": model,
+            "messages": [{"role": "user", "content": prompt}],
+            "max_tokens": 4000,
+        }
+        if json_mode:
+            body["response_format"] = {"type": "json_object"}
         resp = requests.post(
             "https://api.openai.com/v1/chat/completions",
             headers={"Authorization": f"Bearer {api_key}",
                      "Content-Type": "application/json"},
-            json={
-                "model": model,
-                "messages": [{"role": "user", "content": prompt}],
-                "max_tokens": 4000,
-                "response_format": {"type": "json_object"},
-            },
-            timeout=60,
+            json=body, timeout=60,
         )
         data = resp.json()
-        text = data["choices"][0]["message"]["content"]
-        parsed = json.loads(text)
-        out = str(parsed.get("translated", "")).strip()
-        return out or None
+        if not isinstance(data, dict) or "choices" not in data:
+            return None
+        return (data["choices"][0]["message"]["content"] or "").strip() or None
     except Exception as e:
-        logger.warning("OpenAI translation failed: %s", type(e).__name__)
+        logger.warning("OpenAI call failed: %s", type(e).__name__)
         return None
 
 
-def _call_gemini(prompt: str) -> str | None:
+def _gemini_chat(prompt: str, json_mode: bool = True) -> str | None:
     api_key = os.getenv("GOOGLE_GEMINI_API_KEY", "").strip()
     if not api_key:
         return None
@@ -146,17 +152,47 @@ def _call_gemini(prompt: str) -> str | None:
         for c_item in data.get("candidates", []):
             for part in c_item.get("content", {}).get("parts", []):
                 text += part.get("text", "")
-        text = text.replace("```json", "").replace("```", "").strip()
-        m = re.search(r"\{.*\}", text, re.DOTALL)
-        if m:
-            parsed = json.loads(m.group())
-            out = str(parsed.get("translated", "")).strip()
-            return out or None
-        # Some responses may already be raw translated text.
-        return text or None
+        return text.replace("```json", "").replace("```", "").strip() or None
     except Exception as e:
-        logger.warning("Gemini translation failed: %s", type(e).__name__)
+        logger.warning("Gemini call failed: %s", type(e).__name__)
         return None
+
+
+def call_llm_raw(prompt: str, json_mode: bool = True,
+                 provider_order: tuple[str, ...] = ("openai", "gemini")) -> str | None:
+    """Try providers in order; return the first non-empty RAW text output."""
+    for prov in provider_order:
+        out = _openai_chat(prompt, json_mode) if prov == "openai" else _gemini_chat(prompt, json_mode)
+        if out:
+            return out
+    return None
+
+
+def _call_openai(prompt: str) -> str | None:
+    """Translation-specific: expects a {"translated": "..."} JSON object."""
+    raw = _openai_chat(prompt, json_mode=True)
+    if not raw:
+        return None
+    try:
+        return str(json.loads(raw).get("translated", "")).strip() or None
+    except Exception:
+        return None
+
+
+def _call_gemini(prompt: str) -> str | None:
+    """Translation-specific: expects {"translated": "..."} JSON (or raw text)."""
+    raw = _gemini_chat(prompt, json_mode=True)
+    if not raw:
+        return None
+    m = re.search(r"\{.*\}", raw, re.DOTALL)
+    if m:
+        try:
+            out = str(json.loads(m.group()).get("translated", "")).strip()
+            if out:
+                return out
+        except Exception:
+            pass
+    return raw or None
 
 
 def _translate_text(text: str, target_language: str,

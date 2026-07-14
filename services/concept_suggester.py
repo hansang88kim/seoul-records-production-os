@@ -89,24 +89,19 @@ def _llm_fresh_concept(avoid: str = "") -> str:
     no-key/failure (caller falls back to the diverse pool). Env-only keys, never
     logged. Reuses the description_translator LLM callers."""
     try:
-        from services.youtube.description_translator import _call_openai, _call_gemini
+        from services.youtube.description_translator import call_llm_raw
     except Exception:
         return ""
     cat = random.choice(_THEME_CATEGORIES)
     prompt = (
         "한국 시티팝 노래의 '컨셉'을 딱 한 줄 새로 지어줘.\n"
         f"주제 방향: {cat}.\n"
-        "조건: 현대 서울 배경, 6~16자 한국어 키워드형 문구(완결 문장 아님), 진부한 표현 금지, "
+        "조건: 90년대 중후반 서울 배경, 6~16자 한국어 키워드형 문구(완결 문장 아님), 진부한 표현 금지, "
         "따옴표/설명/번호 없이 그 문구 한 줄만 출력."
         + (f" '{avoid}'와는 다른 새로운 걸로." if avoid else "")
     )
-    for call in (_call_openai, _call_gemini):
-        try:
-            raw = (call(prompt) or "").strip()
-        except Exception:
-            raw = ""
-        if not raw:
-            continue
+    raw = (call_llm_raw(prompt, json_mode=False) or "").strip()  # plain one-liner
+    if raw:
         line = raw.splitlines()[0].strip().strip('"').strip("'").strip()
         if 2 <= len(line) <= 24 and line != avoid:
             return line

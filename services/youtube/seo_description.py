@@ -135,16 +135,12 @@ def _extract_json(text: str) -> dict | None:
 def _llm_sections(mood: str, volume: int, n_tracks: int) -> dict | None:
     """Ask OpenAI→Gemini for the variable sections. None on no-key/failure.
     Reuses the description_translator LLM callers (env-only keys, never logged)."""
-    from services.youtube.description_translator import _call_openai, _call_gemini
+    from services.youtube.description_translator import call_llm_raw
     prompt = _sections_prompt(mood, volume, n_tracks)
-    for call in (_call_openai, _call_gemini):
-        try:
-            raw = call(prompt)
-        except Exception:
-            raw = None
-        data = _extract_json(raw or "")
-        if data and data.get("intro") and isinstance(data.get("faq"), list) and len(data["faq"]) >= 3:
-            return data
+    raw = call_llm_raw(prompt, json_mode=True)   # RAW sections JSON (not {"translated"})
+    data = _extract_json(raw or "")
+    if data and data.get("intro") and isinstance(data.get("faq"), list) and len(data["faq"]) >= 3:
+        return data
     return None
 
 
