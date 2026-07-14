@@ -77,6 +77,14 @@ SONG_MOODS: dict[str, dict] = {
         "style": "bright refreshing crisp uplifting sunny nostalgic city pop, breezy daytime warmth, sparkling clean synths, light airy groove",
         "directive": "bright, refreshing, crisp and uplifting — sunny daytime city pop that still feels nostalgic and classy (think brighter Piper / Anri summer tracks). Airy, breezy, clean.",
     },
+    # v1.0.0-alpha.102: a sparkling mid-summer vibe to match the bright, sunny,
+    # water-and-glitter summer thumbnail — more effervescent/uptempo/playful than
+    # the airy "refreshing" mood.
+    "summer": {
+        "label": "🏖️ 청량한 한여름 (반짝·설렘)",
+        "style": "bright sparkling summer city pop, sunny daytime energy, effervescent uptempo groove, crisp shimmering synths, playful funky guitar, splashy refreshing brightness, youthful breezy euphoria, glossy 100% summer feel",
+        "directive": "bright, SPARKLING mid-summer city pop — sunny daytime energy, effervescent and playful, uptempo and refreshing like a shimmering hot afternoon in the city (blue sky, splashing water, glitter). Youthful and euphoric, but still classy nostalgic citypop — NEVER EDM, NEVER trot.",
+    },
     "wistful": {
         "label": "🌆 쓸쓸한 (아련·고독)",
         "style": "wistful lonely bittersweet late-night city pop, nostalgic neon-city melancholy, warm reverb, tender restraint",

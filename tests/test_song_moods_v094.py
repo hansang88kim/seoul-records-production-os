@@ -14,11 +14,19 @@ from providers.ai.base import (
 )
 
 
-def test_five_mood_categories_with_korean_labels():
-    assert set(SONG_MOODS) == {"refreshing", "wistful", "calm", "romantic", "dreamy"}
+def test_mood_categories_with_korean_labels():
+    # v1.0.0-alpha.102: added a sparkling mid-summer mood.
+    assert set(SONG_MOODS) == {"refreshing", "summer", "wistful", "calm", "romantic", "dreamy"}
     for m in SONG_MOODS.values():
         assert m["label"] and m["style"] and m["directive"]
     assert DEFAULT_SONG_MOOD in SONG_MOODS
+
+
+def test_summer_mood_is_sparkling_and_still_citypop():
+    m = SONG_MOODS["summer"]
+    assert "sparkling" in m["style"].lower() and "summer" in m["style"].lower()
+    # keeps genre discipline — no EDM/trot
+    assert "EDM" in m["directive"] or "trot" in m["directive"]
 
 
 def test_mood_directive_steers_and_forbids_trot():
