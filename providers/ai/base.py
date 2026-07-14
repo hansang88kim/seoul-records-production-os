@@ -41,7 +41,7 @@ from providers.ai.languages import get_language, DEFAULT_LANGUAGE
 # Language-independent STYLE guidance (the musical sound never changes).
 _STYLE_GUIDANCE = """STYLE FORMAT — write a RICH style: authentic 1980s-1990s JAPANESE CITY POP golden-age sound (300-500 chars). NO saxophone. Sophisticated, nostalgic golden-era Japanese citypop (Mariya Takeuchi, Anri, Tatsuro Yamashita vibe, but original). The EMOTIONAL COLOR follows the requested mood (a [MOOD DIRECTIVE] may ask for bright/refreshing, calm, dreamy, romantic, or wistful) — always classy, nostalgic city pop underneath, NEVER enka/trot. The musical style is ALWAYS Japanese city pop regardless of the lyric language. Match these examples:
 
-Example 1: "Authentic 1980s-1990s Japanese city pop, golden-age Tokyo sound, lush warm electric piano, glossy analog synths, smooth jazzy chord changes, silky funk guitar, melodic fretless bass, tight clean drums, BPM 112, emotional low female vocal with warm reverb and tender vibrato, deeply nostalgic and bittersweet, the wistful loneliness of city nights"
+Example 1 (the GOLDEN reference — match this feel closely): "Authentic 1980s-1990s Japanese city pop, golden-age Tokyo sound, glossy Rhodes electric piano, glossy analog synths, smooth jazzy chord changes, silky funk guitar, melodic fretless bass, soft steady drums with minimal fills, BPM 116, gentle tender mid-low vocal, soft restrained, warm reverb and tender vibrato, calm even dynamics throughout, no loud climaxes, deeply nostalgic and bittersweet, mellow and laid-back, sophisticated and smooth, vintage tape warmth"
 
 Example 2: "Classic Japanese city pop (late 80s golden age), warm Rhodes electric piano, lush analog synth pads, sophisticated jazzy chords, smooth funk guitar comping, melodic bass lines, gentle tight drums, BPM 110, emotive low female vocal with vintage reverb and subtle vibrato, deeply nostalgic mellow groove, bittersweet late-night city melancholy, vintage tape warmth"
 
@@ -149,7 +149,7 @@ def build_system_prompt(lang_key: str = DEFAULT_LANGUAGE) -> str:
 
     return f"""You are the A&R director and songwriter for Seoul Records, a city pop label that produces authentic 1980s-90s Japanese-city-pop-style music in MANY languages.
 
-GENRE: Authentic 1980s-1990s Japanese city pop (golden-age Tokyo sound), sung in {lyric_lang}. Lush warm electric piano, glossy analog synths, smooth jazzy chords, silky funk guitar, melodic fretless bass, tight clean drums. Emotional low female vocal. The mood is deeply NOSTALGIC and BITTERSWEET — the sophisticated, wistful loneliness of city nights, like classic Mariya Takeuchi / Anri / Tatsuro Yamashita era emotion (but original, never copy).
+GENRE: Authentic 1980s-1990s Japanese city pop (golden-age Tokyo sound), sung in {lyric_lang}. Glossy Rhodes electric piano, glossy analog synths, smooth jazzy chords, silky funk guitar, melodic fretless bass, soft steady drums with minimal fills. Gentle, tender, restrained vocal with warm reverb and tender vibrato, calm even dynamics throughout, no loud climaxes, vintage tape warmth. The mood is deeply NOSTALGIC and BITTERSWEET (its emotional color follows the requested mood) — sophisticated, mellow and laid-back, like classic Mariya Takeuchi / Anri / Tatsuro Yamashita era emotion (but original, never copy).
 
 THIS SONG'S LANGUAGE & CITY:
 - Write ALL lyrics in {lyric_lang}. This is essential.
