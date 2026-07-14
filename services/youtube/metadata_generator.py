@@ -156,8 +156,8 @@ def format_chapters_section(chapters: list[dict]) -> str:
     if not chapters:
         return ""
     lines = ["⏱ Tracklist"]
-    for ch in chapters:
-        lines.append(f"{ch['timestamp']} {ch['title']}")
+    for i, ch in enumerate(chapters, start=1):
+        lines.append(f"{ch['timestamp']} {i:02d}. {_clean_track_title(ch['title'])}")
     return "\n".join(lines)
 
 
@@ -233,9 +233,23 @@ def _format_djhana_tracklist(chapters: list[dict]) -> str:
     lines = []
     for i, ch in enumerate(chapters, start=1):
         ts = _normalise_timestamp(ch.get("timestamp", "0:00"))
-        title = ch.get("title", "").strip()
-        lines.append(f"{ts}  {i:02d}. {title}")
+        lines.append(f"{ts}  {i:02d}. {_clean_track_title(ch.get('title', ''))}")
     return "\n".join(lines)
+
+
+# v1.0.0-alpha.110: tracklist titles come from the uploaded audio FILENAMES, so
+# they carry a file extension (.wav/.mp3…) and often a leading track number
+# ("01. 명동의 비.wav"). The renderers add their own sequence number, so strip
+# BOTH the extension and any leading number to avoid ".wav" tails and "01. 01."
+# double numbering. Applied at render time (the chapter file stays raw).
+_TITLE_EXT_RE = re.compile(r"\.(wav|mp3|m4a|flac|aac|ogg|wave|aiff?)$", re.IGNORECASE)
+_TITLE_LEADNUM_RE = re.compile(r"^\s*\d{1,3}\s*[.)\-]\s*")
+
+
+def _clean_track_title(title: str) -> str:
+    t = _TITLE_EXT_RE.sub("", (title or "").strip())
+    t = _TITLE_LEADNUM_RE.sub("", t)
+    return t.strip() or (title or "").strip()
 
 
 def _normalise_timestamp(ts: str) -> str:

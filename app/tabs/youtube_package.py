@@ -287,6 +287,9 @@ def render_youtube_package():
                     playlist_title, country, int(volume), mood, chapters_path,
                     int(duration_min), language=yt_language)
             st.session_state["yt_meta"] = meta
+            # v1.0.0-alpha.110: keep the sticky preview text_area in sync so a
+            # re-generate (e.g. after reordering tracks) actually updates it.
+            st.session_state["yt_desc_preview"] = meta["description"]
             if meta.get("description_translated"):
                 st.success(f"✅ 설명을 {meta['description_language']}로 번역했습니다.")
             elif yt_language != "korean":
@@ -328,6 +331,9 @@ def render_youtube_package():
                         meta["description_language"] = res["language"]
                     meta["description"] = desc
                     st.session_state["yt_meta"] = meta
+                    # v1.0.0-alpha.110: the preview text_area has a key, so it is
+                    # sticky — sync it or it keeps showing the OLD description.
+                    st.session_state["yt_desc_preview"] = desc
                     st.rerun()
             with rc3:
                 if st.button("🔄 태그", use_container_width=True, key="yt_regen_tags"):
@@ -336,7 +342,8 @@ def render_youtube_package():
                     st.rerun()
 
             st.markdown("**설명 미리보기**")
-            st.text_area("description", meta["description"], height=240,
+            st.session_state.setdefault("yt_desc_preview", meta["description"])
+            st.text_area("description", height=240,
                          key="yt_desc_preview", label_visibility="collapsed")
 
             st.markdown("**태그 / 해시태그**")

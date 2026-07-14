@@ -101,9 +101,10 @@ def test_metadata_generator_includes_chapters(yt_outputs):
     from services.youtube.metadata_generator import generate_all_metadata
     meta = generate_all_metadata("", "Korea", 1, "", yt_outputs["chapters"], 60,
                                  use_seo_template=False)
-    # Chapters preserved with exact timestamps + Korean (no mojibake)
-    assert "00:00 밤이 지나면" in meta["description"]
-    assert "03:30 늦은 대답" in meta["chapters_section"]
+    # v1.0.0-alpha.110: tracklist lines now carry a clean sequence number and
+    # NO file extension ("00:00 01. 밤이 지나면").
+    assert "00:00 01. 밤이 지나면" in meta["description"]
+    assert "03:30 02. 늦은 대답" in meta["chapters_section"]
     assert len(meta["chapters"]) == 3
 
 
