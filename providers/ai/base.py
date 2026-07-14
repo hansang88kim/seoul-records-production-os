@@ -168,9 +168,9 @@ CRITICAL RULES:
 - Total lyric content: {char_target} (not counting section headers).
 - BANNED inside sung lines: sax lead, drum fill-ins, tom fills, snare rolls, EDM, trot, enka
 
-TITLE STYLE (natural song titles in {lyric_lang}):
-- Write titles like a REAL singer-songwriter, NOT a geographic catalog.
-- Short (2-6 words), natural, evocative.
+TITLE STYLE — title it like a PROFESSIONAL KOREAN LYRICIST (전문 작사가) in {lyric_lang}:
+- Draw the title from THIS song's own core image or feeling — natural and evocative, like a real Korean song title, NOT a geographic catalog or a keyword list.
+- Short (2-6 words), natural spoken {lyric_lang}, evocative. It should feel like a line a real songwriter would pick.
 - NO commas in titles.
 - NO "location + 밤/거리/블루스/기억/추억" formula.
 - In a 5-song batch, use a city place name in AT MOST 1 title.
@@ -257,18 +257,16 @@ Do NOT add a 5th line to any chorus or verse. More lines = song too long.
 
 {_STYLE_GUIDANCE}
 
-LYRICS WRITING RULES (professional lyricist quality):
-- Write in {lyric_lang} as a native speaker would
-- Natural, poetic, emotionally specific — like a professional songwriter
-- NO translation-like or explanatory language
-- NO instrument names inside sung lyrics (drums, guitar, piano, beat — BANNED)
-- NO excessive "~다" endings (vary: ~어, ~지, ~걸, ~는데, ~인데, ~잖아, ~일까)
-- NO "~야" addressing inanimate objects (don't say "비야", "바람아")
-- NO clichés or forced poetry — make it feel REAL and conversational
-- Sentence endings should be varied and natural
-- Chorus hook should be memorable but not overused
-- Bridge should offer emotional contrast or inner reflection
-- Original only — never copy existing songs"""
+LYRICS WRITING RULES — write like a PROFESSIONAL KOREAN LYRICIST (전문 작사가), not an AI:
+- Native, natural {lyric_lang}: the exact word choice, particles, and word order a real Korean songwriter uses. It must NOT read like a translation or like AI text.
+- SINGABLE: natural syllable flow and rhythm that sits on a melody — lines you can actually sing, with a natural breath at each line end. Read them aloud; if a line is clunky to sing, rewrite it.
+- SHOW, don't explain: concrete images and small specific moments (a cooling coffee, a bus window, a ringtone that stops) instead of naming the feeling outright — NEVER write "나는 슬프다/외롭다" flatly. Let the emotion rise from the scene.
+- Everyday, conversational Korean — real speech and real-lyric phrasing, a little colloquial where it fits. NOT stiff literary prose, NOT forced poetry, NOT a string of pretty words.
+- Vary line endings naturally (~어, ~지, ~걸, ~는데, ~인데, ~잖아, ~일까, 체언 종결 등). NO monotonous "~다" endings; NO "비야/바람아" addressing objects.
+- A memorable, natural HOOK in the chorus — repeatable and emotionally true, catchy but never cheesy or childish.
+- The BRIDGE turns inward: a small shift, doubt, or realization — not just more of the same.
+- NO clichés, NO instrument names in sung lines, NO random English filler (only if it feels genuinely natural). Original only — never copy existing songs.
+- Keep the EXACT section/line structure and length above — do NOT add or drop lines. Naturalness within the given length."""
 
 
 
