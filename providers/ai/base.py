@@ -41,15 +41,15 @@ from providers.ai.languages import get_language, DEFAULT_LANGUAGE
 # Language-independent STYLE guidance (the musical sound never changes).
 _STYLE_GUIDANCE = """STYLE FORMAT — write a RICH style: authentic 1980s-1990s JAPANESE CITY POP golden-age sound (300-500 chars). NO saxophone. Sophisticated, nostalgic golden-era Japanese citypop (Mariya Takeuchi, Anri, Tatsuro Yamashita vibe, but original). The EMOTIONAL COLOR follows the requested mood (a [MOOD DIRECTIVE] may ask for bright/refreshing, calm, dreamy, romantic, or wistful) — always classy, nostalgic city pop underneath, NEVER enka/trot. The musical style is ALWAYS Japanese city pop regardless of the lyric language. Match these examples:
 
-Example 1 (the GOLDEN reference — match this feel closely): "Authentic 1980s-1990s Japanese city pop, golden-age Tokyo sound, glossy Rhodes electric piano, glossy analog synths, smooth jazzy chord changes, silky funk guitar, melodic fretless bass, soft steady drums with minimal fills, BPM 116, gentle tender mid-low vocal, soft restrained, warm reverb and tender vibrato, calm even dynamics throughout, no loud climaxes, deeply nostalgic and bittersweet, mellow and laid-back, sophisticated and smooth, vintage tape warmth"
+Example 1 (the GOLDEN reference — match this feel closely): "Authentic 1980s-1990s Japanese city pop, golden-age Tokyo sound, glossy Rhodes electric piano, glossy analog synths, smooth jazzy chord changes, silky funk guitar, melodic fretless bass, soft steady drums with minimal fills, BPM 113, gentle tender mid-low vocal, soft restrained, warm reverb and tender vibrato, calm even dynamics throughout, no loud climaxes, deeply nostalgic and bittersweet, mellow and laid-back, sophisticated and smooth, vintage tape warmth"
 
-Example 2: "Classic Japanese city pop (late 80s golden age), warm Rhodes electric piano, lush analog synth pads, sophisticated jazzy chords, smooth funk guitar comping, melodic bass lines, gentle tight drums, BPM 110, emotive low female vocal with vintage reverb and subtle vibrato, deeply nostalgic mellow groove, bittersweet late-night city melancholy, vintage tape warmth"
+Example 2: "Classic Japanese city pop (late 80s golden age), warm Rhodes electric piano, lush analog synth pads, sophisticated jazzy chords, smooth funk guitar comping, melodic bass lines, gentle tight drums, BPM 112, emotive low female vocal with vintage reverb and subtle vibrato, deeply nostalgic mellow groove, bittersweet late-night city melancholy, vintage tape warmth"
 
-Example 3: "1980s-90s Japanese citypop revival, glossy electric piano, shimmering warm synths, refined jazz chord voicings, silky clean funk guitar, melodic fretless bass, soft tight drums, BPM 113, tender low female vocal with warm reverb, sophisticated and emotional, the quiet loneliness of neon city nights, nostalgic golden-age warmth"
+Example 3: "1980s-90s Japanese citypop revival, glossy electric piano, shimmering warm synths, refined jazz chord voicings, silky clean funk guitar, melodic fretless bass, soft tight drums, BPM 114, tender low female vocal with warm reverb, sophisticated and emotional, the quiet loneliness of neon city nights, nostalgic golden-age warmth"
 
 Required elements (vary each time):
 - Genre: "Authentic/Classic 1980s-1990s Japanese city pop" + golden-age Tokyo sound
-- Tempo: BPM 108-114 (mellow mid-tempo, sophisticated groove)
+- Tempo: BPM 112-114 (mellow mid-tempo, sophisticated groove)
 - Keys: lush/warm/glossy electric piano, warm Rhodes
 - Synths: glossy analog synths, lush synth pads, shimmering warm synths
 - Chords: smooth jazzy chord changes, sophisticated jazz chord voicings
@@ -161,7 +161,7 @@ THIS SONG'S LANGUAGE & CITY:
 CRITICAL RULES:
 - Language: {lyric_lang} lyrics only (section labels + production cues in headers stay in English)
 - Vocal: Low, gentle, restrained female vocal with retro reverb and subtle vibrato — soft and lyrical, never belting
-- BPM: 108-116 (usually 112)
+- BPM: 112-114 (usually 113)
 - Key: BOTH major and minor are good (major = brighter nostalgic, minor = wistful bittersweet)
 - Duration: MUST be 3:30 or SHORTER. Keep lyrics SHORT.
 - Too many lines runs 4:00-4:30 — TOO LONG. Cut ruthlessly.
@@ -283,7 +283,7 @@ def _style_variation_prompt(current_style: str) -> str:
 RULES — READ CAREFULLY:
 1. Keep the EXACT SAME genre, instruments, and mood. Do NOT change the genre.
 2. Change ONLY these three things (pick 1-3 to vary each time):
-   a. BPM: shift by ±2-4 (e.g. 112 → 110, or 112 → 115). Keep it 108-116.
+   a. BPM: shift by ±1 (e.g. 113 → 112, or 112 → 114). Keep it 112-114.
    b. Key: change to a different key (e.g. if no key stated, add one like "E minor" or "Ab major"; if already has a key, change it)
    c. Vocal tone: keep "low female vocal" but vary the descriptor slightly
       (e.g. "emotional" → "tender", "warm reverb" → "vintage plate reverb",
@@ -377,7 +377,7 @@ def generate_style_variation(current_style: str, provider_name: str = "openai") 
 # ── Composer Variation Layer ─────────────────────────────────────────────────
 # Each song in a batch should have slightly different BPM, Key, and vocal tone.
 
-_BATCH_BPMS = [108, 110, 111, 112, 113, 114, 115, 116]
+_BATCH_BPMS = [112, 113, 114]
 _BATCH_KEYS = [
     # Mix of MAJOR and MINOR — golden-age city pop uses both.
     # Major keys give brighter, uplifting nostalgia; minor keys give
@@ -533,7 +533,7 @@ def _make_user_prompt(concept: str, generate: str = "all", lang_key: str = DEFAU
         return (
             f"Concept: {concept}\n\n"
             "Generate a rich authentic 1980s-90s Japanese citypop style (300-500 chars, English, "
-            "NO saxophone, golden-age nostalgic bittersweet mood, include BPM 108-114). "
+            "NO saxophone, golden-age nostalgic bittersweet mood, include BPM 112-114). "
             "The musical style is Japanese city pop regardless of lyric language. "
             'Return JSON: {"style": "..."}'
         )
@@ -555,7 +555,7 @@ def _make_user_prompt(concept: str, generate: str = "all", lang_key: str = DEFAU
         "CRITICAL LYRICS RULE: exactly 4 lines per section (Outro 2 lines), short singable lines, "
         "for a 3:30 song. NEVER add a 5th line to any section — that makes the song too long.\n"
         f'{{"title": "{L} title with a {city} place name", '
-        '"style": "authentic 1980s-90s Japanese citypop, golden-age sound, 300-500 chars, NO sax, BPM 108-114, nostalgic bittersweet", '
+        '"style": "authentic 1980s-90s Japanese citypop, golden-age sound, 300-500 chars, NO sax, BPM 112-114, nostalgic bittersweet", '
         f'"lyrics": "10 sections (with Final Chorus), 4 lines each (Outro 2), all lyrics in {L}"}}'
     )
 
@@ -683,7 +683,7 @@ def _title_from_lyrics(lyrics: str) -> str:
 MOCK_SONGS = [
     SongPromptPackage(
         title="밤이 지나면",
-        style="Authentic 1980s-1990s Japanese city pop, golden-age Tokyo sound, lush warm electric piano, glossy analog synths, smooth jazzy chord changes, silky funk guitar, melodic fretless bass, soft steady drums with minimal fills, C major, BPM 112, gentle restrained low female vocal, soft and lyrical never belting, warm reverb and tender vibrato, deeply nostalgic and bittersweet, mellow and laid-back, calm even dynamics, the wistful loneliness of city nights, vintage tape warmth",
+        style="Authentic 1980s-1990s Japanese city pop, golden-age Tokyo sound, lush warm electric piano, glossy analog synths, smooth jazzy chord changes, silky funk guitar, melodic fretless bass, soft steady drums with minimal fills, C major, BPM 113, gentle restrained low female vocal, soft and lyrical never belting, warm reverb and tender vibrato, deeply nostalgic and bittersweet, mellow and laid-back, calm even dynamics, the wistful loneliness of city nights, vintage tape warmth",
         lyrics="""[Intro]
 (2마디 음원 (instrumental only))
 
@@ -741,7 +741,7 @@ MOCK_SONGS = [
     ),
     SongPromptPackage(
         title="늦은 대답",
-        style="Classic Japanese city pop (late 80s golden age), warm Rhodes electric piano, lush analog synth pads, sophisticated jazzy chords, smooth funk guitar comping, melodic bass lines, soft steady drums with minimal fills, B minor, BPM 110, gentle husky low female vocal, soft and restrained never belting, vintage plate reverb and gentle vibrato, deeply nostalgic and mellow, calm even dynamics, bittersweet late-night city melancholy, vintage tape warmth",
+        style="Classic Japanese city pop (late 80s golden age), warm Rhodes electric piano, lush analog synth pads, sophisticated jazzy chords, smooth funk guitar comping, melodic bass lines, soft steady drums with minimal fills, B minor, BPM 112, gentle husky low female vocal, soft and restrained never belting, vintage plate reverb and gentle vibrato, deeply nostalgic and mellow, calm even dynamics, bittersweet late-night city melancholy, vintage tape warmth",
         lyrics="""[Intro]
 (2마디 음원 (instrumental only))
 
