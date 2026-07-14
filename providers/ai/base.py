@@ -153,9 +153,9 @@ GENRE: Authentic 1980s-1990s Japanese city pop (golden-age Tokyo sound), sung in
 
 THIS SONG'S LANGUAGE & CITY:
 - Write ALL lyrics in {lyric_lang}. This is essential.
-- The lyrics evoke the night-time emotion of {city} ({city_native}).
+- Era/mood: evoke MID-TO-LATE 1990s {city} city pop — a late-20th-century, analog, pre-smartphone feeling (payphones, pagers, cassette tapes & Walkmans, handwritten letters, late-night radio). Not tied to any one district, and not limited to night-time.
 - City vibe to capture: {vibe}
-- Use REAL {city} place names where natural: {locations}
+- Place names are OPTIONAL and MUST stay RARE. Do NOT lean on district or landmark names, and NEVER repeat the same few (e.g. avoid defaulting to the same handful of districts/rivers every song). Evoke the 90s {city} mood through feeling, light, weather, season, and small everyday detail — NOT by naming places. A specific place name may appear in AT MOST 1 song out of 4, and vary it widely if used at all.
 - The musical style is STILL Japanese city pop — only the lyric language and the city's emotional scenery change. Do NOT change the genre to local/traditional music. No local folk instruments, no trot/enka/luk-thung/dangdut. It is sophisticated Japanese-style city pop with {lyric_lang} lyrics about {city}.
 
 CRITICAL RULES:
@@ -189,18 +189,18 @@ BAD title examples (formulaic, auto-generated feel):
 Batch diversity: if generating multiple songs, NEVER repeat similar titles.
 Each title must feel like it could be from a different album.
 
-LYRICS THEME/MOOD — VARY THE SUBJECT. Do NOT always write "alone at night missing someone gone." Pick ONE clear theme per song from the range of modern {city} life below, and let the [MOOD DIRECTIVE] set only the emotional color:
-- 급변하는 도시 속 현대인의 애환: post-1990s {city} changing fast — rising rents, jobs that come and go, old neighborhoods and shops vanishing, long commutes, the quiet fatigue and small daily hopes of ordinary adults trying to keep pace and adapt.
+LYRICS THEME/MOOD — VARY THE SUBJECT every time. Do NOT always write "alone at night missing someone gone." Pick ONE clear theme per song from the range of MID-TO-LATE 1990s {city} life below, and let the [MOOD DIRECTIVE] set only the emotional color:
+- 급변하는 도시 속 현대인의 애환: 1990s {city} changing fast — old neighborhoods and shops vanishing, the late-90s uncertainty (jobs lost, an uncertain economy), long commutes, the quiet fatigue and small daily hopes of ordinary adults trying to keep pace.
 - 20대의 고민: a twenty-something's worries — an uncertain future, comparison and pressure, first jobs and interviews, leaving home for a tiny one-room, figuring out who to become; the mix of anxiety and fragile freedom.
-- 연애와 사랑: many angles — a new crush's flutter, texting courage you don't have, a comfortable settled love, the slow drift apart, an almost-relationship, reuniting, or simply missing an ex (this is ONE option, not the default).
-- 일상의 작은 순간: an ordinary evening that quietly turns precious — the last bus, convenience-store light, a friend's late call, coming home tired but somehow okay.
+- 연애와 사랑: many angles — a new crush's flutter, a letter you never sent or a payphone call you hang up on, a comfortable settled love, the slow drift apart, an almost-relationship, reuniting, or simply missing someone (this is ONE option, not the default).
+- 일상의 작은 순간: an ordinary evening that quietly turns precious — the last bus, a convenience-store light, a friend's late call, a cassette rewinding, coming home tired but somehow okay.
 - 그리움 / 향수: nostalgia for a season, a hometown, a younger self or old friends — bittersweet, not always about a lost lover.
 - 위로와 다짐: gentle self-encouragement — "오늘도 잘 버텼다", starting over, a small quiet resolve for tomorrow.
 
 Rules:
 - ONE clear theme per song — do NOT blend all of them into a vague mush.
 - In a batch, SPREAD across DIFFERENT themes — not every song about loneliness or a lost lover.
-- Ground it in real, specific modern {city} life (subway, rooftops, a one-room, work, {locations}). Concrete and truly felt — avoid clichés and melodrama.
+- Ground it in specific, sensory mid-1990s {city} everyday life (a subway car, a rooftop, a one-room, a late bus, a payphone, a cassette, rain on a window, streetlights) — concrete and truly felt, WITHOUT leaning on district/landmark names. Avoid clichés and melodrama.
 
 LYRICS FORMAT — follow this EXACT structure for natural 3:30 duration.
 Lyrics must be 320-400 characters (sung text only, excluding section headers). HARD CAP: 400 chars MAX. HARD FLOOR: 320 chars MIN. Target duration: 3:30-3:50.
