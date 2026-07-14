@@ -523,11 +523,13 @@ def _render_auto_batch():
             )
         with cc2:
             if st.button("🎲", key="auto_concept_variation",
-                         help="시티팝 컨셉 키워드를 하나씩 제안합니다.",
+                         help="누를 때마다 새로운 주제의 컨셉을 제안합니다 "
+                              "(현대 서울 삶·20대 고민·연애·일상·향수 등).",
                          use_container_width=True):
                 from services.concept_suggester import next_concept
-                sug = next_concept(st.session_state,
-                                   avoid=st.session_state.get("auto_concept", ""))
+                with st.spinner("새 컨셉 제안 중..."):
+                    sug = next_concept(st.session_state,
+                                       avoid=st.session_state.get("auto_concept", ""))
                 st.session_state["_auto_concept_pending"] = sug
                 st.rerun()
     with col_provider:

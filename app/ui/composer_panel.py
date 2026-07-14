@@ -104,11 +104,13 @@ def render_composer_panel() -> dict | None:
             )
         with cc2:
             if st.button("🎲 변주", key="ai_concept_variation",
-                         help="시티팝에 어울리는 컨셉 키워드를 하나씩 제안합니다.",
+                         help="누를 때마다 새로운 주제의 컨셉을 제안합니다 "
+                              "(현대 서울 삶·20대 고민·연애·일상·향수 등).",
                          use_container_width=True):
                 from services.concept_suggester import next_concept
-                sug = next_concept(st.session_state,
-                                   avoid=st.session_state.get("ai_concept", ""))
+                with st.spinner("새 컨셉 제안 중..."):
+                    sug = next_concept(st.session_state,
+                                       avoid=st.session_state.get("ai_concept", ""))
                 st.session_state["_ai_concept_pending"] = sug
                 st.rerun()
 
