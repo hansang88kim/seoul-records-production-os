@@ -77,9 +77,46 @@ def _tagline_from_mood(mood: str) -> str:
     return first[:24] if first else "감성 터지는 청량한"
 
 
+def _title_prompt(mood: str, volume: int, n_tracks: int) -> str:
+    n = f"{n_tracks}곡" if n_tracks else "여러 곡"
+    return (
+        "You write click-worthy but TASTEFUL YouTube titles for a Korean city-pop "
+        "PLAYLIST channel (Seoul Records). Write ONE Korean playlist title.\n"
+        "Rules (MUST follow):\n"
+        "- Start EXACTLY with '[Playlist] '.\n"
+        "- Then a natural, evocative Korean hook that captures the mood — like a "
+        "real TRENDING citypop playlist title (a vivid scene or feeling), NOT a "
+        "keyword list. Sensible and classy: 촌스럽지 않게, 클릭베이트·느낌표 남발 금지.\n"
+        f"- Include for search/SEO, separated by ' | ': the emoji 🎧, "
+        f"'Korean Seoul City Pop', 'Vol.{volume}', and the track count '{n}'.\n"
+        "- ONE single line, under ~70 visible characters, no quotes, no markdown.\n\n"
+        f"Mood / theme (the heart of it): \"{(mood or '서울의 밤, 네온, 그리움').strip()}\".\n"
+        "Output ONLY the final title line."
+    )
+
+
+def _llm_title(mood: str, volume: int, n_tracks: int) -> str:
+    """A natural, trending-feel YouTube title via OpenAI→Gemini ("" on no-key/fail)."""
+    from services.youtube.description_translator import call_llm_raw
+    raw = call_llm_raw(_title_prompt(mood, volume, n_tracks), json_mode=False)
+    if not raw:
+        return ""
+    line = raw.strip().splitlines()[0].strip().strip('"').strip()
+    if line.startswith("[Playlist]") and 12 <= len(line) <= 140:
+        return line
+    return ""
+
+
 def generate_seo_title(country: str = "Korea", volume: int = 1, mood: str = "",
-                       n_tracks: int = 0, edition: str = "Disco Edition") -> str:
-    """The playlist title in the base format (no DJ persona)."""
+                       n_tracks: int = 0, edition: str = "Disco Edition",
+                       use_llm: bool = True) -> str:
+    """The playlist title (no DJ persona). v1.0.0-alpha.114: LLM-written for a
+    natural, trending YouTube feel (keeps the [Playlist] prefix + SEO keywords);
+    falls back to the fixed template when no LLM key / it fails."""
+    if use_llm:
+        t = _llm_title(mood, volume, n_tracks)
+        if t:
+            return t
     tag = _tagline_from_mood(mood)
     n = f" {n_tracks}곡" if n_tracks else ""
     return (f"[Playlist] {tag} 한국 서울 시티팝{n}🎧 | "
