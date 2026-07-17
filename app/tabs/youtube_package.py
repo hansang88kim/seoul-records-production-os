@@ -58,39 +58,63 @@ def _render_mp3_chapter_builder():
     None (so the caller falls back to the auto-scanned chapters.txt)."""
     from services.video.playlist_builder import build_playlist_plan, format_chapters_txt
 
+    from services.youtube.metadata_generator import _clean_track_title
+
     with st.expander("🎵 MP3 업로드 (→ 설명에 트랙리스트 자동 포함)", expanded=False):
-        st.caption("음원을 올리면 각 곡 길이로 누적 타임스탬프를 계산해, 아래 "
-                   "'YouTube 메타데이터 생성' 시 설명 안에 트랙리스트로 자동 들어갑니다. "
-                   "순서는 아래에서 조정하세요.")
+        st.caption("음원을 올리면 각 곡 길이로 누적 타임스탬프를 계산해, 'YouTube 메타데이터 "
+                   "생성' 시 설명·챕터에 트랙리스트로 자동 들어갑니다. 아래 ▲▼로 순서를 "
+                   "조정하면 그 순서 그대로 반영됩니다. (지금 업로드한 파일만 사용됩니다.)")
         up = st.file_uploader(
             "음원 업로드 (mp3·wav·flac·m4a·aac·ogg · 여러 개)",
             type=[e.lstrip(".") for e in _CHAP_AUDIO_EXTS],
             accept_multiple_files=True, key="yt_chap_upload",
         )
-        if up:
-            d = _chap_upload_dir()
-            saved = 0
-            for uf in up:
-                dest = d / uf.name
-                if not dest.exists():
-                    dest.write_bytes(uf.getbuffer())
-                    saved += 1
-            if saved:
-                st.success(f"✅ {saved}개 업로드됨")
-                st.rerun()
 
-        tracks = _scan_chapter_uploads()
-        if not tracks:
+        # v1.0.0-alpha.113: base everything ONLY on the files currently in the
+        # uploader (not old files accumulated in the folder). Save them to disk
+        # (needed to read durations), then work from this session's filenames.
+        d = _chap_upload_dir()
+        cur_names: list[str] = []
+        for uf in (up or []):
+            dest = d / uf.name
+            if not dest.exists():
+                dest.write_bytes(uf.getbuffer())
+            cur_names.append(uf.name)
+
+        if not cur_names:
             st.info("아직 업로드된 음원이 없습니다.")
+            st.session_state.pop("yt_chap_track_order", None)
             return None
 
-        names = [t["name"] for t in tracks]
-        order = st.multiselect(
-            "트랙 순서 (선택한 순서대로 타임스탬프 생성 · 비우면 전체·파일명 순)",
-            range(len(tracks)), format_func=lambda i: names[i],
-            key="yt_chap_order",
-        )
-        chosen = [tracks[i] for i in order] if order else tracks
+        # Maintain the user's manual order in session_state: keep known order,
+        # append newly-added files, drop removed ones.
+        order = [n for n in st.session_state.get("yt_chap_track_order", []) if n in cur_names]
+        order += [n for n in cur_names if n not in order]
+        st.session_state["yt_chap_track_order"] = order
+
+        # ── Reorder list (▲▼) — replaces the old multiselect ────────────────
+        st.markdown("**트랙 순서 (▲▼로 조정)**")
+        for i, name in enumerate(order):
+            ct, cu, cd = st.columns([6, 1, 1])
+            with ct:
+                st.markdown(f"<div style='padding-top:6px;font-size:0.86rem'>"
+                            f"{i+1:02d}. {_clean_track_title(name)}</div>",
+                            unsafe_allow_html=True)
+            with cu:
+                if st.button("▲", key=f"yt_chap_up_{name}", disabled=(i == 0),
+                             use_container_width=True):
+                    order[i-1], order[i] = order[i], order[i-1]
+                    st.session_state["yt_chap_track_order"] = order
+                    st.rerun()
+            with cd:
+                if st.button("▼", key=f"yt_chap_dn_{name}", disabled=(i == len(order)-1),
+                             use_container_width=True):
+                    order[i+1], order[i] = order[i], order[i+1]
+                    st.session_state["yt_chap_track_order"] = order
+                    st.rerun()
+
+        chosen = [{"path": str(d / n), "name": n, "duration_sec": _audio_duration(str(d / n))}
+                  for n in order]
 
         c1, c2 = st.columns(2)
         with c1:
