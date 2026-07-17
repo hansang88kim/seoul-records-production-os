@@ -211,7 +211,7 @@ If under 360 chars, ADD natural phrases to reach 360.
 STRUCTURE (10 sections — this length produces ~3:30-3:50):
 
 [Intro]
-(2마디 음원 (instrumental only))
+(soft instrumental intro — gentle Rhodes and synth pads only, NO drums and NO drum count-in at the start)
 
 [Verse 1]
 ← exactly 4 lines
@@ -567,10 +567,15 @@ def _lyrics_char_count(lyrics: str) -> int:
     total = 0
     for line in lyrics.split("\n"):
         line = line.strip()
-        if line and not line.startswith("["):
-            # Remove parentheses content markers but count the Korean
-            cleaned = line.replace("(", "").replace(")", "")
-            total += len(cleaned)
+        if not line or line.startswith("["):
+            continue
+        # v1.0.0-alpha.111: a whole-parenthetical line is a production cue
+        # (e.g. "(soft instrumental intro — no drums)"), NOT sung text — don't
+        # count it toward the sung-lyric length budget.
+        if line.startswith("(") and line.endswith(")"):
+            continue
+        cleaned = line.replace("(", "").replace(")", "")
+        total += len(cleaned)
     return total
 
 
@@ -683,7 +688,7 @@ MOCK_SONGS = [
         title="밤이 지나면",
         style="Authentic 1980s-1990s Japanese city pop, golden-age Tokyo sound, lush warm electric piano, glossy analog synths, smooth jazzy chord changes, silky funk guitar, melodic fretless bass, soft steady drums with minimal fills, C major, BPM 113, gentle restrained low female vocal, soft and lyrical never belting, warm reverb and tender vibrato, deeply nostalgic and bittersweet, mellow and laid-back, calm even dynamics, the wistful loneliness of city nights, vintage tape warmth",
         lyrics="""[Intro]
-(2마디 음원 (instrumental only))
+(soft instrumental intro — gentle Rhodes and synth pads only, NO drums and NO drum count-in at the start)
 
 [Verse 1]
 사람들 웃음 속에
@@ -741,7 +746,7 @@ MOCK_SONGS = [
         title="늦은 대답",
         style="Classic Japanese city pop (late 80s golden age), warm Rhodes electric piano, lush analog synth pads, sophisticated jazzy chords, smooth funk guitar comping, melodic bass lines, soft steady drums with minimal fills, B minor, BPM 112, gentle husky low female vocal, soft and restrained never belting, vintage plate reverb and gentle vibrato, deeply nostalgic and mellow, calm even dynamics, bittersweet late-night city melancholy, vintage tape warmth",
         lyrics="""[Intro]
-(2마디 음원 (instrumental only))
+(soft instrumental intro — gentle Rhodes and synth pads only, NO drums and NO drum count-in at the start)
 
 [Verse 1]
 좁은 골목 불빛 아래

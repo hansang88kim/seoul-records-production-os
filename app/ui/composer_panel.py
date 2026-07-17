@@ -12,6 +12,8 @@ DEFAULT_EXCLUDE = (
     "sax lead, strong sax, drum fill-ins, excessive drum fills, busy drum fills, "
     "tom fills, snare rolls, drum rolls, cymbal crashes, "
     "trot, enka, EDM, rock, hard rock, bleepy sounds, toy percussion, "
+    # No drum count-in / stick count leading into the intro
+    "drum count-in, count-in, stick count, drum intro, counting in, "
     # Vocal exclusions — city pop is gentle and lyrical, NOT belted rock
     "high belting, belting, powerful belting, screaming vocals, shouting, "
     "loud high notes, soaring high notes, rock vocals, aggressive vocals, "
@@ -37,7 +39,7 @@ CITYPOP_STYLE_PRESET = (
 
 SUNO_MODELS = ["v5.5", "v5", "v4.5", "v4", "v3.5"]
 LYRICS_PLACEHOLDER = """[Intro]
-(4마디 음원 (instrumental only))
+(instrumental intro — soft pads/keys only, no drums, no count-in)
 
 [Verse 1]
 여기에 첫 번째 절 가사
@@ -55,7 +57,7 @@ LYRICS_PLACEHOLDER = """[Intro]
 브릿지 가사
 
 [Outro]
-(4마디 음원 (instrumental only))"""
+(soft instrumental outro — pads/keys only, no drums)"""
 
 
 def render_composer_panel() -> dict | None:
