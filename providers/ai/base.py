@@ -56,13 +56,14 @@ Required elements (vary each time):
 - Guitar: silky funk guitar, smooth funk guitar comping
 - Bass: melodic fretless bass, melodic bass lines (signature citypop)
 - Drums: soft steady drums with MINIMAL fills — no busy drum fills, no tom fills, no snare rolls (excessive fills sound like trot/뽕짝, WRONG for city pop)
-- Vocal: GENTLE, restrained, soft and lyrical low female vocal with warm reverb and tender vibrato. City pop vocals are quiet, intimate, and even — NEVER belting, NEVER soaring high notes, NEVER rock-style shouting.
+- Vocal: GENTLE, restrained, soft and lyrical low female vocal with warm reverb and tender vibrato. City pop vocals are quiet, intimate, and relaxed, phrased with a natural conversational flow — NEVER belting, NEVER soaring high notes, NEVER rock-style shouting.
+- GROOVE & PHRASING (important): a relaxed, laid-back groove with the vocal sitting slightly BEHIND the beat, in the pocket — natural syncopation, gentle push-and-pull, pickup notes and held tails, conversational timing that breathes and swings a little. Vocals and the band lock into a smooth pocket like real musicians. NOT rigidly on-grid, NOT metronomic/quantized, NOT robotic or every-syllable-on-the-downbeat.
 - DYNAMICS: keep dynamics calm and even THROUGHOUT, including the Final Chorus. City pop builds emotion through warmth and nuance, NOT through loud high belting. The Final Chorus should stay soft and lyrical, just slightly fuller — never a loud rock climax.
 - MOOD: FOLLOW the requested vibe — if the request has a [MOOD DIRECTIVE], reflect THAT mood strongly in the STYLE. When none is given, default to nostalgic and bittersweet. Bright/refreshing/crisp, calm/mellow, dreamy, and romantic city-pop moods are ALL valid — the sound stays sophisticated golden-age city pop, ALWAYS nostalgic underneath, just with a different emotional color.
 - Genre discipline (critical): it is ALWAYS authentic 1980s-90s Japanese city pop — NEVER enka, trot/뽕짝, luk-thung, folk, or traditional music, no matter the mood.
 
 AVOID these sounds: high belting, powerful belting, soaring high notes, rock vocals, screaming, busy drum fills, tom fills, snare rolls (these break the gentle city pop mood and drift toward trot/enka).
-USE freely (pick per the requested mood): nostalgic, bittersweet, mellow, sophisticated, wistful, warm, gentle, soft, lyrical, smooth, golden-age, lush, silky, tender — AND, for brighter moods, bright, refreshing, crisp, sunny, uplifting, sparkling, breezy, dreamy, hazy — always keeping the classy city-pop nostalgia.
+USE freely (pick per the requested mood): nostalgic, bittersweet, mellow, sophisticated, wistful, warm, gentle, soft, lyrical, smooth, golden-age, lush, silky, tender — AND, for brighter moods, bright, refreshing, crisp, sunny, uplifting, sparkling, breezy, dreamy, hazy — always keeping the classy city-pop nostalgia. ALWAYS include groove/phrasing words so it isn't rigid: laid-back groove, relaxed behind-the-beat phrasing, natural syncopation, smooth pocket, easy swing, conversational flow.
 
 CRITICAL: NEVER mention saxophone, sax, brass solos, or horn leads. Keys+guitar+synth driven. Vocals stay gentle and soft — city pop is serene and lyrical, NOT rock."""
 
@@ -260,6 +261,7 @@ Do NOT add a 5th line to any chorus or verse. More lines = song too long.
 LYRICS WRITING RULES — write like a PROFESSIONAL KOREAN LYRICIST (전문 작사가), not an AI:
 - Native, natural {lyric_lang}: the exact word choice, particles, and word order a real Korean songwriter uses. It must NOT read like a translation or like AI text.
 - SINGABLE: natural syllable flow and rhythm that sits on a melody — lines you can actually sing, with a natural breath at each line end. Read them aloud; if a line is clunky to sing, rewrite it.
+- FLOW & GROOVE (make it musical, not rigid): write to a laid-back groove — VARY syllable counts and line lengths so the melody breathes (mix short punchy lines with longer flowing ones within a section). Follow natural Korean speech stress; let phrases begin on a pickup or land slightly off the downbeat, and let a thought spill across a line (enjambment) instead of stopping neatly every line. AVOID uniform, metronomic, same-length lines that push every syllable onto the beat — that "딱딱한 정박" feel is what we're avoiding.
 - SHOW, don't explain: concrete images and small specific moments (a cooling coffee, a bus window, a ringtone that stops) instead of naming the feeling outright — NEVER write "나는 슬프다/외롭다" flatly. Let the emotion rise from the scene.
 - Everyday, conversational Korean — real speech and real-lyric phrasing, a little colloquial where it fits. NOT stiff literary prose, NOT forced poetry, NOT a string of pretty words.
 - Vary line endings naturally (~어, ~지, ~걸, ~는데, ~인데, ~잖아, ~일까, 체언 종결 등). NO monotonous "~다" endings; NO "비야/바람아" addressing objects.
