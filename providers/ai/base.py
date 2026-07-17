@@ -56,7 +56,7 @@ Required elements (vary each time):
 - Guitar: silky funk guitar, smooth funk guitar comping
 - Bass: melodic fretless bass, melodic bass lines (signature citypop)
 - Drums: soft steady drums with MINIMAL fills — no busy drum fills, no tom fills, no snare rolls (excessive fills sound like trot/뽕짝, WRONG for city pop)
-- Vocal: GENTLE, restrained, soft and lyrical low female vocal with warm reverb and tender vibrato. City pop vocals are quiet, intimate, and relaxed, phrased with a natural conversational flow — NEVER belting, NEVER soaring high notes, NEVER rock-style shouting.
+- Vocal: GENTLE, restrained, soft and lyrical low vocal (MALE OR FEMALE) with warm reverb and tender vibrato. City pop vocals are quiet, intimate, and relaxed, phrased with a natural conversational flow. The MALE vocal must be JUST AS soft, quiet and intimate as the female — a low, hushed baritone or soft close-mic tenor, sung gently; NEVER louder, more forceful, or more pushed than a female vocal. NEVER belting, NEVER soaring high notes, NEVER rock-style shouting, NEVER pushing or straining.
 - GROOVE & PHRASING (important): a relaxed, laid-back groove with the vocal sitting slightly BEHIND the beat, in the pocket — natural syncopation, gentle push-and-pull, pickup notes and held tails, conversational timing that breathes and swings a little. Vocals and the band lock into a smooth pocket like real musicians. NOT rigidly on-grid, NOT metronomic/quantized, NOT robotic or every-syllable-on-the-downbeat.
 - DYNAMICS: keep dynamics calm and even THROUGHOUT, including the Final Chorus. City pop builds emotion through warmth and nuance, NOT through loud high belting. The Final Chorus should stay soft and lyrical, just slightly fuller — never a loud rock climax.
 - MOOD: FOLLOW the requested vibe — if the request has a [MOOD DIRECTIVE], reflect THAT mood strongly in the STYLE. When none is given, default to nostalgic and bittersweet. Bright/refreshing/crisp, calm/mellow, dreamy, and romantic city-pop moods are ALL valid — the sound stays sophisticated golden-age city pop, ALWAYS nostalgic underneath, just with a different emotional color.
@@ -396,12 +396,14 @@ _BATCH_FEMALE_VOCALS = [
     "tender mid-low female vocal, mid-20s tenderness, smooth and quiet, glossy reverb, no soaring high notes",
 ]
 
-# Male vocal tones — low to mid range, gentle and restrained (NO belting)
+# Male vocal tones — LOW/soft and just as QUIET and intimate as the female vocals
+# (v1.0.0-alpha.115: male vocals tended to push/belt — force hushed, restrained,
+# never-louder-than-female delivery, favouring low baritone over pushed tenor).
 _BATCH_MALE_VOCALS = [
-    "warm low male vocal, mid-30s maturity, smooth gentle baritone, soft delivery, vintage reverb, never belting",
-    "soft mid-range male vocal, late-20s softness, breathy tender tenor, warm reverb, calm even dynamics",
-    "mellow low male vocal, early-30s composure, rich quiet baritone, subtle vibrato, no loud high notes",
-    "tender mid-low male vocal, early-20s freshness, soft restrained tenor, gentle reverb, laid-back",
+    "gentle low male vocal, mid-30s warmth, smooth soft baritone, hushed and intimate, sung quietly and close-mic, warm reverb, never belting, never pushing, calm even dynamics",
+    "soft low-tenor male vocal, late-20s tenderness, breathy and quiet, restrained and understated, gentle reverb, never pushing, no loud or high notes",
+    "mellow low male vocal, early-30s composure, rich quiet baritone, whisper-soft delivery, subtle vibrato, laid-back and even, no belting, no straining",
+    "tender mid-low male vocal, early-20s softness, soft restrained tenor sung gently and quietly, intimate and even throughout, gentle reverb, never soaring, never forceful",
 ]
 
 # Backward compat alias

@@ -14,9 +14,12 @@ DEFAULT_EXCLUDE = (
     "trot, enka, EDM, rock, hard rock, bleepy sounds, toy percussion, "
     # No drum count-in / stick count leading into the intro
     "drum count-in, count-in, stick count, drum intro, counting in, "
-    # Vocal exclusions — city pop is gentle and lyrical, NOT belted rock
+    # Vocal exclusions — city pop is gentle and lyrical, NOT belted rock.
+    # (male vocals must stay just as soft/quiet as female — no pushing/straining)
     "high belting, belting, powerful belting, screaming vocals, shouting, "
     "loud high notes, soaring high notes, rock vocals, aggressive vocals, "
+    "pushed vocals, forceful vocals, powerful vocals, straining, over-singing, "
+    "loud male vocal, belting male vocal, "
     "vocal runs, melisma, riffing"
 )
 
