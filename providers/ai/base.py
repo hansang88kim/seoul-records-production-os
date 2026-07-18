@@ -155,8 +155,8 @@ GENRE: Authentic 1980s-1990s Japanese city pop (golden-age Tokyo sound), sung in
 THIS SONG'S LANGUAGE & CITY:
 - Write ALL lyrics in {lyric_lang}. This is essential.
 - Era/mood: evoke MID-TO-LATE 1990s {city} city pop — a late-20th-century, analog, pre-smartphone feeling (payphones, pagers, cassette tapes & Walkmans, handwritten letters, late-night radio). Not tied to any one district, and not limited to night-time.
-- City vibe to capture: {vibe}
-- Place names are OPTIONAL and MUST stay RARE. Do NOT lean on district or landmark names, and NEVER repeat the same few (e.g. avoid defaulting to the same handful of districts/rivers every song). Evoke the 90s {city} mood through feeling, light, weather, season, and small everyday detail — NOT by naming places. A specific place name may appear in AT MOST 1 song out of 4, and vary it widely if used at all.
+- Background atmosphere (for YOUR reference ONLY — do NOT quote its place names or the city name into the lyrics): {vibe}
+- The CITY NAME itself ({city}) and ALL place/district/river names are OPTIONAL and MUST stay RARE. Do NOT repeat the city name or the same few places every song (e.g. do NOT keep naming "Saigon" / "Bangkok" — that is exactly the repetition to avoid). Evoke the 90s mood through FEELING, light, weather, season, and small everyday detail — NOT by naming the city or places. The city name may appear in AT MOST 1 song out of 5, if at all, and any specific place at most rarely — vary it widely when used.
 - The musical style is STILL Japanese city pop — only the lyric language and the city's emotional scenery change. Do NOT change the genre to local/traditional music. No local folk instruments, no trot/enka/luk-thung/dangdut. It is sophisticated Japanese-style city pop with {lyric_lang} lyrics about {city}.
 
 CRITICAL RULES:
@@ -422,6 +422,23 @@ _BATCH_MOOD_SHADES = [
     "weekend melancholy in an empty office",
 ]
 
+# v1.0.0-alpha.116: distinct ARRANGEMENT flavors within 80s-90s Japanese citypop
+# so a 5-song batch never feels same-y. These are instrumentation/arrangement
+# shifts (NOT mood words), so they don't fight the requested [MOOD DIRECTIVE].
+# One is appended per track (guaranteed, unlike the replace-if-present tweaks).
+_BATCH_STYLE_FLAVORS = [
+    "arrangement flavor: silky funk guitar forward with airy backing harmonies (AOR-leaning citypop)",
+    "arrangement flavor: warm Rhodes forward with a round bouncy bass and subtle clavinet (mellow boogie groove)",
+    "arrangement flavor: synth-pad forward, spacious and sparse, shimmering chimes",
+    "arrangement flavor: bright clavinet and clean wah guitar with a tight pocket bass (funky citypop)",
+    "arrangement flavor: warm string pads and gentle brushed drums, downtempo and intimate",
+    "arrangement flavor: sparkling synth bells over a light, slightly brighter groove",
+    "arrangement flavor: lush jazzy 7th/9th chord voicings with a brushed swing feel",
+    "arrangement flavor: deep warm bass and muted pad leads, nocturnal and mellow",
+    "arrangement flavor: clean chorus guitar and a laid-back shuffle, west-coast-tinged citypop",
+    "arrangement flavor: soft Wurlitzer with understated, minimal instrumentation, tape-warm",
+]
+
 
 
 def get_batch_vocal(track_no: int, total_tracks: int = 10) -> tuple[str, str]:
@@ -512,6 +529,15 @@ def apply_batch_variation(base_style: str, track_no: int, total_tracks: int = 10
         if old_mood in style:
             style = style.replace(old_mood, mood_new)
             break
+
+    # v1.0.0-alpha.116: GUARANTEE per-track variety — append a distinct
+    # arrangement flavor (the replace-if-present tweaks above only fire when the
+    # AI happened to use a listed token, so batches still looked same-y). This
+    # always applies, so each song in a 5-song batch has its own character while
+    # staying 80s-90s Japanese citypop.
+    if "arrangement flavor:" not in style:
+        flavor = _BATCH_STYLE_FLAVORS[track_no % len(_BATCH_STYLE_FLAVORS)]
+        style = f"{style.rstrip().rstrip('.')}. {flavor}."
 
     return style
 
