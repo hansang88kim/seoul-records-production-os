@@ -337,22 +337,21 @@ def render_youtube_package():
                     st.rerun()
             with rc2:
                 if st.button("🔄 설명", use_container_width=True, key="yt_regen_desc"):
-                    # v1.0.0-alpha.98: regenerate the SEO description (LLM-written,
-                    # mood-aware). Tracklist stays verbatim from the real uploaded
-                    # audio (chapters); translated to the song language if non-Korean.
+                    # v1.0.0-alpha.117: regenerate the SEO description DIRECTLY in
+                    # the song's language (mood-aware, LLM-written). Tracklist stays
+                    # verbatim from the real uploaded audio (chapters).
                     from services.youtube.seo_description import generate_seo_description
-                    desc = generate_seo_description(meta.get("chapters", []),
-                                                    mood=mood, country=country or "Korea",
-                                                    volume=int(volume))
-                    lang = st.session_state.get("yt_language", "korean")
                     from services.youtube.description_translator import (
-                        translate_description, needs_translation)
-                    if needs_translation(lang):
-                        with st.spinner("설명 번역 중…"):
-                            res = translate_description(desc, lang)
-                        desc = res["description"]
-                        meta["description_translated"] = res["translated"]
-                        meta["description_language"] = res["language"]
+                        _LANG_NAMES, needs_translation)
+                    lang = st.session_state.get("yt_language", "korean")
+                    lang_name = _LANG_NAMES.get(lang, "Korean") if needs_translation(lang) else "Korean"
+                    with st.spinner("설명 생성 중…"):
+                        desc = generate_seo_description(meta.get("chapters", []),
+                                                        mood=mood, country=country or "Korea",
+                                                        volume=int(volume), lang_name=lang_name)
+                    if lang_name != "Korean":
+                        meta["description_translated"] = True
+                        meta["description_language"] = lang_name
                     meta["description"] = desc
                     st.session_state["yt_meta"] = meta
                     # v1.0.0-alpha.110: the preview text_area has a key, so it is

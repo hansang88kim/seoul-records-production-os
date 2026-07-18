@@ -325,17 +325,20 @@ def generate_all_metadata(
     if use_seo_template:
         from services.youtube.seo_description import (
             generate_seo_title, generate_seo_description)
+        from services.youtube.description_translator import _LANG_NAMES, needs_translation
+        # v1.0.0-alpha.117: generate the description DIRECTLY in the song's
+        # language instead of writing Korean then translating (translating the
+        # assembled Korean+English SEO block was fragile — the model kept echoing
+        # the Korean). Keywords stay English for SEO.
+        want_lang = bool(translate) and needs_translation(language)
+        lang_name = _LANG_NAMES.get((language or "").strip().lower(), "Korean") if want_lang else "Korean"
         title = generate_seo_title(country or "Korea", volume, mood, len(chapters))
         description = generate_seo_description(chapters, mood=mood,
-                                              country=country or "Korea", volume=volume)
-        if translate:
-            from services.youtube.description_translator import (
-                translate_description, needs_translation)
-            if needs_translation(language):
-                res = translate_description(description, language)
-                description = res["description"]
-                translated_flag = res["translated"]
-                translated_language = res["language"]
+                                              country=country or "Korea", volume=volume,
+                                              lang_name=lang_name)
+        if lang_name != "Korean":
+            translated_flag = True
+            translated_language = lang_name
     else:
         title = generate_title(playlist_title, country, volume, duration_min, mood)
         description = generate_description(

@@ -124,31 +124,34 @@ def generate_seo_title(country: str = "Korea", volume: int = 1, mood: str = "",
 
 
 # ── LLM section generation ───────────────────────────────────────────────────
-def _sections_prompt(mood: str, volume: int, n_tracks: int) -> str:
+def _sections_prompt(mood: str, volume: int, n_tracks: int, lang_name: str = "Korean") -> str:
+    L = lang_name or "Korean"
     return (
         "You are a professional YouTube SEO copywriter for a Korean CITY-POP "
-        "music channel (Seoul Records). Write the variable copy for a PLAYLIST "
-        "video description in KOREAN, optimized for YouTube search and discovery.\n"
+        f"music channel (Seoul Records). Write the variable copy for a PLAYLIST "
+        f"video description in {L} (write ALL prose natively in {L}), optimized "
+        "for YouTube search and discovery.\n"
         "Tone: warm, evocative, tasteful and NATURAL — like a real music "
-        "curator. It must NOT sound cheesy, tacky, generic, or AI-written "
-        "(촌스럽지 않게, 센스있고 자연스럽게). No clickbait, no exclamation spam.\n"
+        f"curator writing in {L}. It must NOT sound cheesy, tacky, generic, or "
+        "AI-written. No clickbait, no exclamation spam.\n"
         "Center EVERYTHING on the given mood/theme so the whole description "
         "clearly reflects it.\n"
         "This is a PLAYLIST of ORIGINAL city-pop songs. Absolutely NO DJ persona, "
-        "NO 'DJ', NO 'DJ HANA', NO '믹스셋/mixset' wording.\n\n"
+        "NO 'DJ', NO 'DJ HANA', NO 'mixset' wording.\n\n"
         f"Context:\n- Korean Seoul City Pop, Volume {volume}, {n_tracks} tracks.\n"
         f"- Overall mood / theme (the heart of this playlist): "
         f"\"{(mood or '서울의 밤, 네온, 그리움').strip()}\".\n\n"
         "Return ONLY a JSON object (no markdown, no code fences) with EXACTLY "
         "these keys:\n"
-        "- \"intro\": 3-6 short evocative Korean lines about Seoul's night, neon, "
+        f"- \"intro\": 3-6 short evocative lines IN {L} about Seoul's night, neon, "
         "and nostalgia that reflect the mood; join the lines with \\n.\n"
         "- \"keywords\": ONE line of 6-9 English emotional SEO keywords, "
-        "comma-separated (e.g. \"1980s Nostalgia, Seoul Retro, Neon Night, ...\").\n"
-        "- \"moods\": ONE line of 4-6 recommended listening scenes WITH emojis, "
-        "separated by ' / ' (e.g. \"루프탑 바 🌇 / 카페 플레이리스트 ☕ / ...\").\n"
+        "comma-separated (e.g. \"1980s Nostalgia, Seoul Retro, Neon Night, ...\"). "
+        "Keep these in ENGLISH regardless of the description language.\n"
+        f"- \"moods\": ONE line of 4-6 recommended listening scenes IN {L} WITH "
+        "emojis, separated by ' / ' (e.g. \"rooftop bar 🌇 / cafe playlist ☕ / ...\").\n"
         "- \"faq\": an array of EXACTLY 3 objects {\"q\":\"...\",\"a\":\"...\"} — "
-        "professional Korean FAQ: (1) what this Seoul city pop is, (2) when it's "
+        f"professional FAQ IN {L}: (1) what this Seoul city pop is, (2) when it's "
         "good to listen, (3) whether it can be played in a cafe/bar — the answer "
         "MUST note the songs are the creator's original works and forbid "
         "unauthorized reproduction/re-upload/editing.\n\n"
@@ -169,11 +172,12 @@ def _extract_json(text: str) -> dict | None:
         return None
 
 
-def _llm_sections(mood: str, volume: int, n_tracks: int) -> dict | None:
-    """Ask OpenAI→Gemini for the variable sections. None on no-key/failure.
-    Reuses the description_translator LLM callers (env-only keys, never logged)."""
+def _llm_sections(mood: str, volume: int, n_tracks: int, lang_name: str = "Korean") -> dict | None:
+    """Ask OpenAI→Gemini for the variable sections, written natively in
+    ``lang_name``. None on no-key/failure. Reuses the description_translator LLM
+    callers (env-only keys, never logged)."""
     from services.youtube.description_translator import call_llm_raw
-    prompt = _sections_prompt(mood, volume, n_tracks)
+    prompt = _sections_prompt(mood, volume, n_tracks, lang_name)
     raw = call_llm_raw(prompt, json_mode=True)   # RAW sections JSON (not {"translated"})
     data = _extract_json(raw or "")
     if data and data.get("intro") and isinstance(data.get("faq"), list) and len(data["faq"]) >= 3:
@@ -212,9 +216,24 @@ def _fallback_sections(mood: str, volume: int, n_tracks: int) -> dict:
             "moods": _DEFAULT_MOODS, "faq": faq}
 
 
-def _assemble(sections: dict, chapters: list[dict], n_tracks: int) -> str:
+# English copyright block for non-Korean descriptions (v1.0.0-alpha.117).
+COPYRIGHT_BLOCK_EN = (
+    "🎵 Copyright Notice\n"
+    "All music and images in this playlist are original works created by the "
+    "producer using AI production tools, released as official tracks.\n\n"
+    "Unauthorized reproduction, redistribution, re-uploading, editing, secondary "
+    "processing, and commercial reuse are strictly prohibited.\n\n"
+    "© All rights reserved. Unauthorized reproduction, distribution, re-uploading, "
+    "editing, or secondary use is strictly prohibited."
+)
+
+
+def _assemble(sections: dict, chapters: list[dict], n_tracks: int,
+              lang_name: str = "Korean") -> str:
+    ko = (lang_name or "Korean") == "Korean"
     tracklist = _format_numbered_tracklist(chapters) or (
-        "00:00:00  01. (트랙 정보는 업로드된 음원 기준으로 자동 생성됩니다)")
+        "00:00:00  01. (트랙 정보는 업로드된 음원 기준으로 자동 생성됩니다)" if ko
+        else "00:00:00  01. (tracklist is auto-generated from the uploaded audio)")
     faq = sections.get("faq", [])[:3]
     faq_lines = []
     for i, item in enumerate(faq, start=1):
@@ -223,30 +242,39 @@ def _assemble(sections: dict, chapters: list[dict], n_tracks: int) -> str:
         faq_lines.append(f"Q{i}. {q}\nA. {a}")
     faq_block = "\n\n".join(faq_lines)
 
+    lbl_kw = "🏖️ 감성 키워드" if ko else "🏖️ Mood Keywords"
+    lbl_moods = "🎧 추천 무드" if ko else "🎧 Recommended Vibes"
+    lbl_full = (f"🎶 총 {n_tracks}곡 연속 재생 (Full Playlist)" if ko
+                else f"🎶 Full Playlist · {n_tracks} tracks")
+    lbl_faq = "FAQ 자주 묻는 질문" if ko else "FAQ"
+    copy_block = COPYRIGHT_BLOCK if ko else COPYRIGHT_BLOCK_EN
+
     return (
         f"{sections.get('intro', '').strip()}\n\n"
-        f"🏖️ 감성 키워드\n{sections.get('keywords', _DEFAULT_KEYWORDS).strip()}\n\n"
-        f"🎧 추천 무드\n{sections.get('moods', _DEFAULT_MOODS).strip()}\n\n"
-        f"🎶 총 {n_tracks}곡 연속 재생 (Full Playlist)\n\n"
+        f"{lbl_kw}\n{sections.get('keywords', _DEFAULT_KEYWORDS).strip()}\n\n"
+        f"{lbl_moods}\n{sections.get('moods', _DEFAULT_MOODS).strip()}\n\n"
+        f"{lbl_full}\n\n"
         f"🎧 Seoul City Pop / Retro Korean City Pop Playlist\n\n"
         f"{tracklist}\n\n"
-        f"FAQ 자주 묻는 질문\n\n"
+        f"{lbl_faq}\n\n"
         f"{faq_block}\n\n"
-        f"{COPYRIGHT_BLOCK}\n\n"
+        f"{copy_block}\n\n"
         f"{HASHTAGS}"
     )
 
 
 def generate_seo_description(chapters: list[dict] | None = None, mood: str = "",
                             country: str = "Korea", volume: int = 1,
-                            use_llm: bool = True) -> str:
+                            use_llm: bool = True, lang_name: str = "Korean") -> str:
     """Full SEO description in the fixed base layout (DJ HANA removed).
 
     Variable prose is LLM-written (OpenAI→Gemini) when a key is present and
-    ``use_llm`` is True; otherwise a mood-aware template. The tracklist is taken
-    verbatim from ``chapters`` (real uploaded audio)."""
+    ``use_llm`` is True; otherwise a mood-aware template. v1.0.0-alpha.117:
+    ``lang_name`` writes the prose DIRECTLY in that language (e.g. "Vietnamese")
+    instead of generating Korean then translating — cleaner and more natural.
+    The tracklist is taken verbatim from ``chapters`` (real uploaded audio)."""
     chapters = chapters or []
     n = len(chapters)
-    sections = (_llm_sections(mood, volume, n) if use_llm else None) \
+    sections = (_llm_sections(mood, volume, n, lang_name) if use_llm else None) \
         or _fallback_sections(mood, volume, n)
-    return _assemble(sections, chapters, n)
+    return _assemble(sections, chapters, n, lang_name)

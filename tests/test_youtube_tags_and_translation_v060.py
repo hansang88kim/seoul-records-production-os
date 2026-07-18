@@ -111,15 +111,21 @@ def test_translation_falls_back_to_korean_on_failure(monkeypatch):
     assert res["description"] == desc
 
 
-def test_generate_all_metadata_translates_when_language_non_korean(monkeypatch):
+def test_generate_all_metadata_generates_in_song_language(monkeypatch):
+    # v1.0.0-alpha.117: description is now generated DIRECTLY in the song's
+    # language (not Korean-then-translated). Inject language-marked sections.
+    import services.youtube.seo_description as SEO
     monkeypatch.setattr(
-        DT, "_translate_text",
-        lambda text, target, provider_order=("openai", "gemini"): f"<{target}>{text}")
+        SEO, "_llm_sections",
+        lambda mood, vol, n, lang_name="Korean": {
+            "intro": f"<{lang_name}>intro", "keywords": "Neon, Retro",
+            "moods": f"<{lang_name}>moods",
+            "faq": [{"q": "a", "a": "b"}, {"q": "c", "a": "d"}, {"q": "e", "a": "f"}]})
     meta = MG.generate_all_metadata(
         "", "Thailand", 1, "", "", 60, language="thai")
     assert meta["description_translated"] is True
     assert meta["description_language"] == "Thai"
-    assert "<Thai>" in meta["description"]
+    assert "<Thai>" in meta["description"]      # prose written in the song language
     # Tags still English regardless of song language.
     for t in meta["tags"]:
         assert t.isascii()
