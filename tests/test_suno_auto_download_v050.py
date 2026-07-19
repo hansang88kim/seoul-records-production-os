@@ -380,20 +380,24 @@ def test_project_album_has_auto_download_button():
     assert 'plan_suno_cleanup(name, provider=_prov)' in src
 
 
-def test_generation_paths_have_auto_pipeline_hook():
-    """생성 완료 즉시(버튼 없이) 자동 다운로드+삭제가 실행되도록 배선 확인."""
+def test_generation_paths_have_no_auto_download_hook():
+    """v1.0.0-alpha.119 — 생성 완료 후 자동 다운로드가 실행되지 않는다.
+
+    음원은 대표님이 suno.com에서 직접 받거나, 프로젝트 관리의 수동 버튼으로 받는다.
+    """
     worker = Path("workers/suno_generation_worker.py").read_text(encoding="utf-8")
-    assert "auto_download_final_version" in worker
+    assert "auto_download_final_version" not in worker
     ui = Path("app/tabs/song_lab.py").read_text(encoding="utf-8")
-    assert ui.count("auto_download_final_version") >= 3  # 버튼 1 + 후크 2
+    # 수동 버튼 1곳(import 줄 + 호출 줄)만 남는다 — 생성 훅은 없다
+    assert ui.count("auto_download_final_version") == 2
+    assert "자동 다운로드 파이프라인 오류" not in ui
+    assert "자동 다운로드 파이프라인 오류" not in worker
 
 
-def test_hooks_no_longer_silently_swallow_failures():
-    """예전엔 except Exception: pass로 완전히 침묵 — 이제는 실패를 보여준다."""
-    worker = Path("workers/suno_generation_worker.py").read_text(encoding="utf-8")
-    assert "자동 다운로드 파이프라인 오류" in worker
+def test_manual_download_button_still_reports_failures():
+    """수동 버튼은 남아있고, 실패를 침묵하지 않는다."""
     ui = Path("app/tabs/song_lab.py").read_text(encoding="utf-8")
-    assert "자동 다운로드 파이프라인 오류" in ui
+    assert 'st.error(f"❌ {fl[\'title\']}' in ui
 
 
 try:

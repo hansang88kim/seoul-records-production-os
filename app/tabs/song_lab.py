@@ -332,24 +332,8 @@ def _generate_one_from_draft(draft: dict, base_params: dict, project: str = "기
         except Exception:
             pass
 
-        # ⬇️ 자동 파이프라인 (v1.0.0-alpha.52): 180~240s 우선순위로 최종본
-        # 자동 다운로드(FLAT) + 나머지 버전 Suno 휴지통 — 선택 불필요.
-        try:
-            from services.suno_auto_download import auto_download_final_version
-            _adl = auto_download_final_version(project)
-            if _adl.get("downloaded"):
-                st.success("⬇️ 최종본 자동 저장: " + ", ".join(
-                    f"{d['title']} ({d.get('duration', 0):.0f}s)"
-                    for d in _adl["downloaded"]))
-            if _adl.get("deleted"):
-                st.info(f"🗑 Suno에서 나머지 버전 {len(_adl['deleted'])}개 삭제됨")
-            if _adl.get("failed"):
-                st.warning("⬇️ 자동 다운로드 실패: " + "; ".join(
-                    f"{f['title']}({f.get('reason', f.get('error',''))})"
-                    for f in _adl["failed"]))
-        except Exception as _e:
-            st.warning(f"⬇️ 자동 다운로드 파이프라인 오류(생성 결과에는 영향 없음): "
-                       f"{type(_e).__name__}: {_e}")
+        # 자동 다운로드 훅은 제거됨 (v1.0.0-alpha.119) — 음원은 suno.com에서
+        # 직접 받거나, 💿 프로젝트 관리의 ⬇️ 최종본 다운로드 버튼으로 받는다.
     except Exception as e:
         err_status = getattr(e, "status", "failed")
         result["status"] = "failed"
