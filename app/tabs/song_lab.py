@@ -11,7 +11,7 @@ from pathlib import Path
 from datetime import datetime, timezone
 
 import streamlit as st
-from app.ui.composer_panel import render_composer_panel
+from app.ui.composer_panel import render_composer_panel, SUNO_MODELS, DEFAULT_SUNO_MODEL
 from app.ui.song_card import render_song_list
 
 
@@ -171,7 +171,7 @@ def _start_quick_single_job(params: dict, project: str = "") -> str | None:
         "ai_provider": "",
     }]
     settings = {
-        "model": params.get("model", "v5.5"),
+        "model": params.get("model", "v5"),
         "vocal_gender": params.get("vocal_gender", "Female"),
         "instrumental": params.get("instrumental", False),
         "weirdness": params.get("weirdness", 35),
@@ -304,7 +304,7 @@ def _generate_one_from_draft(draft: dict, base_params: dict, project: str = "기
 
         options = {
             "exclude_styles": exclude_list,
-            "model": base_params.get("model", "v5.5"),
+            "model": base_params.get("model", "v5"),
             "vocal_gender": base_params.get("vocal_gender", "Female"),
             "instrumental": base_params.get("instrumental", False),
             "weirdness": base_params.get("weirdness", 35),
@@ -392,7 +392,7 @@ def _generate_one_auto(concept: str, ai_provider_name: str, base_params: dict) -
         "lyrics": pkg.lyrics,
         "style": pkg.style,  # clean style only
         "exclude_styles": exclude_list,  # → --exclude flag
-        "model": base_params.get("model", "v5.5"),
+        "model": base_params.get("model", "v5"),
         "vocal_gender": base_params.get("vocal_gender", "Female"),
         "instrumental": base_params.get("instrumental", False),
         "weirdness": base_params.get("weirdness", 35),
@@ -563,7 +563,7 @@ def _render_auto_batch():
     with st.expander("⚙️ 공통 설정 (모델 / 보컬)", expanded=False):
         col_m, col_v = st.columns(2)
         with col_m:
-            model = st.selectbox("모델", ["v5.5", "v5", "v4.5", "v4", "v3.5"], index=0, key="auto_model")
+            model = st.selectbox("모델", SUNO_MODELS, index=SUNO_MODELS.index(DEFAULT_SUNO_MODEL), key="auto_model")
         with col_v:
             vocal = st.selectbox("보컬", ["Female", "Male", "Instrumental"], index=0, key="auto_vocal")
 

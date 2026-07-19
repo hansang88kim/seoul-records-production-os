@@ -77,7 +77,7 @@ def test_ai_song_package_schema():
 def test_ai_song_package_defaults():
     """SongPromptPackage defaults match Seoul Records spec."""
     pkg = SongPromptPackage()
-    assert pkg.model == "v5.5"
+    assert pkg.model == "v5"
     assert pkg.vocal_gender == "Female"
     assert pkg.weirdness == 35
     assert pkg.style_influence == 70

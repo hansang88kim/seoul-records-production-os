@@ -22,7 +22,7 @@ class SongPromptPackage:
     lyrics: str = ""
     exclude_styles: str = ""
     language_pack: str = "ko_kr_seoul"
-    model: str = "v5.5"
+    model: str = "v5"
     vocal_gender: str = "Female"
     weirdness: int = 35
     style_influence: int = 70

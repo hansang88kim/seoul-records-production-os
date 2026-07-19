@@ -42,7 +42,7 @@ class TrackPrompt(BaseModel):
     weirdness: int = 30
     style_influence: int = 70
     instrumental: bool = False
-    model: str = "v5.5"
+    model: str = "v5"
     persona_voice_id: Optional[str] = None
 
     title_locked: bool = False

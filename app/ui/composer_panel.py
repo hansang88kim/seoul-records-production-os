@@ -41,6 +41,7 @@ CITYPOP_STYLE_PRESET = (
 )
 
 SUNO_MODELS = ["v5.5", "v5", "v4.5", "v4", "v3.5"]
+DEFAULT_SUNO_MODEL = "v5"
 LYRICS_PLACEHOLDER = """[Intro]
 (instrumental intro — soft pads/keys only, no drums, no count-in)
 
@@ -311,7 +312,7 @@ def render_composer_panel() -> dict | None:
     # Controls
     col_m, col_v = st.columns(2)
     with col_m:
-        model = st.selectbox("모델", SUNO_MODELS, index=0, key="form_model")
+        model = st.selectbox("모델", SUNO_MODELS, index=SUNO_MODELS.index(DEFAULT_SUNO_MODEL), key="form_model")
     with col_v:
         vocal = st.selectbox("보컬", ["Female", "Male", "Instrumental"], index=0, key="form_vocal")
 

@@ -117,7 +117,7 @@ def run_job(job_id: str):
             track_vocal = draft.get("vocal_gender") or settings.get("vocal_gender", "Female")
             options = {
                 "exclude_styles": exclude_list,
-                "model": settings.get("model", "v5.5"),
+                "model": settings.get("model", "v5"),
                 "vocal_gender": track_vocal,
                 "instrumental": settings.get("instrumental", False),
                 "weirdness": settings.get("weirdness", 35),
@@ -149,7 +149,7 @@ def run_job(job_id: str):
                     "tags_sent": clean_style,
                     "lyrics_text_hash": compute_prompt_hash(title, style, lyrics),
                     "exclude_sent": options.get("exclude_styles", []),
-                    "model_sent": options.get("model", "v5.5"),
+                    "model_sent": options.get("model", "v5"),
                     "vocal_sent": options.get("vocal_gender", "Female"),
                     "weirdness_sent": options.get("weirdness", 35),
                     "style_influence_sent": options.get("style_influence", 70),
@@ -183,7 +183,7 @@ def run_job(job_id: str):
                     "provider": "suno_cli",
                     "provider_track_id": task_id,
                     "provider_title": title,
-                    "provider_model": options.get("model", "v5.5"),
+                    "provider_model": options.get("model", "v5"),
                     "provider_status": "submitted",
                     "download_note": "다운로드 안 함 — suno.com에서 직접 다운로드",
                     "parsed_at": datetime.now(timezone.utc).isoformat(),
