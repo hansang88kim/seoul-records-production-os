@@ -105,7 +105,56 @@ LANGUAGES: dict[str, dict] = {
             "loneliness of a fast-changing, vibrant city"
         ),
     },
+    "english": {
+        "label": "영어 (뉴욕)",
+        "lyric_language": "English",
+        "native_name": "English",
+        "city": "New York",
+        "city_native": "New York",
+        "locations": [
+            "Brooklyn", "Manhattan", "Hudson", "Queens", "Chelsea", "SoHo",
+            "the Village", "Astoria", "Harlem", "Coney Island",
+        ],
+        "title_examples": [
+            "After the Rain", "Late Reply", "Somewhere Uptown", "Nothing Happened Tonight",
+        ],
+        "char_target": "1000-1400 characters (Latin script needs ~3x Korean)",
+        "line_chars": "6-10 syllables per line (roughly 30-45 characters)",
+        "char_range": (1000, 1400),
+        "vibe": (
+            "late-90s New York evenings, warm light on brownstone steps, a subway "
+            "car crossing the bridge at dusk, rain on a yellow cab window, rooftops "
+            "in early summer, the tender restlessness of a city that never settles"
+        ),
+    },
+    "spanish": {
+        "label": "스페인어 (바르셀로나)",
+        "lyric_language": "Spanish",
+        "native_name": "Español",
+        "city": "Barcelona",
+        "city_native": "Barcelona",
+        "locations": [
+            "Barceloneta", "Gràcia", "Eixample", "Montjuïc", "El Born",
+            "Poblenou", "Raval", "Gòtic", "Sant Antoni",
+        ],
+        "title_examples": [
+            "Después de la lluvia", "Tarde de verano", "No dije nada", "Luz de agosto",
+        ],
+        "char_target": "1000-1400 characters (Latin script needs ~3x Korean)",
+        "line_chars": "6-10 syllables per line (roughly 30-45 characters)",
+        "char_range": (1000, 1400),
+        "vibe": (
+            "late-90s Barcelona summers, Mediterranean light on the seafront, warm "
+            "evening air along the Barceloneta boardwalk, palm shadows on tiled "
+            "pavements, a balcony at dusk, the gentle melancholy of a season ending"
+        ),
+    },
 }
+
+# Lyric character band per language (min, max), used by build_system_prompt.
+# Korean/Japanese/Thai and the existing entries keep the original 320-400 band;
+# Latin-script languages need far more characters for the same syllable count.
+DEFAULT_CHAR_RANGE = (320, 400)
 
 DEFAULT_LANGUAGE = "korean"
 
@@ -118,3 +167,8 @@ def get_language(key: str) -> dict:
 def language_choices() -> list[tuple[str, str]]:
     """Return [(key, label), ...] for UI selectors."""
     return [(k, v["label"]) for k, v in LANGUAGES.items()]
+
+
+def char_range(key: str) -> tuple[int, int]:
+    """(min, max) lyric characters for a language. Defaults to the Korean band."""
+    return get_language(key).get("char_range", DEFAULT_CHAR_RANGE)

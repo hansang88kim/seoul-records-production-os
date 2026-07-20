@@ -35,7 +35,7 @@ class SongPromptPackage:
 
 # ─── System Prompt ───────────────────────────────────────────────────────────
 
-from providers.ai.languages import get_language, DEFAULT_LANGUAGE
+from providers.ai.languages import get_language, char_range, DEFAULT_LANGUAGE
 
 
 # Language-independent STYLE guidance (the musical sound never changes).
@@ -132,6 +132,60 @@ def apply_mood_to_style(style: str, mood_key: str) -> str:
     return f"{style.rstrip().rstrip('.')}. Mood: {kw}."
 
 
+def _writing_rules_head(is_korean: bool, lyric_lang: str) -> str:
+    """Opening of LYRICS WRITING RULES. Korean keeps its original wording verbatim."""
+    if is_korean:
+        return """LYRICS WRITING RULES — write like a PROFESSIONAL KOREAN LYRICIST (전문 작사가), not an AI:
+- Native, natural Korean: the exact word choice, particles, and word order a real Korean songwriter uses. It must NOT read like a translation or like AI text.
+- SINGABLE: natural syllable flow and rhythm that sits on a melody — lines you can actually sing, with a natural breath at each line end. Read them aloud; if a line is clunky to sing, rewrite it.
+- FLOW & GROOVE (make it musical, not rigid): write to a laid-back groove — VARY syllable counts and line lengths so the melody breathes (mix short punchy lines with longer flowing ones within a section). Follow natural Korean speech stress; let phrases begin on a pickup or land slightly off the downbeat, and let a thought spill across a line (enjambment) instead of stopping neatly every line. AVOID uniform, metronomic, same-length lines that push every syllable onto the beat — that "딱딱한 정박" feel is what we're avoiding.
+- SHOW, don't explain: concrete images and small specific moments (a cooling coffee, a bus window, a ringtone that stops) instead of naming the feeling outright — NEVER write "나는 슬프다/외롭다" flatly. Let the emotion rise from the scene.
+- Everyday, conversational Korean — real speech and real-lyric phrasing, a little colloquial where it fits. NOT stiff literary prose, NOT forced poetry, NOT a string of pretty words.
+- Vary line endings naturally (~어, ~지, ~걸, ~는데, ~인데, ~잖아, ~일까, 체언 종결 등). NO monotonous "~다" endings; NO "비야/바람아" addressing objects."""
+    return f"""LYRICS WRITING RULES — write like a PROFESSIONAL {lyric_lang.upper()} LYRICIST, not an AI:
+- Native, natural {lyric_lang}: the exact word choice, idiom and word order a real {lyric_lang} songwriter uses. It must NOT read like a translation from Korean or Japanese, and NOT like AI text.
+- SINGABLE: natural syllable flow and rhythm that sits on a melody — lines you can actually sing, with a natural breath at each line end. Read them aloud; if a line is clunky to sing, rewrite it.
+- FLOW & GROOVE (make it musical, not rigid): write to a laid-back groove — VARY syllable counts and line lengths so the melody breathes (mix short punchy lines with longer flowing ones within a section). Follow natural {lyric_lang} speech stress; let phrases begin on a pickup or land slightly off the downbeat, and let a thought spill across a line (enjambment) instead of stopping neatly every line. AVOID uniform, metronomic, same-length lines that push every syllable onto the beat.
+- SHOW, don't explain: concrete images and small specific moments (a cooling coffee, a bus window, a ringtone that stops) instead of naming the feeling outright — never flatly state "I am sad / I am lonely". Let the emotion rise from the scene.
+- Everyday, conversational {lyric_lang} — real speech and real-lyric phrasing, a little colloquial where it fits. NOT stiff literary prose, NOT forced poetry, NOT a string of pretty words.
+- Vary line endings and avoid a monotonous rhyme scheme. Rhyme only where it falls naturally — forced end-rhyme on every line reads as amateur/AI. Do NOT address objects ("oh rain, oh wind")."""
+
+
+def _title_style_block(is_korean: bool, lyric_lang: str, title_examples: str) -> str:
+    """TITLE STYLE section. Korean keeps its original wording verbatim."""
+    if is_korean:
+        return f"""TITLE STYLE — title it like a PROFESSIONAL KOREAN LYRICIST (전문 작사가) in {lyric_lang}:
+- Draw the title from THIS song's own core image or feeling — natural and evocative, like a real Korean song title, NOT a geographic catalog or a keyword list.
+- Short (2-6 words), natural spoken {lyric_lang}, evocative. It should feel like a line a real songwriter would pick.
+- NO commas in titles.
+- NO "location + 밤/거리/블루스/기억/추억" formula.
+- In a 5-song batch, use a city place name in AT MOST 1 title.
+- The other 4 titles should be mood-based, not location-based.
+
+GOOD title examples (natural, like real songs):
+"밤이 지나면", "늦은 대답", "비가 그친 뒤", "오늘은 여기까지",
+"아무 일 없던 밤", "조금 늦은 마음", "멀어진 계절", "다시 걷는 밤",
+"창가의 불빛", "별일 아닌 척", "여름이 가도", "돌아보지 마",
+"마지막 인사처럼", "천천히 사라져", "말하지 못한 채"
+
+BAD title examples (formulaic, auto-generated feel):
+"서울의 밤거리", "청계천 거리", "명동의 밤", "을지로 블루스",
+"한강의 기억", "남산의 추억", "서울의 그리움", "청계천 거리에서\""""
+    return f"""TITLE STYLE — title it like a PROFESSIONAL LYRICIST writing in {lyric_lang}:
+- Draw the title from THIS song's own core image or feeling — natural and evocative, like a real {lyric_lang} song title, NOT a geographic catalog or a keyword list.
+- Short (2-6 words), natural spoken {lyric_lang}, evocative. It should feel like a line a real songwriter would pick.
+- NO commas in titles.
+- NO "place name + night/street/blues/memory" formula.
+- In a 5-song batch, use a city place name in AT MOST 1 title.
+- The other 4 titles should be mood-based, not location-based.
+
+GOOD title examples in {lyric_lang} (natural, like real songs): {title_examples}
+Write titles with that feel — but ORIGINAL, never reuse these.
+
+BAD titles (formulaic, auto-generated feel): the city or a district name glued to
+"night" / "street" / "blues" / "memory" / "nostalgia"."""
+
+
 def build_system_prompt(lang_key: str = DEFAULT_LANGUAGE) -> str:
     """
     Build the A&R/songwriter system prompt for a given lyric language.
@@ -139,6 +193,9 @@ def build_system_prompt(lang_key: str = DEFAULT_LANGUAGE) -> str:
     and the CITY/LOCALE emotion change per language.
     """
     lang = get_language(lang_key)
+    is_korean = lang["lyric_language"] == "Korean"
+    lo, hi = char_range(lang_key)
+    mid = lo + int((hi - lo) * 0.5)
     lyric_lang = lang["lyric_language"]
     city = lang["city"]
     city_native = lang["city_native"]
@@ -169,23 +226,7 @@ CRITICAL RULES:
 - Total lyric content: {char_target} (not counting section headers).
 - BANNED inside sung lines: sax lead, drum fill-ins, tom fills, snare rolls, EDM, trot, enka
 
-TITLE STYLE — title it like a PROFESSIONAL KOREAN LYRICIST (전문 작사가) in {lyric_lang}:
-- Draw the title from THIS song's own core image or feeling — natural and evocative, like a real Korean song title, NOT a geographic catalog or a keyword list.
-- Short (2-6 words), natural spoken {lyric_lang}, evocative. It should feel like a line a real songwriter would pick.
-- NO commas in titles.
-- NO "location + 밤/거리/블루스/기억/추억" formula.
-- In a 5-song batch, use a city place name in AT MOST 1 title.
-- The other 4 titles should be mood-based, not location-based.
-
-GOOD title examples (natural, like real songs):
-"밤이 지나면", "늦은 대답", "비가 그친 뒤", "오늘은 여기까지",
-"아무 일 없던 밤", "조금 늦은 마음", "멀어진 계절", "다시 걷는 밤",
-"창가의 불빛", "별일 아닌 척", "여름이 가도", "돌아보지 마",
-"마지막 인사처럼", "천천히 사라져", "말하지 못한 채"
-
-BAD title examples (formulaic, auto-generated feel):
-"서울의 밤거리", "청계천 거리", "명동의 밤", "을지로 블루스",
-"한강의 기억", "남산의 추억", "서울의 그리움", "청계천 거리에서"
+{_title_style_block(is_korean, lyric_lang, title_examples)}
 
 Batch diversity: if generating multiple songs, NEVER repeat similar titles.
 Each title must feel like it could be from a different album.
@@ -204,10 +245,10 @@ Rules:
 - Ground it in specific, sensory mid-1990s {city} everyday life (a subway car, a rooftop, a one-room, a late bus, a payphone, a cassette, rain on a window, streetlights) — concrete and truly felt, WITHOUT leaning on district/landmark names. Avoid clichés and melodrama.
 
 LYRICS FORMAT — follow this EXACT structure for natural 3:30 duration.
-Lyrics must be 320-400 characters (sung text only, excluding section headers). HARD CAP: 400 chars MAX. HARD FLOOR: 320 chars MIN. Target duration: 3:30-3:50.
-If over 400 chars, CUT words until under 400. NEVER exceed 400.
-If under 320 chars, ADD natural phrases until at least 320. NEVER go below 320.
-If under 360 chars, ADD natural phrases to reach 360.
+Lyrics must be {lo}-{hi} characters (sung text only, excluding section headers). HARD CAP: {hi} chars MAX. HARD FLOOR: {lo} chars MIN. Target duration: 3:30-3:50.
+If over {hi} chars, CUT words until under {hi}. NEVER exceed {hi}.
+If under {lo} chars, ADD natural phrases until at least {lo}. NEVER go below {lo}.
+If under {mid} chars, ADD natural phrases to reach {mid}.
 
 STRUCTURE (10 sections — this length produces ~3:30-3:50):
 
@@ -258,13 +299,7 @@ Do NOT add a 5th line to any chorus or verse. More lines = song too long.
 
 {_STYLE_GUIDANCE}
 
-LYRICS WRITING RULES — write like a PROFESSIONAL KOREAN LYRICIST (전문 작사가), not an AI:
-- Native, natural {lyric_lang}: the exact word choice, particles, and word order a real Korean songwriter uses. It must NOT read like a translation or like AI text.
-- SINGABLE: natural syllable flow and rhythm that sits on a melody — lines you can actually sing, with a natural breath at each line end. Read them aloud; if a line is clunky to sing, rewrite it.
-- FLOW & GROOVE (make it musical, not rigid): write to a laid-back groove — VARY syllable counts and line lengths so the melody breathes (mix short punchy lines with longer flowing ones within a section). Follow natural Korean speech stress; let phrases begin on a pickup or land slightly off the downbeat, and let a thought spill across a line (enjambment) instead of stopping neatly every line. AVOID uniform, metronomic, same-length lines that push every syllable onto the beat — that "딱딱한 정박" feel is what we're avoiding.
-- SHOW, don't explain: concrete images and small specific moments (a cooling coffee, a bus window, a ringtone that stops) instead of naming the feeling outright — NEVER write "나는 슬프다/외롭다" flatly. Let the emotion rise from the scene.
-- Everyday, conversational Korean — real speech and real-lyric phrasing, a little colloquial where it fits. NOT stiff literary prose, NOT forced poetry, NOT a string of pretty words.
-- Vary line endings naturally (~어, ~지, ~걸, ~는데, ~인데, ~잖아, ~일까, 체언 종결 등). NO monotonous "~다" endings; NO "비야/바람아" addressing objects.
+{_writing_rules_head(is_korean, lyric_lang)}
 - A memorable, natural HOOK in the chorus — repeatable and emotionally true, catchy but never cheesy or childish.
 - The BRIDGE turns inward: a small shift, doubt, or realization — not just more of the same.
 - NO clichés, NO instrument names in sung lines, NO random English filler (only if it feels genuinely natural). Original only — never copy existing songs.

@@ -42,6 +42,8 @@ _LANG_NAMES = {
     "thai": "Thai",
     "vietnamese": "Vietnamese",
     "indonesian": "Indonesian (Bahasa Indonesia)",
+    "english": "English",
+    "spanish": "Spanish",
 }
 
 _TRACKLIST_MARKER = "🎧 Seoul City Pop / Retro Korean City Pop Playlist"

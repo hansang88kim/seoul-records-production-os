@@ -294,6 +294,8 @@ def render_youtube_package():
             "thai": "ไทย (태국어로 번역)",
             "vietnamese": "Tiếng Việt (베트남어로 번역)",
             "indonesian": "Bahasa Indonesia (인도네시아어로 번역)",
+            "english": "English (영어로 생성)",
+            "spanish": "Español (스페인어로 생성)",
         }
         yt_language = st.selectbox(
             "곡 언어 / 설명 번역", list(lang_labels.keys()),
