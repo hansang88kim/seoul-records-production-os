@@ -32,7 +32,7 @@ def render_setup(monkeypatch, tmp_path):
     from services.thumbnail import asset_types as AT
 
     tracks = pb.scan_mp3_files()
-    plan = pb.build_playlist_plan(tracks, 60, True)
+    plan = pb.build_playlist_plan(tracks)
     sp = str(tmp_path / "session")
     lib = build_overlay_asset_library(sp, plan, "#ff4d6d", "구독")
     viz = visualizer_config("citypop_glow", "#ff4d6d")
@@ -144,12 +144,16 @@ def test_cta_enable_expression_every_5_minutes():
 def test_cta_schedule_generated_at_5min_intervals(render_setup):
     overlay_plan = render_setup["plans"]["overlay_plan"]
     schedule = overlay_plan["cta_sticker"]["schedule"]
-    # 60-min video → CTA at 5,10,15,... minutes
-    assert len(schedule) >= 5
-    # First window starts at 300s (5 min)
+    total = render_setup["plan"]["total_seconds"]
+
+    # v1.0.0-alpha.121: 영상 길이는 업로드한 곡 길이의 합 — 5분마다 하나씩,
+    # 총 길이를 넘지 않는 만큼만.
+    assert len(schedule) == int((total - 1) // 300)
     assert schedule[0]["start_sec"] == 300
-    # Each window is ~10s
-    assert schedule[0]["end_sec"] - schedule[0]["start_sec"] == 12
+    for i, win in enumerate(schedule):
+        assert win["start_sec"] == 300 * (i + 1)
+        assert win["end_sec"] - win["start_sec"] == 12
+        assert win["start_sec"] < total
 
 
 # ─── Now Playing schedule from chapters ──────────────────────────────────────

@@ -43,7 +43,7 @@ def test_video_renderer_accepts_mp3_without_wav(mp3_outputs):
     assert len(tracks) >= 2
     # None of them are WAV
     assert all(t["path"].endswith(".mp3") for t in tracks)
-    plan = build_playlist_plan(tracks, target_minutes=60, repeat_until_target=True)
+    plan = build_playlist_plan(tracks)
     assert plan["entries"]
 
 
@@ -98,27 +98,27 @@ def test_video_renderer_no_warning_for_branded(tmp_path):
     # branded thumbnail is now preferred — no warning
 
 
-# ─── Playlist target duration ────────────────────────────────────────────────
+# ─── Playlist length = sum of the uploaded tracks (v1.0.0-alpha.121) ─────────
 
-def test_playlist_builder_target_duration_60min(mp3_outputs):
+def test_playlist_plays_each_track_once(mp3_outputs):
+    """반복 로직 제거 — 업로드한 곡 길이 그대로."""
     from services.video.playlist_builder import scan_mp3_files, build_playlist_plan
     tracks = scan_mp3_files()
-    plan = build_playlist_plan(tracks, target_minutes=60, repeat_until_target=True)
-    # Total should reach at least 60 minutes (3600s) via repeat
-    assert plan["total_seconds"] >= 3600
-    assert plan["target_seconds"] == 3600
-    assert plan["repeat"] is True
-    # Chapters exist
-    assert len(plan["chapters"]) >= 1
+    plan = build_playlist_plan(tracks)
+
+    assert len(plan["entries"]) == len(tracks)
+    assert len(plan["chapters"]) == len(tracks)
+    expected = round(sum(t["duration_sec"] for t in tracks), 2)
+    assert plan["total_seconds"] == pytest.approx(expected, abs=0.05)
 
 
-def test_playlist_target_65_and_70(mp3_outputs):
+def test_playlist_has_no_target_or_repeat_keys(mp3_outputs):
     from services.video.playlist_builder import scan_mp3_files, build_playlist_plan
-    tracks = scan_mp3_files()
-    for minutes in (65, 70):
-        plan = build_playlist_plan(tracks, target_minutes=minutes, repeat_until_target=True)
-        assert plan["total_seconds"] >= minutes * 60
-        assert plan["target_seconds"] == minutes * 60
+    plan = build_playlist_plan(scan_mp3_files())
+    assert "target_seconds" not in plan
+    assert "repeat" not in plan
+    for ch in plan["chapters"]:
+        assert "(반복" not in ch["title"]
 
 
 # ─── Preview render ──────────────────────────────────────────────────────────
@@ -127,7 +127,7 @@ def test_preview_render_command_created(mp3_outputs, tmp_path):
     from services.video.playlist_builder import scan_mp3_files, build_playlist_plan
     from services.video.render_plan import build_mp3_concat_list, build_preview_command
     tracks = scan_mp3_files()
-    plan = build_playlist_plan(tracks, 60, True)
+    plan = build_playlist_plan(tracks)
     out_dir = str(tmp_path / "render")
     concat = build_mp3_concat_list(out_dir, plan)
     cmd = build_preview_command(concat, "/bg.png", out_dir, seconds=30)
@@ -153,7 +153,7 @@ def test_canva_asset_library_exists(mp3_outputs, tmp_path):
     except ImportError:
         pytest.skip("PIL not available")
     tracks = scan_mp3_files()
-    plan = build_playlist_plan(tracks, 60, True)
+    plan = build_playlist_plan(tracks)
     sp = str(tmp_path / "session")
     lib = build_overlay_asset_library(sp, plan, "#ff4d6d", "구독+좋아요")
     assert AT.NOW_PLAYING_CARD_ASSET in lib
@@ -359,7 +359,7 @@ def test_overlay_plan_layer_order(mp3_outputs, tmp_path):
     except ImportError:
         pytest.skip("PIL not available")
     tracks = scan_mp3_files()
-    plan = build_playlist_plan(tracks, 60, True)
+    plan = build_playlist_plan(tracks)
     sp = str(tmp_path / "session")
     lib = build_overlay_asset_library(sp, plan, "#f00", "구독")
     viz = visualizer_config()
@@ -387,7 +387,7 @@ def test_overlay_plan_uses_png_not_drawtext(mp3_outputs, tmp_path):
     except ImportError:
         pytest.skip("PIL not available")
     tracks = scan_mp3_files()
-    plan = build_playlist_plan(tracks, 60, True)
+    plan = build_playlist_plan(tracks)
     sp = str(tmp_path / "session")
     lib = build_overlay_asset_library(sp, plan, "#f00", "구독")
     plans = build_render_plan(sp, plan, {"path": "/bg.png"}, lib, visualizer_config())
@@ -410,7 +410,7 @@ def test_no_fake_wav_created(mp3_outputs, tmp_path):
     except ImportError:
         pytest.skip("PIL not available")
     tracks = scan_mp3_files()
-    plan = build_playlist_plan(tracks, 60, True)
+    plan = build_playlist_plan(tracks)
     out_dir = str(tmp_path / "render")
     concat = build_mp3_concat_list(out_dir, plan)
     # Default: no audio mix file at all
@@ -440,7 +440,7 @@ def test_center_title_off_by_default(mp3_outputs, tmp_path):
     except ImportError:
         pytest.skip("PIL not available")
     tracks = scan_mp3_files()
-    plan = build_playlist_plan(tracks, 60, True)
+    plan = build_playlist_plan(tracks)
     sp = str(tmp_path / "session")
     lib = build_overlay_asset_library(sp, plan, "#f00", "구독")
     plans = build_render_plan(sp, plan, {"path": "/bg.png"}, lib, visualizer_config())
@@ -459,7 +459,7 @@ def test_render_outputs_saved(mp3_outputs, tmp_path):
     except ImportError:
         pytest.skip("PIL not available")
     tracks = scan_mp3_files()
-    plan = build_playlist_plan(tracks, 60, True)
+    plan = build_playlist_plan(tracks)
     out_dir = str(tmp_path / "render")
     sp = str(tmp_path / "session")
     lib = build_overlay_asset_library(sp, plan, "#f00", "구독")

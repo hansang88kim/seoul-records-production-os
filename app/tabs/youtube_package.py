@@ -116,14 +116,6 @@ def _render_mp3_chapter_builder():
         chosen = [{"path": str(d / n), "name": n, "duration_sec": _audio_duration(str(d / n))}
                   for n in order]
 
-        c1, c2 = st.columns(2)
-        with c1:
-            target = st.radio("목표 길이", [60, 65, 70], horizontal=True,
-                              format_func=lambda m: f"{m}분", key="yt_chap_target")
-        with c2:
-            repeat = st.checkbox("목표 길이까지 반복 (반복분도 타임스탬프에 표시)",
-                                value=True, key="yt_chap_repeat")
-
         # per-track durations that couldn't be read → warn (would break timing)
         missing = [t["name"] for t in chosen if not t.get("duration_sec", 0) > 0]
         if missing:
@@ -134,7 +126,7 @@ def _render_mp3_chapter_builder():
         # audio is uploaded the tracklist is built and fed into 메타데이터 생성, where
         # it appears inside the SEO description (and the 챕터 section). The tracklist
         # is NOT shown standalone here (removed per request).
-        plan = build_playlist_plan(chosen, target, repeat)
+        plan = build_playlist_plan(chosen)
         path = _chap_upload_dir() / "uploaded_chapters.txt"
         path.write_text("⏱ Tracklist\n" + format_chapters_txt(plan), encoding="utf-8")
         tot = int(plan["total_seconds"])
@@ -332,9 +324,14 @@ def render_youtube_package():
                 if st.button("🔄 제목", use_container_width=True, key="yt_regen_title"):
                     # v1.0.0-alpha.98: SEO city-pop playlist title (DJ HANA removed).
                     from services.youtube.seo_description import generate_seo_title
+                    from services.youtube.description_translator import (
+                        _LANG_NAMES, needs_translation)
+                    _lang = st.session_state.get("yt_language", "korean")
+                    _lname = (_LANG_NAMES.get(_lang, "Korean")
+                              if needs_translation(_lang) else "Korean")
                     meta["title"] = generate_seo_title(
                         country or "Korea", int(volume), mood,
-                        len(meta.get("chapters", [])))
+                        len(meta.get("chapters", [])), lang_name=_lname)
                     st.session_state["yt_meta"] = meta
                     st.rerun()
             with rc2:

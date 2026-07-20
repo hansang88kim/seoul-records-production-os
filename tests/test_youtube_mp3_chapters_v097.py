@@ -23,12 +23,13 @@ def test_scan_chapter_uploads_finds_audio_ignores_other(monkeypatch, tmp_path):
     assert got == {"song_a.mp3", "song_b.wav"}
 
 
-def test_generated_tracklist_has_cumulative_timestamps_and_repeats(tmp_path):
+def test_generated_tracklist_has_cumulative_timestamps(tmp_path):
+    """v1.0.0-alpha.121: 각 곡 1회 — 반복 없이 누적 타임스탬프만."""
     tracks = [
         {"path": "a.mp3", "name": "track-A.mp3", "duration_sec": 178},   # 2:58
         {"path": "b.mp3", "name": "track-B.mp3", "duration_sec": 180},   # 3:00
     ]
-    plan = build_playlist_plan(tracks, 60, repeat_until_target=True)
+    plan = build_playlist_plan(tracks)
     txt = "⏱ Tracklist\n" + format_chapters_txt(plan)
     path = tmp_path / "uploaded_chapters.txt"
     path.write_text(txt, encoding="utf-8")
@@ -37,9 +38,10 @@ def test_generated_tracklist_has_cumulative_timestamps_and_repeats(tmp_path):
     # header line skipped; cumulative timestamps computed from durations
     assert ents[0] == {"timestamp": "00:00", "title": "track-A.mp3"}
     assert ents[1]["timestamp"] == "02:58"
-    assert ents[2]["timestamp"] == "05:58"                      # 178+180
-    # repeats are labelled so the tracklist fills the target length
-    assert any("(반복 2)" in e["title"] for e in ents)
+    # 업로드한 2곡뿐 — 반복분이 붙지 않는다
+    assert len(ents) == 2
+    assert not any("(반복" in e["title"] for e in ents)
+    assert plan["total_seconds"] == 358
 
 
 def test_scan_chapter_uploads_empty_when_dir_absent(monkeypatch, tmp_path):

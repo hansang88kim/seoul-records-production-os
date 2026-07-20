@@ -339,5 +339,5 @@ def test_existing_video_renderer_unaffected():
     from services.video.render_plan import build_full_render_command  # noqa
     from services.video.filter_complex_builder import build_video_filter_complex  # noqa
     plan = build_playlist_plan(
-        [{"path": "/a.mp3", "name": "a.mp3", "duration_sec": 210}], 60, True)
+        [{"path": "/a.mp3", "name": "a.mp3", "duration_sec": 210}])
     assert plan["entries"]

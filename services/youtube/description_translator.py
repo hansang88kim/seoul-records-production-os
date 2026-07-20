@@ -47,6 +47,9 @@ _LANG_NAMES = {
 }
 
 _TRACKLIST_MARKER = "🎧 Seoul City Pop / Retro Korean City Pop Playlist"
+# v1.0.0-alpha.121: the marker line now carries the chosen city, so match it by
+# shape instead of by the old fixed Seoul string.
+_TRACKLIST_MARKER_RE = re.compile(r"^🎧 .*City Pop.*Playlist$", re.MULTILINE)
 
 
 def needs_translation(language_key: str) -> bool:
@@ -65,10 +68,12 @@ def _split_frame_and_tracklist(description: str) -> tuple[str, str, str]:
     Returns ("", full, "") if the expected structure isn't found (caller
     then translates the whole thing, minus any numeric timestamp lines).
     """
-    if _TRACKLIST_MARKER not in description or "FAQ" not in description:
+    m = _TRACKLIST_MARKER_RE.search(description or "")
+    if not m or "FAQ" not in description:
         return "", description, ""
-    head, rest = description.split(_TRACKLIST_MARKER, 1)
-    head = head + _TRACKLIST_MARKER + "\n"
+    marker = m.group(0)
+    head, rest = description.split(marker, 1)
+    head = head + marker + "\n"
     # rest starts with the tracklist, then a blank line, then 'FAQ ...'
     faq_idx = rest.find("FAQ")
     tracklist_block = rest[:faq_idx]

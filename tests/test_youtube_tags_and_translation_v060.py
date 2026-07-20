@@ -117,7 +117,7 @@ def test_generate_all_metadata_generates_in_song_language(monkeypatch):
     import services.youtube.seo_description as SEO
     monkeypatch.setattr(
         SEO, "_llm_sections",
-        lambda mood, vol, n, lang_name="Korean": {
+        lambda mood, vol, n, lang_name="Korean", country="Korea": {
             "intro": f"<{lang_name}>intro", "keywords": "Neon, Retro",
             "moods": f"<{lang_name}>moods",
             "faq": [{"q": "a", "a": "b"}, {"q": "c", "a": "d"}, {"q": "e", "a": "f"}]})

@@ -36,7 +36,7 @@ def render_setup(monkeypatch, tmp_path):
     from services.thumbnail import asset_types as AT
 
     tracks = pb.scan_mp3_files()
-    plan = pb.build_playlist_plan(tracks, 60, True)
+    plan = pb.build_playlist_plan(tracks)
     sp = str(tmp_path / "session")
     lib = build_overlay_asset_library(sp, plan, "#ff4d6d", "구독")
     viz = visualizer_config("citypop_glow", "#ff4d6d", height=200,

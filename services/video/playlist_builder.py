@@ -2,8 +2,9 @@
 services/video/playlist_builder.py — MP3-first playlist builder (v0.7.1).
 
 Scans outputs/ for MP3 files (NO WAV required), lets the user assemble a
-playlist, and builds a target-duration plan (60/65/70 min) with optional
-repeat-until-target. Produces chapters + a concat plan for FFmpeg.
+playlist, and builds a plan that plays each track exactly once, in order.
+The total length is simply the sum of the tracks. Produces chapters + a
+concat plan for FFmpeg.
 """
 from __future__ import annotations
 
@@ -67,47 +68,29 @@ def scan_mp3_files(extra_dirs: list[str] | None = None) -> list[dict]:
     return sorted(found.values(), key=lambda x: x["name"])
 
 
-def build_playlist_plan(
-    tracks: list[dict],
-    target_minutes: int = 60,
-    repeat_until_target: bool = True,
-) -> dict:
+def build_playlist_plan(tracks: list[dict]) -> dict:
     """
-    Build a playlist plan for a target duration.
+    Build a playlist plan from the given tracks — each track plays ONCE, in order.
+
+    v1.0.0-alpha.121: the old "repeat until target minutes" behaviour is gone.
+    The playlist length is simply the sum of the uploaded tracks' durations.
 
     tracks: [{path, name, duration_sec}] in the desired order.
-    target_minutes: 60 / 65 / 70 (or any).
-    repeat_until_target: loop the playlist until target is reached.
 
     Returns:
       {
-        "target_seconds": int,
-        "repeat": bool,
-        "entries": [{path, name, duration_sec, start_sec, end_sec, repeat_index}],
+        "entries": [{path, name, duration_sec, start_sec, end_sec}],
         "total_seconds": float,
         "chapters": [{title, start_sec, end_sec}],
       }
     """
-    target_seconds = target_minutes * 60
     base = [t for t in tracks if t.get("path") and t.get("duration_sec", 0) > 0]
 
     entries: list[dict] = []
     chapters: list[dict] = []
     cursor = 0.0
-    repeat_index = 0
 
-    if not base:
-        return {
-            "target_seconds": target_seconds,
-            "repeat": repeat_until_target,
-            "entries": [],
-            "total_seconds": 0.0,
-            "chapters": [],
-        }
-
-    i = 0
-    while True:
-        track = base[i % len(base)]
+    for track in base:
         dur = track["duration_sec"]
         start = cursor
         end = cursor + dur
@@ -118,34 +101,15 @@ def build_playlist_plan(
             "duration_sec": dur,
             "start_sec": round(start, 2),
             "end_sec": round(end, 2),
-            "repeat_index": repeat_index,
         })
-        # Chapter title (avoid duplicate-looking names on repeat)
-        ch_title = track["name"]
-        if repeat_index > 0:
-            ch_title = f"{track['name']} (반복 {repeat_index + 1})"
         chapters.append({
-            "title": ch_title,
+            "title": track["name"],
             "start_sec": round(start, 2),
             "end_sec": round(end, 2),
         })
-
         cursor = end
-        i += 1
-        if i % len(base) == 0:
-            repeat_index += 1
-
-        # Stop conditions
-        if repeat_until_target:
-            if cursor >= target_seconds:
-                break
-        else:
-            if i >= len(base):
-                break
 
     return {
-        "target_seconds": target_seconds,
-        "repeat": repeat_until_target,
         "entries": entries,
         "total_seconds": round(cursor, 2),
         "chapters": chapters,

@@ -187,15 +187,7 @@ def render_video_renderer():
         st.info("MP3를 하나 이상 선택하세요.")
         return
 
-    col1, col2 = st.columns(2)
-    with col1:
-        target = st.radio("목표 길이", [60, 65, 70], horizontal=True,
-                          format_func=lambda m: f"{m}분", key="vr_target")
-    with col2:
-        repeat = st.checkbox("목표 길이까지 반복 재생", value=True, key="vr_repeat",
-                            help="선택한 곡들을 목표 시간에 도달할 때까지 반복합니다.")
-
-    plan = build_playlist_plan(selected_tracks, target, repeat)
+    plan = build_playlist_plan(selected_tracks)
     total_min = int(plan["total_seconds"]) // 60
     total_sec = int(plan["total_seconds"]) % 60
     st.success(f"📋 플레이리스트: {len(plan['entries'])}개 트랙 · 총 {total_min}:{total_sec:02d} "
@@ -367,7 +359,7 @@ def render_video_renderer():
     if common_project:
         from app.project_manager import song_project_dir, _song_slug
         render_root = song_project_dir(common_project) / "video_renders"
-        out_dir = str(render_root / f"render_{plan['target_seconds']}s")
+        out_dir = str(render_root / f"render_{int(plan['total_seconds'])}s")
         session_path = str(render_root / "session")
         # v1.0.0-alpha.68: the project also goes in the FILENAME (not just
         # the folder) so a render is identifiable by name alone — e.g. once
@@ -376,7 +368,7 @@ def render_video_renderer():
         # globs "final_video*.mp4" so both this and the old bare name match.
         video_filename = f"final_video_{_song_slug(common_project)}.mp4"
     else:
-        out_dir = str(Path("outputs") / "video_renders" / f"render_{plan['target_seconds']}s")
+        out_dir = str(Path("outputs") / "video_renders" / f"render_{int(plan['total_seconds'])}s")
         session_path = str(Path("outputs") / "video_renders" / "session")
         video_filename = "final_video.mp4"
         st.warning(

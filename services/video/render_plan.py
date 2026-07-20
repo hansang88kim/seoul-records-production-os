@@ -129,8 +129,7 @@ def build_render_plan(
         np_assets = {a["track_name"]: a["path"]
                      for a in overlay_library.get(AT.NOW_PLAYING_CARD_ASSET, [])}
         for ch in playlist_plan.get("chapters", []):
-            # match by base name (strip repeat suffix)
-            base = ch["title"].split(" (반복")[0]
+            base = ch["title"]
             png = np_assets.get(base)
             now_playing_schedule.append({
                 "track_name": base,
@@ -164,7 +163,7 @@ def build_render_plan(
         },
         # Track list for auto-generated drawtext Now Playing (used when no PNGs):
         "now_playing_tracks": [
-            {"track_number": i + 1, "title": ch["title"].split(" (반복")[0],
+            {"track_number": i + 1, "title": ch["title"],
              "start_sec": ch["start_sec"], "end_sec": ch["end_sec"]}
             for i, ch in enumerate(playlist_plan.get("chapters", []))
         ] if enable_now_playing else [],

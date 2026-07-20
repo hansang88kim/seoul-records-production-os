@@ -332,7 +332,8 @@ def generate_all_metadata(
         # the Korean). Keywords stay English for SEO.
         want_lang = bool(translate) and needs_translation(language)
         lang_name = _LANG_NAMES.get((language or "").strip().lower(), "Korean") if want_lang else "Korean"
-        title = generate_seo_title(country or "Korea", volume, mood, len(chapters))
+        title = generate_seo_title(country or "Korea", volume, mood, len(chapters),
+                                   lang_name=lang_name)
         description = generate_seo_description(chapters, mood=mood,
                                               country=country or "Korea", volume=volume,
                                               lang_name=lang_name)
