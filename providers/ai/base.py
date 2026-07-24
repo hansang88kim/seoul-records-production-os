@@ -474,6 +474,92 @@ _BATCH_STYLE_FLAVORS = [
     "arrangement flavor: soft Wurlitzer with understated, minimal instrumentation, tape-warm",
 ]
 
+# v1.0.0-alpha.122: vary the LEADING genre label per track. Suno weights the
+# OPENING of the style string most heavily, so a 10-song batch that every time
+# begins with the identical "Authentic 1980s-1990s Japanese city pop" comes out
+# same-y no matter how much we vary the middle. Swapping just the front
+# descriptor (nostalgic / late-night / dreamy …) gives each track a distinct
+# anchor while staying authentic 80s-90s Japanese city pop (era + genre token
+# always kept, so genre discipline holds — never enka/trot). Applied first in
+# apply_batch_variation(). Keep each entry ending in "Japanese city pop".
+#
+# Default set — used when NO mood is selected. General nostalgic variety.
+_BATCH_STYLE_ANGLES = [
+    "Nostalgic 1980s-1990s Japanese city pop",
+    "Late-night 1980s-1990s Japanese city pop",
+    "Neon-lit 1980s-1990s Japanese city pop",
+    "Dreamy 1980s-1990s Japanese city pop",
+    "Sophisticated urban 1980s-1990s Japanese city pop",
+    "Warm mellow 1980s-1990s Japanese city pop",
+    "Glossy AOR-leaning 1980s-1990s Japanese city pop",
+    "Romantic 1980s-1990s Japanese city pop",
+    "Midnight-drive 1980s-1990s Japanese city pop",
+    "Breezy daytime 1980s-1990s Japanese city pop",
+]
+
+# v1.0.0-alpha.122: MOOD-AWARE leading angles. When a 무드 is selected, the
+# front label stays within that mood's emotional color (so a "쓸쓸한" batch never
+# opens with "Breezy daytime"), while still varying enough that 10 songs don't
+# all start identically. Keys match SONG_MOODS. Each entry ends in
+# "Japanese city pop" so genre discipline holds. Falls back to
+# _BATCH_STYLE_ANGLES when the mood is unknown/blank.
+_MOOD_STYLE_ANGLES: dict[str, list[str]] = {
+    "refreshing": [
+        "Bright refreshing 1980s-1990s Japanese city pop",
+        "Crisp sunny 1980s-1990s Japanese city pop",
+        "Breezy daytime 1980s-1990s Japanese city pop",
+        "Airy uplifting 1980s-1990s Japanese city pop",
+        "Sparkling clean 1980s-1990s Japanese city pop",
+        "Light morning 1980s-1990s Japanese city pop",
+    ],
+    "summer": [
+        "Sparkling summer 1980s-1990s Japanese city pop",
+        "Sunny seaside 1980s-1990s Japanese city pop",
+        "Effervescent uptempo 1980s-1990s Japanese city pop",
+        "Bright poolside 1980s-1990s Japanese city pop",
+        "Playful summer-breeze 1980s-1990s Japanese city pop",
+        "Glittering midsummer 1980s-1990s Japanese city pop",
+    ],
+    "wistful": [
+        "Wistful late-night 1980s-1990s Japanese city pop",
+        "Lonely neon-lit 1980s-1990s Japanese city pop",
+        "Bittersweet midnight 1980s-1990s Japanese city pop",
+        "Melancholic rainy-night 1980s-1990s Japanese city pop",
+        "Nostalgic last-train 1980s-1990s Japanese city pop",
+        "Solitary after-hours 1980s-1990s Japanese city pop",
+    ],
+    "calm": [
+        "Calm mellow 1980s-1990s Japanese city pop",
+        "Gentle laid-back 1980s-1990s Japanese city pop",
+        "Soft soothing 1980s-1990s Japanese city pop",
+        "Warm unhurried 1980s-1990s Japanese city pop",
+        "Quiet evening 1980s-1990s Japanese city pop",
+        "Tender low-key 1980s-1990s Japanese city pop",
+    ],
+    "romantic": [
+        "Romantic 1980s-1990s Japanese city pop",
+        "Heart-fluttering 1980s-1990s Japanese city pop",
+        "Sweet tender 1980s-1990s Japanese city pop",
+        "Warm glowing 1980s-1990s Japanese city pop",
+        "Silky love-struck 1980s-1990s Japanese city pop",
+        "Longing sunset 1980s-1990s Japanese city pop",
+    ],
+    "dreamy": [
+        "Dreamy hazy 1980s-1990s Japanese city pop",
+        "Ethereal soft-focus 1980s-1990s Japanese city pop",
+        "Shimmering reverie 1980s-1990s Japanese city pop",
+        "Floaty nocturnal 1980s-1990s Japanese city pop",
+        "Misty neon 1980s-1990s Japanese city pop",
+        "Dreamlike late-night 1980s-1990s Japanese city pop",
+    ],
+}
+
+
+def _style_angles_for_mood(mood_key: str) -> list[str]:
+    """Leading-angle list for the selected mood, or the default set when the
+    mood is blank/unknown."""
+    return _MOOD_STYLE_ANGLES.get((mood_key or "").strip(), _BATCH_STYLE_ANGLES)
+
 
 
 def get_batch_vocal(track_no: int, total_tracks: int = 10) -> tuple[str, str]:
@@ -508,17 +594,36 @@ def get_batch_vocal(track_no: int, total_tracks: int = 10) -> tuple[str, str]:
         return "Female", tone
 
 
-def apply_batch_variation(base_style: str, track_no: int, total_tracks: int = 10) -> str:
+def apply_batch_variation(base_style: str, track_no: int, total_tracks: int = 10,
+                          mood_key: str = "") -> str:
     """
     Apply deterministic variation to a base style for a specific track number.
     Changes BPM, key, vocal (gender + tone), keyboard texture, and mood shade
     while keeping the core genre and instruments.
 
     Vocal gender follows a 40% male / 60% female batch distribution.
+
+    mood_key (v1.0.0-alpha.122): when set, the LEADING genre label is drawn from
+    that mood's angle set (e.g. a "wistful" batch opens with lonely/late-night
+    labels, never "Breezy daytime"). Blank/unknown → general nostalgic set.
     """
     import re
 
     style = base_style
+
+    # v1.0.0-alpha.122: swap the LEADING genre label per track (Suno weights
+    # the opening most), staying within the selected mood's color. Replace the
+    # first comma-segment when it is the genre phrase (contains "city pop"/
+    # "citypop"); otherwise prepend. The angle itself ends in "…Japanese city
+    # pop", so genre discipline is preserved.
+    angles = _style_angles_for_mood(mood_key)
+    angle = angles[track_no % len(angles)]
+    head, sep, tail = style.partition(",")
+    if sep and ("city pop" in head.lower() or "citypop" in head.lower()):
+        style = f"{angle}{sep}{tail}"
+    else:
+        style = f"{angle}, {style}"
+
     idx = track_no % len(_BATCH_BPMS)
 
     # Replace BPM

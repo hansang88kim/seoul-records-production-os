@@ -371,6 +371,74 @@ def test_batch_variation_preserves_core_genre():
         assert "sax" not in v.lower()
 
 
+# ─── v1.0.0-alpha.122: leading style-angle varies per track ──────────────────
+
+def test_batch_variation_leading_label_varies():
+    """The OPENING genre label differs across tracks (Suno weights the front)."""
+    from providers.ai.base import apply_batch_variation
+    from app.ui.composer_panel import CITYPOP_STYLE_PRESET
+    heads = set()
+    for i in range(10):
+        v = apply_batch_variation(CITYPOP_STYLE_PRESET, i)
+        heads.add(v.split(",")[0].strip())
+    # A 10-song batch should open with several distinct labels, not one.
+    assert len(heads) >= 8, f"Only {len(heads)} unique leading labels: {heads}"
+
+
+def test_batch_variation_angle_keeps_citypop():
+    """Every swapped leading angle still names Japanese city pop (genre discipline)."""
+    from providers.ai.base import apply_batch_variation, _BATCH_STYLE_ANGLES
+    from app.ui.composer_panel import CITYPOP_STYLE_PRESET
+    for angle in _BATCH_STYLE_ANGLES:
+        assert angle.rstrip().endswith("Japanese city pop"), f"bad angle: {angle}"
+    for i in range(10):
+        v = apply_batch_variation(CITYPOP_STYLE_PRESET, i)
+        assert v.split(",")[0].strip().endswith("Japanese city pop")
+
+
+# ─── v1.0.0-alpha.122: mood-aware leading angles ─────────────────────────────
+
+def test_mood_angles_cover_all_moods():
+    """Every SONG_MOODS key has its own leading-angle set, all city pop."""
+    from providers.ai.base import SONG_MOODS, _MOOD_STYLE_ANGLES
+    for key in SONG_MOODS:
+        assert key in _MOOD_STYLE_ANGLES, f"mood '{key}' has no angle set"
+        angles = _MOOD_STYLE_ANGLES[key]
+        assert len(angles) >= 4, f"mood '{key}' has too few angles"
+        for a in angles:
+            assert a.rstrip().endswith("Japanese city pop"), f"bad angle: {a}"
+
+
+def test_batch_variation_uses_mood_angles():
+    """A mood-selected batch opens with THAT mood's angle set, not the default."""
+    from providers.ai.base import apply_batch_variation, _MOOD_STYLE_ANGLES
+    from app.ui.composer_panel import CITYPOP_STYLE_PRESET
+    allowed = set(_MOOD_STYLE_ANGLES["wistful"])
+    for i in range(10):
+        v = apply_batch_variation(CITYPOP_STYLE_PRESET, i, 10, mood_key="wistful")
+        head = v.split(",")[0].strip()
+        assert head in allowed, f"track {i} opened with off-mood label: {head}"
+
+
+def test_wistful_batch_never_opens_bright():
+    """The 'breezy daytime' label must never appear in a wistful batch."""
+    from providers.ai.base import apply_batch_variation
+    from app.ui.composer_panel import CITYPOP_STYLE_PRESET
+    for i in range(10):
+        v = apply_batch_variation(CITYPOP_STYLE_PRESET, i, 10, mood_key="wistful")
+        assert "breezy daytime" not in v.split(",")[0].lower()
+
+
+def test_blank_mood_falls_back_to_default_angles():
+    """No mood → default nostalgic angle set (backward compatible)."""
+    from providers.ai.base import apply_batch_variation, _BATCH_STYLE_ANGLES
+    from app.ui.composer_panel import CITYPOP_STYLE_PRESET
+    allowed = set(_BATCH_STYLE_ANGLES)
+    for i in range(10):
+        v = apply_batch_variation(CITYPOP_STYLE_PRESET, i, 10)  # no mood_key
+        assert v.split(",")[0].strip() in allowed
+
+
 def test_batch_variation_under_900_chars():
     """Style variation stays under 900 chars (Suno limit ~1000)."""
     from providers.ai.base import apply_batch_variation

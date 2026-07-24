@@ -267,7 +267,7 @@ def _generate_plan_only(concept: str, ai_provider_name: str, language: str = "ko
         # Apply composer variation so each batch song is slightly different
         from providers.ai.base import apply_batch_variation, get_batch_vocal
         draft["track_no"] = track_no
-        pkg.style = apply_batch_variation(pkg.style, track_no, total_tracks)
+        pkg.style = apply_batch_variation(pkg.style, track_no, total_tracks, mood)
         # Determine vocal gender for this track (40% male / 60% female)
         vocal_gender, _ = get_batch_vocal(track_no, total_tracks)
         draft["vocal_gender"] = vocal_gender
@@ -683,7 +683,9 @@ def _render_auto_batch():
                             from providers.ai.base import apply_batch_variation
                             from app.ui.composer_panel import CITYPOP_STYLE_PRESET
                             base = auto_style.strip() or CITYPOP_STYLE_PRESET
-                            plan[i]["style"] = apply_batch_variation(base, i + hash(plan[i].get("title", "")) % 8)
+                            plan[i]["style"] = apply_batch_variation(
+                                base, i + hash(plan[i].get("title", "")) % 8,
+                                mood_key=auto_mood)
                             st.session_state["auto_plan_data"] = plan
                             st.session_state.pop(f"plan_style_{i}", None)
                             st.rerun()
