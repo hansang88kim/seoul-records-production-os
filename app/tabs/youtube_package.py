@@ -359,7 +359,9 @@ def render_youtube_package():
                     st.rerun()
             with rc3:
                 if st.button("🔄 태그", use_container_width=True, key="yt_regen_tags"):
-                    meta["tags"] = MG.generate_tags(country, mood, int(volume))
+                    meta["tags"] = MG.generate_tags(
+                        country, mood, int(volume),
+                        st.session_state.get("yt_language", "korean"))
                     st.session_state["yt_meta"] = meta
                     st.rerun()
 

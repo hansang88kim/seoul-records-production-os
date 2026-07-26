@@ -52,6 +52,50 @@ def test_tags_are_stable_fixed_not_random():
     assert a == b  # deterministic
 
 
+# ── v1.0.0-alpha.125: language-aware tags ──────────────────────────────────
+
+def test_korean_playlist_tags_stay_all_english():
+    """Korean (default) keeps the original all-English SEO set unchanged."""
+    tags = MG.generate_tags("Korea", "", 1, language="korean")
+    assert all(t.isascii() for t in tags)
+    low = [t.lower() for t in tags]
+    assert "korean citypop" in low and "seoul records" in low
+
+
+def test_thai_playlist_adds_native_thai_tags():
+    """A Thai playlist gets native Thai-script tags + Thailand folding, drops
+    the Korea-locale tags, but keeps the channel brand."""
+    tags = MG.generate_tags("Thailand", "", 1, language="thai")
+    low = [t.lower() for t in tags]
+    assert "ซิตี้ป็อป" in tags               # Thai 'city pop' (native script)
+    assert any(not t.isascii() for t in tags)  # native tags present
+    assert "thailand citypop" in low          # country folded in
+    assert "seoul records" in low             # channel brand kept
+    assert "korean citypop" not in low        # Korea-locale dropped
+    assert "seoul night" not in low
+    assert "k citypop" not in low
+
+
+def test_foreign_tags_stay_under_500_chars():
+    # YouTube's 500-char tag budget is comma-joined (matches generate_tags' trim).
+    for lang, country in [("thai", "Thailand"), ("vietnamese", "Vietnam"),
+                          ("japanese", "Japan"), ("indonesian", "Indonesia")]:
+        tags = MG.generate_tags(country, "", 1, language=lang)
+        assert len(",".join(tags)) < 500, f"{lang} tags over 500"
+
+
+def test_clean_track_title_strips_space_separated_number():
+    """v1.0.0-alpha.125: '01 title' (space, no dot) must not become '01. 01 …'."""
+    from services.youtube.metadata_generator import _clean_track_title
+    assert _clean_track_title("01 เสียงของคืน.mp3") == "เสียงของคืน"
+    assert _clean_track_title("02 곡 제목.wav") == "곡 제목"
+    # existing dot/paren behaviour preserved
+    assert _clean_track_title("03. 명동의 비.mp3") == "명동의 비"
+    assert _clean_track_title("04) Song.mp3") == "Song"
+    # a genuine 4-digit numeric-leading title is NOT stripped
+    assert _clean_track_title("1980 Tokyo").startswith("1980")
+
+
 # ── Translation: language gating ───────────────────────────────────────────
 
 def test_needs_translation_gating():
@@ -126,9 +170,11 @@ def test_generate_all_metadata_generates_in_song_language(monkeypatch):
     assert meta["description_translated"] is True
     assert meta["description_language"] == "Thai"
     assert "<Thai>" in meta["description"]      # prose written in the song language
-    # Tags still English regardless of song language.
-    for t in meta["tags"]:
-        assert t.isascii()
+    # v1.0.0-alpha.125: a Thai playlist now carries native Thai-script tags
+    # (local discoverability) alongside the English city-pop core.
+    assert any(not t.isascii() for t in meta["tags"]), "expected native Thai tags"
+    assert "ซิตี้ป็อป" in meta["tags"]
+    assert "seoul records" in [t.lower() for t in meta["tags"]]  # brand kept
 
 
 def test_generate_all_metadata_korean_no_translation():

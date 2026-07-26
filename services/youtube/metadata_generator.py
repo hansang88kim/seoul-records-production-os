@@ -72,22 +72,57 @@ def generate_title(playlist_title: str, country: str = "", volume: int = 1,
     return title[:100]
 
 
-def generate_tags(country: str = "", mood: str = "", volume: int = 1) -> list[str]:
-    """
-    v1.0.0-alpha.60: SEO-optimised FIXED tag set, always in English.
+# v1.0.0-alpha.125: per-language NATIVE tags. When a playlist's language is a
+# non-Korean supported language, native-script (+ romanised) city-pop/playlist
+# keywords are added FIRST so local listeners can actually find it. Keys match
+# providers/ai/languages.py lyric-language keys (see _LANG_NAMES).
+_NATIVE_TAGS: dict[str, list[str]] = {
+    "thai": [
+        "เพลย์ลิสต์", "ซิตี้ป็อป", "เพลย์ลิสต์ซิตี้ป็อป", "เพลงชิล",
+        "เพลงฟังสบาย", "เพลงยามค่ำคืน", "ขับรถกลางคืน", "เพลงเศร้า",
+    ],
+    "vietnamese": [
+        "nhạc citypop", "playlist nhạc", "nhạc chill", "nhạc thư giãn",
+        "nhạc đêm khuya", "lái xe ban đêm", "nhạc buồn", "citypop việt",
+    ],
+    "indonesian": [
+        "musik citypop", "daftar putar", "musik santai", "musik malam",
+        "berkendara malam", "musik nostalgia", "citypop indonesia",
+    ],
+    "japanese": [
+        "シティポップ", "プレイリスト", "夜ドライブ", "作業用bgm",
+        "チル", "ネオン", "東京の夜", "シティポップ playlist",
+    ],
+    "spanish": [
+        "citypop en español", "lista de reproducción", "música relajante",
+        "música nocturna", "conducir de noche", "música nostálgica",
+    ],
+}
 
-    The tags are now a curated, stable list tuned for city-pop / playlist
-    discovery on YouTube, targeting ~400-490 characters of the 500-char
-    budget (previously only ~180 chars, which under-used the space). Tags
-    stay in English regardless of the song's lyric language — only the
-    title/description get localised (see the translation option) — because
-    English tags reach the widest city-pop search audience.
+# Korea-locale tags dropped when the playlist language is NOT Korean, so a
+# foreign playlist doesn't read as Korean. The channel brand "seoul records"
+# is intentionally KEPT (it is the channel name, not a locale tag).
+_KOREA_LOCALE_TAGS = {
+    "seoul citypop", "seoul city pop", "korean citypop", "k citypop", "seoul night",
+}
 
-    The list is intentionally fixed (not randomised) so every upload is
-    consistently indexed under the same high-value keywords. country/mood/
-    volume are accepted for backwards-compat and lightly folded in, but the
-    core SEO set does the heavy lifting.
+
+def generate_tags(country: str = "", mood: str = "", volume: int = 1,
+                  language: str = "korean") -> list[str]:
     """
+    v1.0.0-alpha.60: SEO-optimised, curated tag set (~400-490 chars of the
+    500-char budget), intentionally fixed for consistent indexing.
+
+    v1.0.0-alpha.125: LANGUAGE-AWARE. For a non-Korean supported language,
+    native-script tags (see _NATIVE_TAGS) are added FIRST so local listeners
+    can find it, the Korea-locale tags are dropped (channel brand kept), and
+    the country tags are folded in — while the English city-pop core still
+    fills the remaining budget for global reach. Korean playlists keep the
+    original all-English set unchanged.
+    """
+    lang = (language or "korean").strip().lower()
+    is_foreign = lang in _NATIVE_TAGS  # non-Korean language with a native set
+
     core = [
         # primary genre / intent (highest value, must always survive)
         "citypop", "city pop", "citypop playlist", "city pop playlist",
@@ -107,14 +142,18 @@ def generate_tags(country: str = "", mood: str = "", volume: int = 1) -> list[st
         "neon night", "tokyo night", "seoul night", "summer citypop",
         "sunset drive", "rooftop lounge",
     ]
+    if is_foreign:
+        core = [t for t in core if t.lower() not in _KOREA_LOCALE_TAGS]
 
-    # Light, optional folding of dynamic context (kept English). A mood is
-    # only folded into tags when it's ASCII/English — Korean moods stay out
-    # so the tag set remains all-English (alpha.60 rule).
+    # Dynamic extras go FIRST so they survive the 490-char trim.
     extras = []
+    if is_foreign:
+        extras += _NATIVE_TAGS[lang]
     if country:
         c = country.strip().lower()
         extras += [f"{c} citypop", f"{c} playlist", f"{c} city pop"]
+        if is_foreign:
+            extras.append(f"{c} night")
     if mood and mood.strip().isascii():
         extras.append(mood.strip().lower())
     extras.append(f"citypop vol {volume}")
@@ -243,7 +282,11 @@ def _format_djhana_tracklist(chapters: list[dict]) -> str:
 # BOTH the extension and any leading number to avoid ".wav" tails and "01. 01."
 # double numbering. Applied at render time (the chapter file stays raw).
 _TITLE_EXT_RE = re.compile(r"\.(wav|mp3|m4a|flac|aac|ogg|wave|aiff?)$", re.IGNORECASE)
-_TITLE_LEADNUM_RE = re.compile(r"^\s*\d{1,3}\s*[.)\-]\s*")
+# v1.0.0-alpha.125: also strip a leading track number followed by WHITESPACE
+# only (e.g. "01 เสียง…", "02 곡" — the user prefixes numbers themselves when
+# uploading). Previously a separator (.)- was required, so space-separated
+# numbers slipped through and produced "01. 01 …" double numbering.
+_TITLE_LEADNUM_RE = re.compile(r"^\s*\d{1,3}(?:\s*[.)\-]\s*|\s+)")
 
 
 def _clean_track_title(title: str) -> str:
@@ -348,7 +391,7 @@ def generate_all_metadata(
     return {
         "title": title,
         "description": description,
-        "tags": generate_tags(country, mood, volume),
+        "tags": generate_tags(country, mood, volume, language),
         "hashtags": generate_hashtags(country, volume),
         "pinned_comment": generate_pinned_comment(country, volume),
         "chapters": chapters,

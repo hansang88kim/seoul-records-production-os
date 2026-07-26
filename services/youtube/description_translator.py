@@ -13,8 +13,10 @@ Design decisions:
     filenames/titles). Only the surrounding prose frame is translated, then
     the untouched tracklist is spliced back in. This guarantees timestamps
     and track identifiers are never corrupted by the model.
-  * Tags are intentionally NOT translated — they stay English for maximum
-    city-pop search reach (handled in metadata_generator.generate_tags).
+  * Tags: for a non-Korean language, metadata_generator.generate_tags now adds
+    NATIVE-language tags first (local discoverability) while keeping the English
+    city-pop core for global reach (v1.0.0-alpha.125). Korean playlists stay
+    all-English. This module only handles the prose frame, not tags.
   * Provider order: OpenAI → Gemini → (no key / failure) original Korean.
     We NEVER hard-fail an upload because translation was unavailable; we
     fall back to the Korean frame and let the caller proceed.
