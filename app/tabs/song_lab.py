@@ -438,19 +438,26 @@ def _render_auto_batch():
     project = _project_selector("auto")
 
     # ── Style preset ─────────────────────────────────────────────────────
-    from app.ui.composer_panel import CITYPOP_STYLE_PRESET
+    from app.ui.composer_panel import CITYPOP_STYLE_PRESET, STYLE_PRESETS
 
     if "auto_style" not in st.session_state:
         st.session_state["auto_style"] = CITYPOP_STYLE_PRESET
     if "auto_lock_style" not in st.session_state:
         st.session_state["auto_lock_style"] = True  # default ON
 
+    # v1.0.0-alpha.124: selectable presets (기본 밤·nostalgic / 여름 청량).
+    auto_preset_choice = st.selectbox(
+        "🎨 스타일 프리셋 (전 곡 공통)", list(STYLE_PRESETS.keys()),
+        key="auto_style_preset_choice",
+        help="프리셋을 고른 뒤 '프리셋 적용'을 누르면 스타일 칸이 채워집니다.",
+    )
     col_slabel, col_spreset, col_sregen = st.columns([3, 1, 1])
     with col_slabel:
-        st.markdown("<div style='font-size:0.85rem;color:var(--muted);padding-top:4px'>🎨 스타일 프리셋 (전 곡 공통)</div>", unsafe_allow_html=True)
+        st.markdown("<div style='font-size:0.85rem;color:var(--muted);padding-top:4px'>🎨 스타일 태그 (전 곡 공통)</div>", unsafe_allow_html=True)
     with col_spreset:
-        if st.button("프리셋 적용", key="auto_apply_preset", use_container_width=True):
-            st.session_state["auto_style"] = CITYPOP_STYLE_PRESET
+        if st.button("프리셋 적용", key="auto_apply_preset", use_container_width=True,
+                     help="선택한 프리셋으로 스타일 칸 채우기"):
+            st.session_state["auto_style"] = STYLE_PRESETS[auto_preset_choice]
             st.rerun()
     with col_sregen:
         if st.button("🔀 변주", key="auto_style_regen", use_container_width=True,

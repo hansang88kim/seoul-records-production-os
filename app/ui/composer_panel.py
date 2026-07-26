@@ -40,6 +40,30 @@ CITYPOP_STYLE_PRESET = (
     "consistent soft dynamics, no loud climaxes, no high belting"
 )
 
+# v1.0.0-alpha.124: brighter/upbeat SUMMER variant of the fixed preset, offered
+# as a selectable preset alongside the default night·nostalgic one. Same genre
+# discipline (authentic 80s-90s Japanese city pop — never enka/trot, no sax, no
+# belting); only tempo, instrument texture, and mood wording shift toward a
+# sunny, refreshing, feel-good summer groove.
+CITYPOP_STYLE_PRESET_SUMMER = (
+    "Bright summer 1980s-1990s Japanese city pop, sunny golden-age Tokyo sound, "
+    "sparkling electric piano, glossy shimmering analog synths, breezy jazzy chord changes, "
+    "bright silky funk guitar, bouncy melodic fretless bass, crisp bright drums with minimal fills, "
+    "C major, BPM 116, "
+    "gentle bright female vocal, soft and playful, airy and lyrical, never belting, "
+    "lively but even dynamics, warm reverb and light vibrato, "
+    "nostalgic yet refreshing and uplifting, breezy and cheerful, sophisticated and smooth, "
+    "the sparkling euphoria of a summer city afternoon, glossy tape warmth, "
+    "buoyant feel-good groove, no loud climaxes, no high belting"
+)
+
+# Selectable style presets (name → style string). The first entry is the
+# default the fields initialise to.
+STYLE_PRESETS = {
+    "🌆 밤·nostalgic (기본)": CITYPOP_STYLE_PRESET,
+    "🏖️ 여름 청량 (신나는)": CITYPOP_STYLE_PRESET_SUMMER,
+}
+
 SUNO_MODELS = ["v5.5", "v5", "v4.5", "v4", "v3.5"]
 DEFAULT_SUNO_MODEL = "v5"
 LYRICS_PLACEHOLDER = """[Intro]
@@ -262,13 +286,18 @@ def render_composer_panel() -> dict | None:
         st.caption(f"✅ 가사 본문 {lyric_chars}자 · 예상 ~{est_min}:{est_s:02d} (적정)")
 
     # Style
+    # v1.0.0-alpha.124: selectable presets (기본 밤·nostalgic / 여름 청량).
+    preset_choice = st.selectbox(
+        "🎨 스타일 프리셋", list(STYLE_PRESETS.keys()), key="style_preset_choice",
+        help="프리셋을 고른 뒤 '프리셋 적용'을 누르면 스타일 칸이 채워집니다.",
+    )
     col_slabel, col_spreset, col_sregen = st.columns([3, 1, 1])
     with col_slabel:
         st.markdown("<div style='font-size:0.85rem;color:var(--muted);padding-top:4px'>🎨 스타일 태그</div>", unsafe_allow_html=True)
     with col_spreset:
         if st.button("프리셋 적용", key="apply_preset", use_container_width=True,
-                     help="고정 시티팝 스타일로 되돌리기"):
-            st.session_state["form_style"] = CITYPOP_STYLE_PRESET
+                     help="선택한 프리셋으로 스타일 칸 채우기"):
+            st.session_state["form_style"] = STYLE_PRESETS[preset_choice]
             st.rerun()
     with col_sregen:
         if st.button("🔀 변주", key="style_regen", use_container_width=True,

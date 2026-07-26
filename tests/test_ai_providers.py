@@ -481,6 +481,41 @@ def test_default_preset_has_key():
     assert re.search(r"[A-G][#b]? (?:major|minor)", CITYPOP_STYLE_PRESET)
 
 
+# ─── v1.0.0-alpha.124: selectable summer preset ──────────────────────────────
+
+def test_style_presets_has_default_and_summer():
+    """STYLE_PRESETS offers the default night preset first + a summer variant."""
+    from app.ui.composer_panel import (
+        STYLE_PRESETS, CITYPOP_STYLE_PRESET, CITYPOP_STYLE_PRESET_SUMMER,
+    )
+    values = list(STYLE_PRESETS.values())
+    assert values[0] == CITYPOP_STYLE_PRESET            # default stays first
+    assert CITYPOP_STYLE_PRESET_SUMMER in values
+    assert len(STYLE_PRESETS) >= 2
+
+
+def test_summer_preset_is_brighter_and_upbeat():
+    """Summer preset shifts to sunny/upbeat wording and a faster BPM."""
+    from app.ui.composer_panel import CITYPOP_STYLE_PRESET_SUMMER
+    import re
+    s = CITYPOP_STYLE_PRESET_SUMMER.lower()
+    assert any(w in s for w in ["summer", "sunny", "bright", "refreshing", "breezy"])
+    m = re.search(r"bpm (\d+)", s)
+    assert m and int(m.group(1)) >= 115          # upbeat vs default 112
+
+
+def test_summer_preset_keeps_genre_discipline():
+    """Summer variant must stay authentic citypop — no sax, no belting, minimal
+    drum fills (never drifting to trot/enka/rock)."""
+    from app.ui.composer_panel import CITYPOP_STYLE_PRESET_SUMMER
+    s = CITYPOP_STYLE_PRESET_SUMMER.lower()
+    assert "japanese city pop" in s
+    assert "sax" not in s
+    assert "never belting" in s and "no high belting" in s
+    assert "minimal fills" in s                   # no busy drum fills (뽕짝 방지)
+    assert len(CITYPOP_STYLE_PRESET_SUMMER) <= 1000   # Suno style limit
+
+
 # ─── Vocal gender + tone distribution ────────────────────────────────────────
 
 def test_batch_vocal_distribution_10_tracks():
