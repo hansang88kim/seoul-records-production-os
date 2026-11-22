@@ -9,7 +9,10 @@
 
 - 진행 중인 제작에는 [제작·배포 워크플로](docs/production_workflow.md),
   [Suno 기본값](docs/suno_defaults.md), [UnitedMasters 웹 등록](docs/unitedmasters_distribution_package.md)을 적용한다.
-- 영상에 포함된 리드인·곡 사이 무음은 최종 영상의 챕터에 반영한다. 배포 패키지에는 각 곡의 원본 WAV/FLAC를 그대로 복사한다.
+- 사용자가 하루 두 번 제작을 요청해도 권호별로 작업을 따로 기록한다. 같은 권호를 다시 요청하면 [매 요청 실행과 이어하기](docs/production_workflow.md#매-요청-실행과-이어하기)에 따라 마지막으로 확인한 단계부터 이어간다.
+- Suno에서 확정한 버전과 재생 순서를 기준으로 제작한다. 제목·스타일·가사는 곡마다 복사할 수 있게 별도로 제공하고, 곡 수·보컬·목표 길이는 해당 요청을 우선한다.
+- 영상에 포함된 리드인·곡 사이 무음은 최종 영상의 챕터에 반영한다. YouTube 초기 업로드는 비공개로 검증한다.
+- UnitedMasters에는 원래 WAV 파일명과 곡 제목을 사용한다. 1:1 커버의 문구는 영어로 편집하며, 전곡 `Songwriter/Composer`는 `DJ One Table`이다. 발매일과 최종 제출 확인은 릴리스별로 기록한다.
 
 ---
 
@@ -91,8 +94,8 @@
 
 만들기 전에 `grep -rn "def <동사>" services/ app/` 부터. 실제로 이미 있던 것들:
 - **프로젝트 삭제**: `project_manager.delete_song_project` 이미 존재(UI만 없었음).
-- **곡 다운로드 1개 + 나머지 Suno 삭제**: `suno_auto_download.auto_download_final_version(
-  delete_other=True)` 이미 기본 ON이었음(tie일 때만 안 지우던 것만 고침).
+- **레거시 자동 다운로드 기능**: `suno_auto_download.auto_download_final_version(
+  delete_other=True)`에는 후보 삭제 옵션이 있다. 앨범의 Studio 내보내기는 사용자가 확정한 WAV를 기준으로 하고, 삭제가 필요하면 요청된 후보만 처리한다.
 - **타임스탬프 트랙리스트**: `video/playlist_builder.build_playlist_plan` + `format_chapters_txt`가
   이미 그 포맷(⏱ Tracklist, 반복 N) 생성. 재사용하면 끝.
 - **HTML 텍스트 오버레이 폼**: `services/thumbnail/html_renderer.py`, `services/thumbnail/form_prompt_builder.py`(FORM_SPECS).
