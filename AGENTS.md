@@ -11,7 +11,8 @@
   [Suno 기본값](docs/suno_defaults.md), [UnitedMasters 웹 등록](docs/unitedmasters_distribution_package.md)을 적용한다.
 - 사용자가 하루 두 번 제작을 요청해도 권호별로 작업을 따로 기록한다. 같은 권호를 다시 요청하면 [매 요청 실행과 이어하기](docs/production_workflow.md#매-요청-실행과-이어하기)에 따라 마지막으로 확인한 단계부터 이어간다.
 - Suno에서 확정한 버전과 재생 순서를 기준으로 제작한다. 제목·스타일·가사는 곡마다 복사할 수 있게 별도로 제공하고, 곡 수·보컬·목표 길이는 해당 요청을 우선한다.
-- 영상에 포함된 리드인·곡 사이 무음은 최종 영상의 챕터에 반영한다. YouTube 초기 업로드는 비공개로 검증한다.
+- 영상에 포함된 리드인·곡 사이 무음은 최종 영상의 챕터에 반영한다. YouTube는 초기 비공개 업로드를 검증한 뒤 [Studio에서 예약 게시](docs/production_workflow.md#youtube-studio-예약-게시)한다.
+- Seoul City Pop Wave는 한국 시간 기준 홀수 권호 오전 8시, 짝수 권호 오후 5시로 예약한다. 재생목록은 `[Seoul City Pop Wave]`, 녹화 날짜는 예약 게시일, 위치는 `서울특별시`, 엔딩 화면은 채널에서 최근 업로드한 서로 다른 영상 2개로 설정한다.
 - UnitedMasters에는 원래 WAV 파일명과 곡 제목을 사용한다. 1:1 커버의 문구는 영어로 편집하며, 전곡 `Songwriter/Composer`는 `DJ One Table`이다. 발매일과 최종 제출 확인은 릴리스별로 기록한다.
 
 ---

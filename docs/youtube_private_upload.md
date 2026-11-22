@@ -2,8 +2,8 @@
 
 This guide explains how to upload a finished `final_video.mp4` to YouTube as a
 **private** video directly from Seoul Records Production OS, then set the custom
-thumbnail. Uploads are **always private by default** — nothing is ever published
-publicly automatically.
+thumbnail. The app uploads videos as **private**. The Seoul City Pop Wave
+workflow handles scheduled publishing afterward in YouTube Studio.
 
 ## Overview
 
@@ -15,7 +15,7 @@ The YouTube Package tab can now:
 4. Set the custom thumbnail after the video ID is returned.
 5. Save `upload_result.json` with the video ID and YouTube URL.
 
-You review the result in YouTube Studio and publish manually if and when you choose.
+Review the result in YouTube Studio and use the [scheduled publishing workflow](production_workflow.md#youtube-studio-예약-게시).
 
 
 ## YouTube API dependency installation
@@ -98,13 +98,18 @@ as the custom thumbnail. If the thumbnail step fails, the job is marked
 **partial_success** (the video stays private and uploaded) and you can retry the
 thumbnail only.
 
-### 10. Review and publish in YouTube Studio
-Open the video in YouTube Studio. Confirm everything, then publish manually if
-you want it public. The app never makes a video public for you.
+### 10. Review and schedule in YouTube Studio
+
+Open the existing private video in Studio. Confirm the video and thumbnail,
+then apply the playlist, recording date, location, and end screen before saving
+the schedule. Choose the intended publication date in `Asia/Seoul`. Use 08:00
+for odd-numbered volumes and 17:00 for even-numbered volumes. Verify the saved
+schedule in Studio. The [production workflow](production_workflow.md#youtube-studio-예약-게시)
+has the full channel settings.
 
 ## Privacy & security notes
 
-- **Uploads default to private.** Public publishing is not automated and is not implemented in v0.8.2.
+- **Uploads default to private.** Scheduled publishing is a YouTube Studio step.
 - **Tokens are never shown or logged.** `access_token`, `refresh_token`, `client_secret`, and any `Authorization: Bearer` header are redacted everywhere (logs, manifests, UI).
 - **`token.json` stays local.** It lives under `outputs/youtube_auth/` and is excluded from package exports and from git.
 - **Do not share** your OAuth token files or `client_secret.json`.
