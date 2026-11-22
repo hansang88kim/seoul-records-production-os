@@ -1,0 +1,45 @@
+{
+  "preset_id": "seoul_records_campus_v1",
+  "thumbnail": {
+    "candidate_count": 3,
+    "aspect_ratio": "16:9",
+    "selection": "user"
+  },
+  "video": {"width": 1920, "height": 1080, "fps": 30, "preview_seconds": 60, "lead_in_seconds": 2},
+  "waveform": {
+    "box_px": [680, 744, 560, 100],
+    "capsules": 60,
+    "color": "#FFFFFF",
+    "radius_px": 3.55,
+    "idle_half_height_px": 4.09,
+    "max_half_height_px": 38.3,
+    "analysis_sample_rate": 24000,
+    "fft_size": 4096,
+    "frequency_range_hz": [42, 9500]
+  },
+  "lyrics": {
+    "anchor_px": [960, 706],
+    "font": "Jua",
+    "size_px": 54,
+    "highlight_color": "#FFE9B6",
+    "appearance_lead_ms": 40,
+    "hold_until_next_cue": true,
+    "instrumental_label": "간주중 ♪",
+    "opening_label_threshold_seconds": 2
+  },
+  "track_title": {"anchor_px": [960, 867], "font": "Jua", "size_px": 38, "duration_seconds": 3},
+  "track_list": {
+    "rows_per_column": 5,
+    "fill_order": "column_major",
+    "column_x_px": [490, 756, 986, 1234],
+    "first_row_y_px": 949,
+    "row_spacing_px": 24,
+    "title_font": "Jua",
+    "title_size_px": 22,
+    "number_font": "Space Mono",
+    "number_size_px": 16,
+    "active_fill_rgba": [250, 188, 58, 107],
+    "active_outline_rgba": [255, 208, 96, 200]
+  },
+  "transition": {"fade_out_ms": 700, "silence_ms": 300, "fade_in_ms": 100}
+}

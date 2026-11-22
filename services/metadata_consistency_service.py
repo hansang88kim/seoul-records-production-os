@@ -46,6 +46,7 @@ def create_prompt_snapshot(
         "prompt_hash": compute_prompt_hash(title, style, lyrics, settings),
         "model": settings.get("model", "v5"),
         "vocal_gender": settings.get("vocal_gender", "Female"),
+        "target_duration_seconds": settings.get("target_duration_seconds"),
         "weirdness": settings.get("weirdness", 35),
         "style_influence": settings.get("style_influence", 70),
         "exclude_styles": settings.get("exclude_styles", []),

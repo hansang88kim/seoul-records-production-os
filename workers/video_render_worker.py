@@ -84,6 +84,11 @@ def run_render_job(render_job_id: str):
             append_log(render_job_id, "렌더 시작 직전 취소됨 — FFmpeg는 실행하지 않음")
             return
 
+        campus_request = jd / "campus_request.json"
+        if campus_request.is_file():
+            _run_campus_job(render_job_id, campus_request, output_path, total)
+            return
+
         proc = subprocess.Popen(
             command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
             text=True, encoding="utf-8", errors="replace", bufsize=1,
@@ -186,6 +191,30 @@ def run_render_job(render_job_id: str):
             last_message=f"오류: {e}",
         )
         append_log(render_job_id, f"예외: {e}", "error")
+
+
+def _run_campus_job(job_id: str, request_path: Path, output: str, total: float) -> None:
+    from services.video.campus_render import RenderCancelled, render_campus
+    from services.video.render_job_store import append_log, is_cancelling, update_render_state
+
+    def progress(seconds: float, message: str) -> None:
+        update_render_state(job_id, current_time_sec=seconds,
+                            progress_percent=round(min(99, 100 * seconds / total), 1),
+                            last_message=message)
+
+    try:
+        request = json.loads(request_path.read_text(encoding="utf-8"))
+        render_campus(request, output, cancelled=lambda: is_cancelling(job_id), progress=progress)
+    except RenderCancelled:
+        update_render_state(job_id, status="cancelled",
+                            finished_at=datetime.now(timezone.utc).isoformat(),
+                            last_message="캠퍼스 렌더를 취소했습니다.")
+        append_log(job_id, "캠퍼스 렌더 취소")
+    else:
+        update_render_state(job_id, status="completed", progress_percent=100.0,
+                            finished_at=datetime.now(timezone.utc).isoformat(),
+                            last_message="캠퍼스 렌더 완료")
+        append_log(job_id, f"완료 → {output}")
 
 
 if __name__ == "__main__":

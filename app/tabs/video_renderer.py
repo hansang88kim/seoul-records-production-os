@@ -9,6 +9,8 @@ Does NOT touch music generation or Thumbnail Studio export logic.
 """
 from __future__ import annotations
 
+import hashlib
+import json
 from pathlib import Path
 import streamlit as st
 
@@ -104,6 +106,7 @@ def render_video_renderer():
 
     # Live render progress (background full renders)
     _render_progress_panel()
+    preset = st.selectbox("영상 프리셋", ["기본", "Seoul Records · 캠퍼스"], key="vr_preset")
 
     # ── 1. MP3 playlist ──────────────────────────────────────────────
     st.markdown("#### 1️⃣ MP3 플레이리스트")
@@ -227,6 +230,10 @@ def render_video_renderer():
                     "Thumbnail Studio → Exports에서 '영상 배경'을 내보내세요.")
         if picked["path"] and Path(picked["path"]).exists():
             st.image(picked["path"], width=320)
+
+    if preset == "Seoul Records · 캠퍼스":
+        _render_campus_controls(selected_tracks, bg_info.get("path") or "")
+        return
 
     # ── 3. Overlay assets ────────────────────────────────────────────
     st.markdown("#### 3️⃣ 오버레이 설정")
@@ -450,6 +457,84 @@ def render_video_renderer():
         # Show layer order
         st.markdown("**오버레이 레이어 순서 (아래→위):**")
         st.code(" → ".join(plans["overlay_plan"]["layer_order"]))
+
+
+def _render_campus_controls(tracks: list[dict], background: str) -> None:
+    from services.video.campus_plan import build_campus_playlist, load_campus_preset, read_captions, render_window
+    from services.video.render_job_store import launch_render_job, load_render_state
+    from workflows.render_video import _ffmpeg_available
+
+    root = Path("outputs") / "video_renderer" / "campus"
+    wide = st.file_uploader("선택한 후보의 영상 배경 JPG/PNG", type=["jpg", "jpeg", "png"],
+                            key="vr_campus_image")
+    logo = st.file_uploader("브랜드 로고 PNG (선택)", type=["png"], key="vr_campus_logo")
+    candidate = st.text_input("선택한 썸네일 후보 번호 또는 ID (선택)", key="vr_campus_candidate")
+    timing = st.file_uploader(
+        "음절·연주 구간 타이밍 JSON (선택)", type=["json"], key="vr_campus_timings",
+        help="가사와 간주를 표시하려면 원본 WAV와 대조한 타이밍을 올리세요. "
+             "파일 형식은 제작 워크플로 문서에 있습니다.",
+    )
+
+    def save_asset(upload) -> str:
+        if upload is None:
+            return ""
+        data = upload.getvalue()
+        asset = root / "inputs" / (hashlib.sha256(data).hexdigest() + Path(upload.name).suffix.lower())
+        if not asset.is_file():
+            asset.parent.mkdir(parents=True, exist_ok=True)
+            asset.write_bytes(data)
+        return str(asset.resolve())
+
+    background = save_asset(wide) or background
+    if not background:
+        st.info("선택한 썸네일의 영상용 배경을 올리거나 위에서 배경을 고르세요.")
+        return
+    try:
+        preset = load_campus_preset()
+        plan = build_campus_playlist(tracks, preset)
+        captions = read_captions(timing.getvalue(), plan) if timing else {}
+        request = {"preset": preset, "playlist": plan, "captions": captions,
+                   "background": str(Path(background).resolve()), "logo": save_asset(logo),
+                   "selected_candidate_id": candidate.strip()}
+        sources = [Path(t["path"]) for t in plan["entries"]] + [Path(background)]
+        fingerprints = [(p.stat().st_size, p.stat().st_mtime_ns) for p in sources]
+    except (OSError, ValueError) as exc:
+        st.error(str(exc))
+        return
+
+    key_data = json.dumps([request, fingerprints], ensure_ascii=False, sort_keys=True)
+    out_dir = root / hashlib.sha256(key_data.encode("utf-8")).hexdigest()[:16]
+    duration = preset["video"]["preview_seconds"]
+    preview = out_dir / f"preview_{duration}s.mp4"
+    transition = out_dir / "preview_transition_01_02.mp4"
+    render_choices = [("preview", f"{duration}초 미리보기", preview),
+                      ("transition", "01 → 02 전환 미리보기", transition),
+                      ("full", "전체 영상 렌더", out_dir / "final_video.mp4")]
+
+    if not _ffmpeg_available():
+        st.warning("캠퍼스 렌더에는 FFmpeg가 필요합니다.")
+        return
+    st.caption("캠퍼스 · 1080p 30fps · 가사와 파형 · 2초 리드인 · 곡 사이 0.30초 무음")
+    active_id = st.session_state.get("active_render_job")
+    job = load_render_state(active_id) if active_id else None
+    already_displayed = job.get("output_path") if job and job["status"] == "completed" else ""
+    if preview.is_file() and str(preview.resolve()) != already_displayed:
+        st.video(str(preview))
+    if transition.is_file() and str(transition.resolve()) != already_displayed:
+        st.video(str(transition))
+    reviewed = st.checkbox(f"{duration}초 미리보기 확인", key=f"vr_campus_review_{out_dir.name}",
+                           disabled=not preview.is_file())
+    busy = bool(job and job["status"] in {"queued", "running", "cancelling"})
+    for mode, label, output in render_choices:
+        disabled = busy or (mode == "full" and not reviewed) or (mode == "transition" and len(tracks) < 2)
+        if st.button(label, key=f"vr_campus_{mode}", disabled=disabled, type="primary" if mode == "full" else "secondary"):
+            first, last = render_window(plan, preset, mode)
+            job = launch_render_job(
+                str(out_dir.resolve()), [], (last - first) / plan["fps"], str(output.resolve()),
+                campus_request={**request, "mode": mode},
+            )
+            st.session_state["active_render_job"] = job["render_job_id"]
+            st.rerun()
 
 
 def _render_progress_panel():

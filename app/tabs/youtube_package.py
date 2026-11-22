@@ -196,18 +196,21 @@ def render_youtube_package():
             st.warning("youtube_thumbnail_16x9를 찾을 수 없습니다. Thumbnail Studio에서 내보내세요.")
             sel_thumb = None
 
-        # v1.0.0-alpha.97: MP3 업로드로 타임스탬프 트랙리스트 자동 생성. 생성돼
-        # 있으면 그 챕터를 우선 사용하고, 없으면 기존 자동 스캔 chapters.txt 사용.
-        uploaded_chapters = _render_mp3_chapter_builder()
-        if uploaded_chapters:
-            sel_chapters = uploaded_chapters
-            st.caption(f"챕터: {uploaded_chapters['name']} (업로드 MP3에서 생성됨)")
-        elif chapters_files:
+        # A render's sidecar includes any lead-in and gaps present in the video.
+        rendered_chapters = Path(sel_video["path"]).with_name("chapters.txt") if sel_video else None
+        if rendered_chapters and rendered_chapters.is_file():
+            sel_chapters = {"path": str(rendered_chapters), "name": rendered_chapters.name}
+            st.caption("최종 영상과 함께 생성된 chapters.txt를 사용합니다.")
+        else:
+            sel_chapters = _render_mp3_chapter_builder()
+            if sel_chapters:
+                st.caption(f"챕터: {sel_chapters['name']} (업로드 음원에서 생성됨)")
+        if not sel_chapters and chapters_files:
             clabels = [f"{c['name']} ({c['parent']})" for c in chapters_files]
             ch_idx = st.selectbox("챕터 파일", range(len(chapters_files)),
                                   format_func=lambda i: clabels[i], key="yt_chap")
             sel_chapters = chapters_files[ch_idx]
-        else:
+        elif not sel_chapters:
             st.info("chapters.txt가 없습니다 (선택). 위에서 MP3를 올려 자동 생성하거나, "
                     "없어도 패키지는 생성됩니다.")
             sel_chapters = None

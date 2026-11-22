@@ -16,7 +16,7 @@ def _outputs_root() -> Path:
 
 def find_playlist_plans() -> list[dict]:
     """Return [{path, mtime, entries_count}] for every playlist_plan.json found."""
-    root = _outputs_root() / "video_renderer"
+    root = _outputs_root()
     out = []
     if not root.exists():
         return out
@@ -51,7 +51,7 @@ def find_streaming_covers() -> list[str]:
         return []
     found = []
     for ext in ("png", "jpg", "jpeg"):
-        found += [str(p) for p in root.rglob(f"streaming_cover_1x1.{ext}")]
+        found += [str(p) for p in root.rglob(f"streaming_cover_1x1*.{ext}")]
     return found
 
 

@@ -13,6 +13,10 @@ from datetime import datetime, timezone
 import streamlit as st
 from app.ui.composer_panel import render_composer_panel, SUNO_MODELS, DEFAULT_SUNO_MODEL
 from app.ui.song_card import render_song_list
+from services.suno_defaults import (
+    FALLBACK_DURATION, SUNO_VOCAL, assign_suno_durations, format_suno_duration,
+    suno_length_brief, suno_length_style, suno_web_settings,
+)
 
 
 def _get_outputs_dir() -> Path:
@@ -169,6 +173,7 @@ def _start_quick_single_job(params: dict, project: str = "") -> str | None:
         "vocal_gender": params.get("vocal_gender", "Female"),
         "status": "drafted",
         "ai_provider": "",
+        "target_duration_seconds": params.get("target_duration_seconds", FALLBACK_DURATION),
     }]
     settings = {
         "model": params.get("model", "v5"),
@@ -227,7 +232,9 @@ def render_song_lab():
 def _generate_plan_only(concept: str, ai_provider_name: str, language: str = "korean",
                        locked_style: str = "", track_no: int = 0,
                        existing_titles: list[str] | None = None,
-                       total_tracks: int = 10, mood: str = "") -> dict:
+                       total_tracks: int = 10, mood: str = "",
+                       target_duration_seconds: int = FALLBACK_DURATION,
+                       vocal_gender: str = SUNO_VOCAL) -> dict:
     """
     AI writes ONE song's title/style/lyrics (no Suno generation yet).
     If locked_style is set, use it instead of AI-generated style.
@@ -238,7 +245,8 @@ def _generate_plan_only(concept: str, ai_provider_name: str, language: str = "ko
     from providers.ai.base import (get_ai_provider, _lyrics_char_count, _format_lyrics,
                                     mood_directive, apply_mood_to_style)
 
-    draft = {"status": "drafted", "title": "", "style": "", "lyrics": "", "error": ""}
+    draft = {"status": "drafted", "title": "", "style": "", "lyrics": "", "error": "",
+             "target_duration_seconds": target_duration_seconds, "vocal_gender": vocal_gender}
     try:
         ai = get_ai_provider(ai_provider_name)
         # Diversify: tell AI what titles to AVOID (already used in this batch)
@@ -249,14 +257,15 @@ def _generate_plan_only(concept: str, ai_provider_name: str, language: str = "ko
         if existing_titles:
             avoid_str = ", ".join(f'"{t}"' for t in existing_titles)
             diversified_concept = (
-                f"{concept}\n\n"
+                f"{diversified_concept}\n\n"
                 f"IMPORTANT — This is song {track_no + 1} in a batch. "
                 f"The following titles are ALREADY USED: {avoid_str}. "
                 f"You MUST create a COMPLETELY DIFFERENT title and lyrics. "
                 f"Do NOT use the same location or similar phrasing. "
                 f"Each song should feel like it's from a different album."
             )
-        pkg = ai.generate_song_package(diversified_concept, language=language)
+        pkg = ai.generate_song_package(suno_length_brief(diversified_concept, target_duration_seconds),
+                                       language=language)
         # Ensure lyrics are properly formatted with line breaks
         pkg.lyrics = _format_lyrics(pkg.lyrics)
         if locked_style:
@@ -265,12 +274,9 @@ def _generate_plan_only(concept: str, ai_provider_name: str, language: str = "ko
         # its emotional color per the selected 무드).
         pkg.style = apply_mood_to_style(pkg.style, mood)
         # Apply composer variation so each batch song is slightly different
-        from providers.ai.base import apply_batch_variation, get_batch_vocal
+        from providers.ai.base import apply_batch_variation
         draft["track_no"] = track_no
-        pkg.style = apply_batch_variation(pkg.style, track_no, total_tracks, mood)
-        # Determine vocal gender for this track (40% male / 60% female)
-        vocal_gender, _ = get_batch_vocal(track_no, total_tracks)
-        draft["vocal_gender"] = vocal_gender
+        pkg.style = apply_batch_variation(pkg.style, track_no, total_tracks, mood, vocal_gender=vocal_gender)
         draft["title"] = pkg.title
         draft["style"] = pkg.style
         draft["lyrics"] = pkg.lyrics
@@ -294,7 +300,7 @@ def _generate_one_from_draft(draft: dict, base_params: dict, project: str = "기
 
     result = dict(draft)
     title = draft.get("title", "제목 없음")
-    style = draft.get("style", "")
+    style = suno_length_style(draft.get("style", ""), draft.get("target_duration_seconds"))
     lyrics = draft.get("lyrics", "")
 
     exclude_list = [s.strip() for s in DEFAULT_EXCLUDE.split(",") if s.strip()]
@@ -305,7 +311,7 @@ def _generate_one_from_draft(draft: dict, base_params: dict, project: str = "기
         options = {
             "exclude_styles": exclude_list,
             "model": base_params.get("model", "v5"),
-            "vocal_gender": base_params.get("vocal_gender", "Female"),
+            "vocal_gender": "Auto" if base_params.get("instrumental") else base_params.get("vocal_gender", SUNO_VOCAL),
             "instrumental": base_params.get("instrumental", False),
             "weirdness": base_params.get("weirdness", 35),
             "style_influence": base_params.get("style_influence", 70),
@@ -573,6 +579,7 @@ def _render_auto_batch():
                      use_container_width=True, key="auto_plan_btn"):
             ai_provider_name = available[prov_idx]["name"]
             plan = []
+            duration_targets = assign_suno_durations(int(count))
             prog = st.progress(0.0)
             stat = st.empty()
             for n in range(int(count)):
@@ -583,7 +590,8 @@ def _render_auto_batch():
                 draft = _generate_plan_only(concept.strip(), ai_provider_name,
                                             language=auto_language, locked_style=locked,
                                             track_no=n, existing_titles=existing_titles,
-                                            total_tracks=count, mood=auto_mood)
+                                            total_tracks=count, mood=auto_mood,
+                                            target_duration_seconds=duration_targets[n], vocal_gender=vocal)
                 plan.append(draft)
                 prog.progress((n + 1) / count)
             st.session_state["auto_plan_data"] = plan
@@ -621,6 +629,10 @@ def _render_auto_batch():
         pending = total - done - failed
         st.caption(f"✅ {done}곡 완료 · ❌ {failed}곡 실패 · 📝 {pending}곡 대기" if (done or failed) else "")
 
+        if any("target_duration_seconds" not in draft for draft in plan):
+            for draft, target in zip(plan, assign_suno_durations(len(plan))):
+                draft.setdefault("target_duration_seconds", target)
+
         for i, draft in enumerate(plan):
             title = draft.get("title", "제목 없음")
             chars = draft.get("lyric_chars", 0)
@@ -631,7 +643,8 @@ def _render_auto_batch():
             import re as _re
             _bpm_m = _re.search(r'BPM (\d+)', draft.get("style", ""))
             _key_m = _re.search(r'([A-G][#b]? (?:major|minor))', draft.get("style", ""))
-            _info = f"가사 {chars}자"
+            target = draft["target_duration_seconds"]
+            _info = f"목표 {format_suno_duration(target)} · 가사 {chars}자"
             if _bpm_m:
                 _info += f" · BPM {_bpm_m.group(1)}"
             if _key_m:
@@ -658,7 +671,8 @@ def _render_auto_batch():
                             new_draft = _generate_plan_only(
                                 concept.strip(), ai_name,
                                 language=auto_language, locked_style="", track_no=i,
-                                mood=auto_mood)
+                                total_tracks=len(plan), mood=auto_mood,
+                                target_duration_seconds=target, vocal_gender=vocal)
                             plan[i].update({
                                 "title": new_draft.get("title", ""),
                                 "style": new_draft.get("style", ""),
@@ -692,7 +706,7 @@ def _render_auto_batch():
                             base = auto_style.strip() or CITYPOP_STYLE_PRESET
                             plan[i]["style"] = apply_batch_variation(
                                 base, i + hash(plan[i].get("title", "")) % 8,
-                                mood_key=auto_mood)
+                                mood_key=auto_mood, vocal_gender=vocal)
                             st.session_state["auto_plan_data"] = plan
                             st.session_state.pop(f"plan_style_{i}", None)
                             st.rerun()
@@ -703,7 +717,8 @@ def _render_auto_batch():
                             from providers.ai.base import get_ai_provider
                             ai_name = available[prov_idx]["name"] if available else "mock"
                             ai = get_ai_provider(ai_name)
-                            plan[i]["lyrics"] = ai.generate_lyrics(concept.strip(), language=auto_language)
+                            plan[i]["lyrics"] = ai.generate_lyrics(
+                                suno_length_brief(concept.strip(), target), language=auto_language)
                             from providers.ai.base import _lyrics_char_count
                             plan[i]["lyric_chars"] = _lyrics_char_count(plan[i]["lyrics"])
                             plan[i]["status"] = "drafted"
@@ -739,6 +754,17 @@ def _render_auto_batch():
             _save_plan_to_disk(project, plan)  # persist to disk
 
         st.divider()
+        with st.expander("Suno 웹 설정"):
+            st.caption("곡마다 고급 → 추가 옵션에서 배정한 Custom 길이·보컬, 개인화 켬, Max 모드 켬을 확인합니다. "
+                       "CLI는 길이를 스타일에 반영합니다.")
+            web_tracks = [
+                {key: draft.get(key, "") for key in ("title", "style", "lyrics")}
+                | suno_web_settings(draft["target_duration_seconds"], vocal)
+                for draft in plan
+            ]
+            st.download_button("웹 입력용 앨범 계획 저장",
+                               json.dumps(web_tracks, ensure_ascii=False, indent=2),
+                               file_name="suno_web_album.json", mime="application/json")
         if not cookie:
             st.error("❌ SUNO_COOKIE 미설정 — 사이드바에서 쿠키를 연결하세요.")
         else:
@@ -760,10 +786,7 @@ def _render_auto_batch():
                 from services.generation_job_manager import start_generation_job
 
                 # Build plan for the worker (only pending tracks)
-                if do_retry:
-                    worker_plan = [dict(d) for d in plan if d.get("status") not in ("generated",)]
-                else:
-                    worker_plan = [dict(d) for d in plan if d.get("status") not in ("generated",)]
+                worker_plan = [dict(d, vocal_gender=vocal) for d in plan if d.get("status") != "generated"]
 
                 settings = {
                     "model": model, "vocal_gender": vocal,
@@ -826,6 +849,8 @@ def _render_quick_single():
             if not project:
                 st.warning("⚠️ 먼저 프로젝트 이름을 입력하세요 (위쪽).")
             elif _start_quick_single_job(params, project=project):
+                st.session_state.pop("suno_single_duration", None)
+                st.session_state["prompt_confirmed"] = False
                 st.rerun()
 
     with col_results:
@@ -1072,13 +1097,24 @@ def _render_manual_import():
     )
 
     if uploaded:
+        from workflows.audio_qc import run_audio_qc
+        from services.suno_defaults import DURATIONS
+
         dl_dir = _get_outputs_dir() / "manual_imports" / datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
         dl_dir.mkdir(parents=True, exist_ok=True)
 
         for f in uploaded:
-            save_path = dl_dir / f.name
-            save_path.write_bytes(f.read())
+            save_path = dl_dir / Path(f.name).name
+            save_path.write_bytes(f.getvalue())
+            qc = run_audio_qc(save_path)
             st.success(f"✅ 저장됨: {save_path.name}")
+            if not qc.distribution_eligible:
+                st.warning("원본 PCM WAV로 확인되지 않았습니다.")
+            elif qc.duration_seconds is not None:
+                minute, second = divmod(round(qc.duration_seconds), 60)
+                st.caption(f"실제 재생 시간 {minute}:{second:02d}")
+                if not DURATIONS[0] <= qc.duration_seconds <= DURATIONS[-1]:
+                    st.warning("서울레코즈 Suno 길이 범위는 2:50–3:20입니다. 원본을 확인하세요.")
 
             song = {
                 "title": f.name.replace(".wav", ""),
@@ -1086,10 +1122,10 @@ def _render_manual_import():
                 "status": "imported",
                 "provider": "manual_import",
                 "model": "—",
-                "duration": None,
+                "duration": qc.duration_seconds,
                 "file_type": "wav",
                 "file_path": str(save_path),
-                "distribution_eligible": True,
+                "distribution_eligible": qc.distribution_eligible,
                 "created_at": datetime.now(timezone.utc).isoformat(),
             }
             _save_generated_song(song)

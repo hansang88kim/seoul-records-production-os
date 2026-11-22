@@ -1,0 +1,7 @@
+{
+  "vocal_gender": "Female",
+  "duration_options_seconds": [170, 175, 180, 185, 190, 195, 200],
+  "fallback_duration_seconds": 185,
+  "personalization": true,
+  "max_mode": true
+}

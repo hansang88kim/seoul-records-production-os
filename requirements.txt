@@ -2,6 +2,7 @@ streamlit>=1.35.0
 pydantic>=2.0.0
 python-dotenv>=1.0.0
 pillow>=10.0.0
+numpy>=1.26.0
 mutagen>=1.47.0
 jsonschema>=4.22.0
 pytest>=8.0.0

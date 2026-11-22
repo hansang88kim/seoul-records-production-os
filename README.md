@@ -1,12 +1,17 @@
 # Seoul Records Production OS
 
-**AI Music Label Production Harness — v1.0.0-alpha.42**
+**AI Music Label Production Harness — v1.0.0-alpha.126**
 
 > Creative direction: controlled by ChatGPT and the user.
 > Engineering: this repository.
-> Creative prompt generation is placeholder and will later be controlled by ChatGPT.
 
 ---
+
+## Seoul Records 운영 문서
+
+- [제작·배포 워크플로](docs/production_workflow.md) · 썸네일 후보 선정, 캠퍼스 60초 미리보기, 가사·파형·곡 전환, YouTube 챕터
+- [Suno 생성 기본값](docs/suno_defaults.md) · 여성 보컬, 앨범별 길이 배정, 웹 고급 옵션, 원본 WAV 확인
+- [UnitedMasters 웹 등록](docs/unitedmasters_distribution_package.md) · 전체 프레임 1:1 커버, 곡별 원본 검수, 권리 표기, 웹 초안과 제출
 
 
 ## Running the app
@@ -203,7 +208,7 @@ Seoul Records Production OS is a local MVP application for creating AI-generated
 
 ```bash
 # 1. Clone
-git clone https://github.com/seoul-records/seoul-records-production-os
+git clone https://github.com/hansang88kim/seoul-records-production-os
 cd seoul-records-production-os
 
 # 2. Python environment (3.11+)

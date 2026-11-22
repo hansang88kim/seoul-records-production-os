@@ -8,8 +8,15 @@ from __future__ import annotations
 import csv
 import json
 import inspect
+import wave
 import pytest
 from pathlib import Path
+
+
+def _write_wav(path: Path) -> None:
+    with wave.open(str(path), "wb") as audio:
+        audio.setparams((2, 2, 48000, 0, "NONE", "not compressed"))
+        audio.writeframes(bytes(4800 * 4))
 
 
 def _make_plan(tmp_path, with_wav=False):
@@ -18,8 +25,8 @@ def _make_plan(tmp_path, with_wav=False):
     a = songs / "track_a.mp3"; a.write_bytes(b"\xff\xfb\x90\x00" + b"\x00" * 4000)
     b = songs / "track_b.mp3"; b.write_bytes(b"\xff\xfb\x90\x00" + b"\x00" * 4000)
     if with_wav:
-        (songs / "track_a.wav").write_bytes(b"RIFF" + b"\x00" * 4000)
-        (songs / "track_b.wav").write_bytes(b"RIFF" + b"\x00" * 4000)
+        _write_wav(songs / "track_a.wav")
+        _write_wav(songs / "track_b.wav")
     plan = {"entries": [
         {"path": str(a), "name": "track_a.mp3", "duration_sec": 210, "repeat_index": 0},
         {"path": str(b), "name": "track_b.mp3", "duration_sec": 200, "repeat_index": 0},
@@ -182,8 +189,10 @@ def test_attach_wav_flac_master(tmp_path, cover, pkg_root):
     from services.unitedmasters.track_builder import build_tracklist
     plan, a, b = _make_plan(tmp_path, with_wav=False)
     # Provide a real WAV master for both tracks as overrides
-    wa = tmp_path / "songs" / "master_a.wav"; wa.write_bytes(b"RIFF" + b"\x00" * 100)
-    wb = tmp_path / "songs" / "master_b.wav"; wb.write_bytes(b"RIFF" + b"\x00" * 100)
+    wa = tmp_path / "songs" / "master_a.wav"
+    wb = tmp_path / "songs" / "master_b.wav"
+    _write_wav(wa)
+    _write_wav(wb)
     overrides = {a: str(wa), b: str(wb)}
     tracks = build_tracklist(plan, overrides)
     assert all(t["distribution_ready"] for t in tracks)
@@ -220,6 +229,47 @@ def test_export_manual_upload_package(tmp_path, cover, pkg_root):
     zip_path = PS.build_manual_upload_zip(m["package_dir"])
     assert zip_path and Path(zip_path).exists()
     assert zip_path.endswith("manual_upload_package.zip")
+
+
+def test_original_wav_title_and_full_frame_cover_in_upload_package(tmp_path, pkg_root):
+    import zipfile
+    from PIL import Image
+    from services.unitedmasters import package_service as PS
+
+    filename = tmp_path / "01 - 질문 있어_.wav"
+    _write_wav(filename)
+    cover = tmp_path / "wide.png"
+    image = Image.new("RGB", (192, 108), "red")
+    image.paste("blue", (160, 0, 192, 108))
+    image.save(cover)
+    plan = {"entries": [{"path": str(filename), "name": filename.name, "duration_sec": 0.1}]}
+    package = PS.create_package(plan, str(cover), title_overrides={str(filename): "질문 있어?"})
+    assert package["distribution_ready"]
+    with Image.open(package["cover_upload_ready"]) as square:
+        assert square.size == (3000, 3000)
+        assert square.getpixel((0, 0)) == (255, 255, 255)
+        assert square.getpixel((0, 1500))[0] > 240
+        assert square.getpixel((2999, 1500))[2] > 240
+    with Path(package["tracklist_csv"]).open(encoding="utf-8") as source:
+        row = next(csv.DictReader(source))
+    assert row["title"] == "질문 있어?"
+    assert not row["mp3_path"]
+    with zipfile.ZipFile(PS.build_manual_upload_zip(package["package_dir"])) as archive:
+        assert archive.read(f"audio_distribution_master/{row['source_file']}") == filename.read_bytes()
+        assert "No – I own the artwork" in archive.read("metadata/upload_instructions.md").decode()
+
+
+def test_distribution_blocks_fake_wav_and_video_mix(tmp_path, cover, pkg_root):
+    from services.unitedmasters import package_service as PS
+
+    plan, a, b = _make_plan(tmp_path)
+    fake = tmp_path / "fake.wav"
+    fake.write_bytes(Path(a).read_bytes())
+    mixed = tmp_path / "final_audio_mix.wav"
+    _write_wav(mixed)
+    package = PS.create_package(plan, cover, master_overrides={a: str(fake), b: str(mixed)})
+    assert not package["distribution_ready"]
+    assert not list(Path(package["package_dir"], "audio_distribution_master").iterdir())
 
 
 def test_unitedmasters_package_does_not_delete_source_mp3(tmp_path, cover, pkg_root):

@@ -240,10 +240,11 @@ def test_system_prompt_has_char_limits():
 
 
 def test_user_prompt_emphasizes_length():
-    """User prompt for full generation emphasizes the length limit."""
+    """User prompt keeps the per-track Suno arrangement target."""
     from providers.ai.base import _make_user_prompt
-    prompt = _make_user_prompt("test", "all")
-    assert "3:30" in prompt
+    from services.suno_defaults import suno_length_brief
+    prompt = _make_user_prompt(suno_length_brief("test", 185), "all")
+    assert "Arrangement target: 3:05" in prompt
 
 
 # ─── Coerce list/None responses (fix 'list' has no attribute 'replace') ──────

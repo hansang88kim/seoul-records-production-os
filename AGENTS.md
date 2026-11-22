@@ -5,6 +5,14 @@
 
 ---
 
+## 제작 기준
+
+- 진행 중인 제작에는 [제작·배포 워크플로](docs/production_workflow.md),
+  [Suno 기본값](docs/suno_defaults.md), [UnitedMasters 웹 등록](docs/unitedmasters_distribution_package.md)을 적용한다.
+- 영상에 포함된 리드인·곡 사이 무음은 최종 영상의 챕터에 반영한다. 배포 패키지에는 각 곡의 원본 WAV/FLAC를 그대로 복사한다.
+
+---
+
 ## 0. 매 작업의 기본 루프 (검증된 순서)
 
 1. 요청 파악 → **애매하면 만들기 전에 물어라**(§5). 기존 기능일 수 있으니 **먼저 grep**(§4).

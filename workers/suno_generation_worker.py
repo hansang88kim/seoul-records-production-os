@@ -46,6 +46,7 @@ def run_job(job_id: str):
     from services.job_store import load_job, update_job, complete_job, add_log_line
     from providers.suno.suno_cli_provider import SunoCliProvider
     from app.project_manager import song_project_download_dir
+    from services.suno_defaults import SUNO_VOCAL, suno_length_style, suno_web_settings
     from app.ui.composer_panel import DEFAULT_EXCLUDE
 
     state = load_job(job_id)
@@ -99,7 +100,8 @@ def run_job(job_id: str):
             continue  # skip already completed
 
         title = draft.get("title", "제목 없음")
-        style = draft.get("style", "")
+        target = draft.get("target_duration_seconds")
+        style = suno_length_style(draft.get("style", ""), target)
         lyrics = draft.get("lyrics", "")
 
         _update(job_id,
@@ -113,8 +115,9 @@ def run_job(job_id: str):
             # folder for prompt-snapshot / submitted-payload metadata files.
             dl_dir = song_project_download_dir(project, title)
 
-            # Per-track vocal gender (from batch variation) overrides the default
-            track_vocal = draft.get("vocal_gender") or settings.get("vocal_gender", "Female")
+            track_vocal = draft.get("vocal_gender") or settings.get("vocal_gender", SUNO_VOCAL)
+            if settings.get("instrumental"):
+                track_vocal = "Auto"
             options = {
                 "exclude_styles": exclude_list,
                 "model": settings.get("model", "v5"),
@@ -122,6 +125,7 @@ def run_job(job_id: str):
                 "instrumental": settings.get("instrumental", False),
                 "weirdness": settings.get("weirdness", 35),
                 "style_influence": settings.get("style_influence", 70),
+                "target_duration_seconds": target,
             }
 
             # Save prompt snapshot (canonical)
@@ -156,6 +160,9 @@ def run_job(job_id: str):
                     "download_note": "다운로드 안 함 — suno.com에서 직접 다운로드",
                     "prompt_snapshot_id": None,
                 }
+                if target:
+                    payload["web_options"] = suno_web_settings(target, track_vocal)
+                    payload["length_sent_as_style_hint"] = True
                 (track_dir).mkdir(parents=True, exist_ok=True)
                 (track_dir / "submitted_payload.json").write_text(
                     json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8"
@@ -212,6 +219,7 @@ def run_job(job_id: str):
                     "created_at": datetime.now(timezone.utc).isoformat(),
                     "task_id": task_id,
                     "style": style, "project": project,
+                    "target_duration_seconds": target,
                     "job_id": job_id,
                 })
             except Exception:

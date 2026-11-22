@@ -3,9 +3,11 @@ app/ui/composer_panel.py — Song Lab Composer Panel (v0.5)
 AI Composer + Song Form + Confirm/Generate flow.
 """
 from __future__ import annotations
+import json
 import os
 import streamlit as st
 from providers.ai.base import get_ai_provider, get_available_ai_providers, SongPromptPackage
+from services.suno_defaults import assign_suno_durations, format_suno_duration, suno_length_brief, suno_web_settings
 
 DEFAULT_EXCLUDE = (
     # Instruments / genre exclusions
@@ -90,6 +92,9 @@ LYRICS_PLACEHOLDER = """[Intro]
 
 def render_composer_panel() -> dict | None:
     """Render full composer: AI Composer + Song Form + Confirm + Generate."""
+    if "suno_single_duration" not in st.session_state:
+        st.session_state["suno_single_duration"] = assign_suno_durations(1)[0]
+    target = st.session_state["suno_single_duration"]
 
     # "🎲 변주" writes to a _pending key instead of "ai_concept" directly,
     # because the ai_concept text_input widget below is instantiated before
@@ -186,7 +191,8 @@ def render_composer_panel() -> dict | None:
             if provider:
                 with st.spinner("AI 작곡 중..."):
                     try:
-                        pkg = provider.generate_song_package(concept.strip(), language=selected_language)
+                        pkg = provider.generate_song_package(
+                            suno_length_brief(concept.strip(), target), language=selected_language)
                         # Respect locks — don't overwrite locked fields
                         if not st.session_state.get("lock_title"):
                             st.session_state["form_title"] = pkg.title
@@ -226,7 +232,8 @@ def render_composer_panel() -> dict | None:
             if provider and not st.session_state.get("lock_lyrics"):
                 with st.spinner("..."):
                     try:
-                        st.session_state["form_lyrics"] = provider.generate_lyrics(concept.strip(), language=selected_language)
+                        st.session_state["form_lyrics"] = provider.generate_lyrics(
+                            suno_length_brief(concept.strip(), target), language=selected_language)
                         st.session_state["prompt_confirmed"] = False
                         st.rerun()
                     except Exception as e:
@@ -358,6 +365,16 @@ def render_composer_panel() -> dict | None:
     # ═══════════════════════════════════════════════════════════════════════
     has_content = bool(title.strip()) and bool(lyrics.strip()) and bool(style.strip())
     is_confirmed = st.session_state.get("prompt_confirmed", False)
+    web_settings = suno_web_settings(target, vocal)
+    with st.expander("Suno 웹 설정"):
+        st.caption(f"고급 → 추가 옵션 · 보컬 {vocal} · Custom {format_suno_duration(target)} · 개인화 켬 · Max 모드 켬")
+        st.caption("Custom 길이·개인화·Max 모드는 웹에서 곡마다 설정합니다. CLI는 목표 길이를 스타일에 반영합니다.")
+        st.download_button(
+            "웹 입력용 곡 정보 저장",
+            json.dumps({"title": title, "style": style, "lyrics": lyrics, **web_settings},
+                       ensure_ascii=False, indent=2),
+            file_name="suno_web_track.json", mime="application/json", disabled=not has_content,
+        )
 
     col_confirm, col_generate = st.columns(2)
 
@@ -399,6 +416,7 @@ def render_composer_panel() -> dict | None:
                 "instrumental": vocal == "Instrumental",
                 "weirdness": weirdness,
                 "style_influence": style_influence,
+                "target_duration_seconds": target,
             }
 
     if not has_content:

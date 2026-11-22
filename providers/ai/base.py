@@ -221,8 +221,8 @@ CRITICAL RULES:
 - Vocal: Low, gentle, restrained female vocal with retro reverb and subtle vibrato — soft and lyrical, never belting
 - BPM: 112-114 (usually 113)
 - Key: BOTH major and minor are good (major = brighter nostalgic, minor = wistful bittersweet)
-- Duration: MUST be 3:30 or SHORTER. Keep lyrics SHORT.
-- Too many lines runs 4:00-4:30 — TOO LONG. Cut ruthlessly.
+- Duration: respect the arrangement target supplied for this track, within 2:50–3:20.
+- Keep sung lines and instrumental breaks concise enough for the requested length.
 - Total lyric content: {char_target} (not counting section headers).
 - BANNED inside sung lines: sax lead, drum fill-ins, tom fills, snare rolls, EDM, trot, enka
 
@@ -244,13 +244,13 @@ Rules:
 - In a batch, SPREAD across DIFFERENT themes — not every song about loneliness or a lost lover.
 - Ground it in specific, sensory mid-1990s {city} everyday life (a subway car, a rooftop, a one-room, a late bus, a payphone, a cassette, rain on a window, streetlights) — concrete and truly felt, WITHOUT leaning on district/landmark names. Avoid clichés and melodrama.
 
-LYRICS FORMAT — follow this EXACT structure for natural 3:30 duration.
-Lyrics must be {lo}-{hi} characters (sung text only, excluding section headers). HARD CAP: {hi} chars MAX. HARD FLOOR: {lo} chars MIN. Target duration: 3:30-3:50.
+LYRICS FORMAT — use this structure with short lines for the requested length.
+Lyrics must be {lo}-{hi} characters (sung text only, excluding section headers). HARD CAP: {hi} chars MAX. HARD FLOOR: {lo} chars MIN.
 If over {hi} chars, CUT words until under {hi}. NEVER exceed {hi}.
 If under {lo} chars, ADD natural phrases until at least {lo}. NEVER go below {lo}.
 If under {mid} chars, ADD natural phrases to reach {mid}.
 
-STRUCTURE (10 sections — this length produces ~3:30-3:50):
+STRUCTURE (use compact lines and concise melodic phrasing):
 
 [Intro]
 (soft instrumental intro — gentle Rhodes and synth pads only, NO drums and NO drum count-in at the start)
@@ -595,13 +595,13 @@ def get_batch_vocal(track_no: int, total_tracks: int = 10) -> tuple[str, str]:
 
 
 def apply_batch_variation(base_style: str, track_no: int, total_tracks: int = 10,
-                          mood_key: str = "") -> str:
+                          mood_key: str = "", *, vocal_gender: str | None = None) -> str:
     """
     Apply deterministic variation to a base style for a specific track number.
     Changes BPM, key, vocal (gender + tone), keyboard texture, and mood shade
     while keeping the core genre and instruments.
 
-    Vocal gender follows a 40% male / 60% female batch distribution.
+    An explicit vocal setting selects the corresponding tone variations.
 
     mood_key (v1.0.0-alpha.122): when set, the LEADING genre label is drawn from
     that mood's angle set (e.g. a "wistful" batch opens with lonely/late-night
@@ -638,7 +638,14 @@ def apply_batch_variation(base_style: str, track_no: int, total_tracks: int = 10
         style = style.replace(f'BPM {bpm_new}', f'{key_new}, BPM {bpm_new}')
 
     # Replace vocal tone — gendered (male/female) + age-varied
-    _, vocal_new = get_batch_vocal(track_no, total_tracks)
+    if vocal_gender == "Female":
+        vocal_new = _BATCH_FEMALE_VOCALS[track_no % len(_BATCH_FEMALE_VOCALS)]
+    elif vocal_gender == "Male":
+        vocal_new = _BATCH_MALE_VOCALS[track_no % len(_BATCH_MALE_VOCALS)]
+    elif vocal_gender == "Instrumental":
+        vocal_new = "instrumental arrangement"
+    else:
+        _, vocal_new = get_batch_vocal(track_no, total_tracks)
     # Find and replace any existing vocal descriptor
     all_vocals = _BATCH_FEMALE_VOCALS + _BATCH_MALE_VOCALS + [
         "emotional low female vocal with warm reverb and subtle vibrato",
@@ -655,6 +662,8 @@ def apply_batch_variation(base_style: str, track_no: int, total_tracks: int = 10
         m = re.search(r'[a-z-]+ (?:low |mid-low |mid-range |high )?(?:female|male) vocal[^,]*', style)
         if m:
             style = style.replace(m.group(0), vocal_new)
+        elif vocal_gender:
+            style = f"{style}, {vocal_new}"
 
     # Replace keyboard texture (if present)
     kb_new = _BATCH_KEYBOARD_TEXTURES[track_no % len(_BATCH_KEYBOARD_TEXTURES)]
@@ -710,7 +719,7 @@ def _make_user_prompt(concept: str, generate: str = "all", lang_key: str = DEFAU
             f"Concept: {concept}\n\n"
             f"Generate lyrics in {L} about {city}, following the EXACT structure. "
             "CRITICAL: exactly 4 lines per section (Outro = 2 lines). Do NOT add a 5th line. "
-            "Keep lines short and singable for a 3:30 song. "
+            "Keep lines short and singable for the arrangement target. "
             "Structure: Intro(instrumental)/Verse1(4)/Pre-Chorus(4)/Chorus(4)/Verse2(4)/"
             "Pre-Chorus(4)/Chorus(4)/Bridge(4)/Final Chorus(4)/Outro(2). "
             f'Write naturally in {L}. Return JSON: {{"lyrics": "..."}}'
@@ -721,7 +730,7 @@ def _make_user_prompt(concept: str, generate: str = "all", lang_key: str = DEFAU
         f"Create a Seoul Records city pop song. Lyrics in {L} about {city}; "
         "the musical style stays authentic 1980s-90s Japanese citypop. Return JSON only.\n"
         "CRITICAL LYRICS RULE: exactly 4 lines per section (Outro 2 lines), short singable lines, "
-        "for a 3:30 song. NEVER add a 5th line to any section — that makes the song too long.\n"
+        "for the arrangement target. NEVER add a 5th line to any section.\n"
         f'{{"title": "{L} title with a {city} place name", '
         '"style": "authentic 1980s-90s Japanese citypop, golden-age sound, 300-500 chars, NO sax, BPM 112-114, nostalgic bittersweet", '
         f'"lyrics": "10 sections (with Final Chorus), 4 lines each (Outro 2), all lyrics in {L}"}}'

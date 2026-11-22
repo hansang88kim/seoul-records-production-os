@@ -55,8 +55,12 @@ flowchart TD
   한 번에 하나만 running, 나머지 queued→자동 chain. (이유: Streamlit rerun이 실행 중 스크립트를 끊음.)
 - **썸네일**: `thumbnail_studio.py` → `prompt_generator`/`prompt_composer`(프롬프트) →
   `image_provider.get_image_provider(engine)` → `session_store`(후보 저장). `job["project"]`=session_id.
-- **곡 다운로드**: 생성 직후 worker가 `suno_auto_download.auto_download_final_version`(승자 1개 저장 +
-  나머지 Suno에서 삭제, 기본 ON).
+- **곡 생성과 다운로드**: `services/suno_defaults.py`에서 곡별 길이를 배정하고,
+  Suno worker는 생성 결과 ID를 저장한다. 사용할 버전의 원본 WAV는 Suno에서 내려받아 가져온다.
+- **캠퍼스 렌더**: `services/video/campus_plan.py`의 실제 재생 타임라인으로
+  `campus_render.py`가 미리보기·전체 영상과 챕터를 만든다. 기존 렌더 작업 상태 저장소를 사용한다.
+- **UnitedMasters**: `services/unitedmasters/package_service.py`가 순서와 정식 제목을 유지해
+  원본 음원·별도 정사각형 커버·웹 작업지시서를 내보낸다.
 - **YouTube 설명**: `youtube_package.py` → `services/youtube/seo_description.py`(골격) +
   `metadata_generator`/`description_translator`(LLM, OpenAI→Gemini). 트랙리스트는 업로드 음원에서 그대로.
 - **무드**: `providers/ai/base.SONG_MOODS`(곡) · `prompt_generator.THUMB_ART_STYLES`(썸네일) ·

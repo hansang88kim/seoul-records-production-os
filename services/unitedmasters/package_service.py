@@ -13,11 +13,16 @@ import csv
 import json
 import shutil
 import uuid
+import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
+from tempfile import NamedTemporaryFile
 
 from services.unitedmasters import track_builder as TB
 from services.unitedmasters import cover_validator as CV
+
+
+UPLOAD_GUIDE = Path(__file__).resolve().parents[2] / "docs" / "unitedmasters_distribution_package.md"
 
 
 def _packages_root() -> Path:
@@ -56,14 +61,16 @@ def create_package(playlist_plan: dict,
                    cover_path: str,
                    release_metadata: dict | None = None,
                    master_overrides: dict | None = None,
-                   allow_mp3_only_draft: bool = True) -> dict:
+                   allow_mp3_only_draft: bool = True,
+                   *,
+                   title_overrides: dict | None = None) -> dict:
     """
     Build the UnitedMasters package on disk. Returns the package_manifest dict.
 
     - MP3 copied to audio_mp3_reference/NN_title.mp3 (source audio).
     - WAV/FLAC copied to audio_distribution_master/NN_title.ext ONLY if provided.
     - cover copied into cover/ (+ cover_upload_ready).
-    - distribution_ready is True only if EVERY track has a valid master.
+    - distribution_ready means every track has a verified master and the cover is prepared.
     """
     package_id = _new_package_id()
     pkg = _packages_root() / package_id
@@ -73,7 +80,7 @@ def create_package(playlist_plan: dict,
     (pkg / "metadata").mkdir(parents=True, exist_ok=True)
 
     meta = release_metadata or default_release_metadata()
-    tracks = TB.build_tracklist(playlist_plan, master_overrides)
+    tracks = TB.build_tracklist(playlist_plan, master_overrides, title_overrides)
 
     # ── Copy MP3 references + any provided masters ───────────────────────
     for t in tracks:
@@ -91,22 +98,25 @@ def create_package(playlist_plan: dict,
             t["packaged_master"] = str(dest)
 
     # ── Cover ────────────────────────────────────────────────────────────
-    cover_result = CV.validate_cover(cover_path)
     packaged_cover = None
     upload_ready_cover = None
-    if cover_path and Path(cover_path).exists():
+    if cover_path and Path(cover_path).is_file() and Path(cover_path).suffix.lower() in CV.IMAGE_EXTS:
         ext = Path(cover_path).suffix.lower()
         packaged_cover = pkg / "cover" / f"streaming_cover_1x1{ext}"
         shutil.copy2(cover_path, packaged_cover)
         upload_ready_cover = CV.make_upload_ready_cover(cover_path, str(pkg / "cover"))
+    cover_result = CV.validate_cover(upload_ready_cover or cover_path)
 
     # ── Distribution readiness ───────────────────────────────────────────
-    distribution_ready = TB.tracklist_distribution_ready(tracks)
-    mp3_only = (not distribution_ready) and all(t["source_audio_mp3"] for t in tracks)
+    masters_ready = TB.tracklist_distribution_ready(tracks)
+    distribution_ready = masters_ready and bool(upload_ready_cover and cover_result["ok_for_distribution"])
+    mp3_only = bool(tracks) and all(t["source_audio_mp3"] and not t["master_path"] for t in tracks)
 
     warnings = []
     if mp3_only:
         warnings.append("MP3-only 패키지입니다 — 실제 배포에는 WAV/FLAC 마스터가 필요합니다.")
+    warnings.extend(f"{t['track_no']}. {t['title']} · {warning}"
+                    for t in tracks for warning in t["warnings"])
     if cover_result.get("warnings"):
         warnings.extend(cover_result["warnings"])
 
@@ -120,17 +130,21 @@ def create_package(playlist_plan: dict,
 
     # ── release_metadata.json ────────────────────────────────────────────
     release_meta_full = dict(meta)
+    release_meta_full["release_type"] = "Re-Release" if meta.get("previously_released") else "New Release"
     release_meta_full["track_count"] = len(tracks)
     release_meta_full["tracks"] = [
         {"order": t["order"], "track_no": t["track_no"], "title": t["title"],
-         "duration_sec": t["duration_sec"], "distribution_ready": t["distribution_ready"]}
+         "duration_sec": t["duration_sec"], "distribution_ready": t["distribution_ready"],
+         "source_file": Path(t["packaged_master"]).name if t.get("packaged_master") else "",
+         "audio_format": t["master_audio"]}
         for t in tracks
     ]
     (pkg / "release_metadata.json").write_text(
         json.dumps(release_meta_full, ensure_ascii=False, indent=2), encoding="utf-8")
 
     # ── metadata/ docs ───────────────────────────────────────────────────
-    _write_metadata_docs(pkg / "metadata", meta, tracks, status, distribution_ready)
+    _write_metadata_docs(pkg / "metadata", meta, tracks, status, masters_ready,
+                         cover_result["ok_for_distribution"] and bool(upload_ready_cover))
 
     # ── package_manifest.json ────────────────────────────────────────────
     manifest = {
@@ -142,6 +156,7 @@ def create_package(playlist_plan: dict,
         "track_count": len(tracks),
         "status": status,
         "distribution_ready": distribution_ready,
+        "audio_masters_ready": masters_ready,
         "mp3_only": mp3_only,
         "cover_path": str(packaged_cover) if packaged_cover else None,
         "cover_upload_ready": upload_ready_cover,
@@ -160,15 +175,16 @@ def _write_tracklist_csv(path: Path, tracks: list[dict]):
     with path.open("w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
         w.writerow(["order", "track_no", "title", "duration_sec",
-                    "mp3_path", "master_path", "distribution_ready"])
+                    "mp3_path", "master_path", "distribution_ready", "source_file"])
         for t in tracks:
             w.writerow([t["order"], t["track_no"], t["title"], t["duration_sec"],
                         t.get("mp3_path", ""), t.get("master_path") or "",
-                        t["distribution_ready"]])
+                        t["distribution_ready"],
+                        Path(t["packaged_master"]).name if t.get("packaged_master") else ""])
 
 
 def _write_metadata_docs(mdir: Path, meta: dict, tracks: list[dict],
-                         status: str, distribution_ready: bool):
+                         status: str, masters_ready: bool, cover_ready: bool):
     # release_notes.txt
     (mdir / "release_notes.txt").write_text(
         f"{meta.get('release_title','')}\n{meta.get('artist_name','')} · "
@@ -187,52 +203,53 @@ def _write_metadata_docs(mdir: Path, meta: dict, tracks: list[dict],
     # rights_checklist.md
     (mdir / "rights_checklist.md").write_text(
         "# Rights / Copyright Checklist\n\n"
-        "- [ ] 모든 트랙의 저작권 보유 확인\n"
-        "- [ ] 샘플/서드파티 소스 없음 확인\n"
+        "- [ ] 모든 트랙과 커버의 사용 권리 및 필요한 증빙을 확인했습니다.\n"
+        "- [ ] 각 곡의 제3자 샘플·비트·녹음과 커버의 제3자 소재를 사실대로 표시했습니다.\n"
+        "- [ ] 커버와 음원의 AI 사용을 확인하고 해당 항목에 표시했습니다.\n"
         f"- [ ] Copyright: {meta.get('copyright_year','')} {meta.get('copyright_owner','')}\n"
         f"- [ ] Publishing: {meta.get('publishing_owner','')}\n"
         "- [ ] Explicit 여부 확인\n", encoding="utf-8")
 
     # upload_instructions.md
-    (mdir / "upload_instructions.md").write_text(
-        "# UnitedMasters 업로드 안내\n\n"
-        "1. UnitedMasters에 로그인\n2. 새 릴리스 생성\n"
-        "3. release_metadata.json 값으로 메타데이터 입력\n"
-        "4. cover/ 의 커버 업로드\n"
-        "5. audio_distribution_master/ 의 WAV/FLAC를 01, 02 순서로 업로드\n"
-        "   (WAV/FLAC가 없으면 먼저 마스터를 준비하세요 — MP3는 배포 마스터가 아닙니다)\n"
-        "6. 트랙 제목/순서 확인\n7. 크레딧 입력\n8. 릴리스 날짜 선택\n"
-        "9. 권리/저작권 검토\n10. 검토 제출\n", encoding="utf-8")
+    shutil.copyfile(UPLOAD_GUIDE, mdir / "upload_instructions.md")
 
     # unitedmasters_manual_upload_checklist.md
-    master_line = ("- [x] WAV/FLAC 마스터 준비됨" if distribution_ready
-                   else "- [ ] WAV/FLAC 마스터 준비 필요 (현재 MP3만 있음)")
+    master_line = f"- [{'x' if masters_ready else ' '}] 곡별 원본 WAV/FLAC {len(tracks)}개 검증"
+    cover_line = f"- [{'x' if cover_ready else ' '}] 1:1 업로드용 커버 생성"
     (mdir / "unitedmasters_manual_upload_checklist.md").write_text(
-        "# UnitedMasters Manual Upload Checklist\n\n"
-        "- [ ] UnitedMasters 로그인\n- [ ] 새 릴리스 생성\n"
-        "- [ ] 릴리스 메타데이터 입력\n- [ ] 커버 아트 업로드\n"
-        f"{master_line}\n- [ ] 트랙을 01, 02, 03 순서로 업로드\n"
-        "- [ ] 트랙 제목/순서 확인\n- [ ] 크레딧 추가\n"
-        "- [ ] 릴리스 날짜 선택\n- [ ] 권리/저작권 검토\n- [ ] 검토 제출\n",
+        "# UnitedMasters 업로드 체크리스트\n\n"
+        f"{master_line}\n{cover_line}\n"
+        "- [ ] Music에서 Seoul Records 아티스트와 기존 초안을 확인했습니다.\n"
+        "- [ ] Release Details, 커버 미리보기, Draft Auto-Saved를 확인했습니다.\n"
+        "- [ ] 직접 제작한 커버는 No – I own the artwork를 선택했습니다. "
+        "제3자 소재가 있으면 Yes – I’ll upload a license와 실제 증빙을 사용했습니다.\n"
+        "- [ ] AI used in cover art를 제작 사실에 맞게 표시했습니다.\n"
+        f"- [ ] Source File {len(tracks)}개의 순서·파일명·길이를 tracklist.csv와 대조했습니다.\n"
+        "- [ ] 곡별 정확한 제목, 작사·작곡자와 추가 크레딧, Explicit, Radio Edit, 가사, "
+        "제3자 음원 및 재발매의 기존 ISRC를 확인했습니다.\n"
+        "- [ ] 합의된 Split Pay와 발매일을 확인했습니다.\n"
+        "- [ ] 권리·증빙·최종 확인 항목을 검토하고 승인 후 웹에서 Submit했습니다.\n"
+        "- [ ] Music에서 심사 상태와 링크를 기록했습니다. Live 상태는 공개 시 확인합니다.\n",
         encoding="utf-8")
 
 
 def build_manual_upload_zip(package_dir: str) -> str | None:
     """Zip the package folder into manual_upload_package.zip (no deletion)."""
     pkg = Path(package_dir)
-    if not pkg.exists():
+    if not pkg.is_dir():
         return None
-    zip_base = pkg / "manual_upload_package"
-    tmp_dir = pkg.parent / f"_tmp_um_{pkg.name}"
-    if tmp_dir.exists():
-        shutil.rmtree(tmp_dir)
-    shutil.copytree(pkg, tmp_dir, ignore=shutil.ignore_patterns("manual_upload_package.zip"))
+    zip_path = pkg / "manual_upload_package.zip"
+    with NamedTemporaryFile(dir=pkg.parent, suffix=".zip", delete=False) as temp:
+        temp_path = Path(temp.name)
     try:
-        shutil.make_archive(str(zip_base), "zip", tmp_dir)
+        with zipfile.ZipFile(temp_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+            for file in sorted(pkg.rglob("*")):
+                if file.is_file() and file != zip_path:
+                    archive.write(file, file.relative_to(pkg))
+        temp_path.replace(zip_path)
     finally:
-        shutil.rmtree(tmp_dir, ignore_errors=True)
-    zip_path = str(zip_base) + ".zip"
-    return zip_path if Path(zip_path).exists() else None
+        temp_path.unlink(missing_ok=True)
+    return str(zip_path)
 
 
 def list_packages(limit: int = 20) -> list[dict]:

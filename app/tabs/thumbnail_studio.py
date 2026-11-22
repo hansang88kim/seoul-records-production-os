@@ -95,7 +95,7 @@ def _render_prompt_lab():
                 st.rerun()
     with col3:
         volume = 1  # decoupled; put the Vol. number directly in the title text
-        count = st.number_input("생성 개수", min_value=1, max_value=10, value=1, step=1,
+        count = st.number_input("생성 개수", min_value=1, max_value=10, value=3, step=1,
                                 key="thumb_count",
                                 help="이미지를 몇 장 만들지. 5를 넣으면 5장 생성됩니다.")
 

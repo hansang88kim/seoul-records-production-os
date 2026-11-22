@@ -155,7 +155,7 @@ def get_render_log(render_job_id: str, last_n: int = 50) -> list[dict]:
     return out
 
 def launch_render_job(out_dir: str, command: list[str], total_seconds: float,
-                      output_path: str) -> dict:
+                      output_path: str, *, campus_request: dict | None = None) -> dict:
     """
     Create a render job and launch the detached worker process.
     Returns the job state (with render_job_id).
@@ -170,6 +170,9 @@ def launch_render_job(out_dir: str, command: list[str], total_seconds: float,
     # Store the full command for the worker to read
     jd = _job_path(render_job_id)
     (jd / "command.json").write_text(json.dumps(command, ensure_ascii=False), encoding="utf-8")
+    if campus_request is not None:
+        (jd / "campus_request.json").write_text(
+            json.dumps(campus_request, ensure_ascii=False), encoding="utf-8")
 
     # Launch detached worker
     python_exe = sys.executable
