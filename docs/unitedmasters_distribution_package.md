@@ -19,7 +19,7 @@ UnitedMasters 탭에서 곡별 원본, 정사각형 커버, 발매 정보, 업�
 1. Video Renderer에서 확정한 플레이리스트를 고릅니다. 예전 반복 재생 플랜은 같은 원본의 첫 등장 순서를 사용합니다.
 2. 배포에 승인된 1:1 JPG/PNG를 고르거나 승인된 가로 원본의 경로를 입력합니다. 커버 로고와 부제의 영문 표기를 확인합니다. 가로 원본은 전체 프레임을 비율 그대로 3000×3000 가운데에 맞추고 위아래에 흰 여백을 넣습니다. 출력 미리보기에서 사람, 화면 속 소품, 곡 목록과 글자가 전부 보이는지 확인합니다.
 3. 트랙마다 확정한 원문 제목을 `tracklist.csv`에 입력하고 개별 원본 WAV를 연결합니다. 배포용 원본 FLAC도 지원합니다. 영상의 원본 트랙이 이미 WAV/FLAC라면 그 파일을 사용합니다. 예를 들어 파일 `09_질문 있어.wav`에 대응하는 곡 제목이 `질문 있어?`라면 그 제목을 입력합니다.
-4. 아티스트 프로필, 확정한 앨범 제목, 웹에서 선택할 장르, `New Release` 또는 `Re-Release`, 희망 발매일을 입력합니다. 레이블·UPC/EAN은 확인된 경우 기록합니다. 곡별 작사·작곡 크레딧은 `DJ One Table`로 준비하고, 피처링, 프로듀서, 외부 샘플·비트·녹음, Explicit, Radio Edit, 가사 유무와 기존 ISRC를 확인합니다.
+4. 아티스트 프로필, 확정한 앨범 제목, 웹에서 선택할 장르, `New Release` 또는 `Re-Release`, 희망 발매일을 입력합니다. `Record Label`은 모든 발매에서 공란으로 둡니다. UPC/EAN은 확인된 경우 기록합니다. 곡별 작사·작곡 크레딧은 `DJ One Table`로 준비하고, 피처링, 프로듀서, 외부 샘플·비트·녹음, Explicit, Radio Edit, 가사 유무와 기존 ISRC를 확인합니다.
 5. **UnitedMasters 패키지 생성**을 선택합니다. `cover/cover_upload_ready.*`, `audio_distribution_master/`, `tracklist.csv`, `release_metadata.json`을 확인합니다. ZIP에는 체크리스트와 이 안내서도 포함됩니다.
 
 원본 음원은 바이트 그대로 복사됩니다. 파일의 번호나 Windows에서 사용할 수 없는 문자를 정리한 파일명은 `tracklist.csv`의 `source_file` 열에서 확인합니다. 영상용 `final_audio_mix.wav`, 페이드, 곡 사이 무음, MP3 참고 음원은 영상 작업에 사용합니다.
@@ -31,7 +31,7 @@ UnitedMasters 탭에서 곡별 원본, 정사각형 커버, 발매 정보, 업�
 | 단계 | 화면에서 할 일 | 저장 또는 확인 기준 |
 |---|---|---|
 | 로그인 및 초안 | `Music`에서 `Seoul Records` 프로필과 발매 제목을 확인합니다. 기존 초안을 열거나 새 앨범을 `Release Music`에서 시작합니다. | 편집할 초안이 맞습니다. |
-| Release Details | `Add Release Title`에 확정한 앨범 제목을 입력하고 `Select Genre`, `Release Type`, 지역/계정에 따라 표시되는 레이블·UPC/EAN 필드를 확인합니다. `Upload Cover Art`로 커버를 올립니다. | `Draft Auto-Saved`, `Replace Cover Art`, 실제 미리보기를 확인합니다. |
+| Release Details | `Add Release Title`에 확정한 앨범 제목을 입력하고 `Select Genre`, `Release Type`, 지역/계정에 따라 표시되는 UPC/EAN을 확인합니다. `Add Record Label`은 비워 둡니다. `Upload Cover Art`로 커버를 올립니다. | `Draft Auto-Saved`, `Replace Cover Art`, 실제 미리보기를 확인합니다. |
 | Upload Audio | 확정한 순서대로 원래 파일명의 개별 WAV를 올립니다. 대량 작업은 작은 묶음으로 올리고 각 묶음의 처리가 끝나면 다음 묶음을 올립니다. | 진행 표시가 사라지고 모든 곡에 길이가 표시되면 `Source File`의 개수·순서·파일명을 대조하고 `Next`로 갑니다. |
 | Track Details | `Source File`에 대응하는 원문 곡 제목과 `Songwriter/Composer` 값 `DJ One Table`을 입력합니다. 곡별 옵션은 화면에 표시된 항목명으로 선택합니다. Explicit 선택 뒤 나타나는 `Is Radio Edit`와 `Instrumental/No lyrics`를 따로 확인합니다. | 전곡의 제목·크레딧·필수 선택이 저장되었는지 확인한 뒤 `Next`로 이동합니다. |
 | Split Pay 및 Mastering | 합의한 배분을 적용합니다. 별도 배분 지시가 없는 서울레코즈 자체 발매는 기본 `100% Seoul Records`를 확인합니다. 유료 마스터링은 구매 지시가 있을 때 선택합니다. | 수익 배분과 구매 항목이 지시와 맞습니다. |
