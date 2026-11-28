@@ -240,34 +240,34 @@ except Exception:
 
 
 @pytest.mark.skipif(not _HAS_APPTEST, reason="streamlit.testing.v1 not available")
-def test_video_renderer_page_renders_without_exception():
-    at = AppTest.from_file("app/main.py")
+def test_video_renderer_page_renders_without_exception(app_main_path):
+    at = AppTest.from_file(app_main_path)
     at.session_state["nav_page"] = "video"
     at.run(timeout=30)
     assert not at.exception
 
 
 @pytest.mark.skipif(not _HAS_APPTEST, reason="streamlit.testing.v1 not available")
-def test_thumbnail_studio_page_renders_without_exception():
-    at = AppTest.from_file("app/main.py")
+def test_thumbnail_studio_page_renders_without_exception(app_main_path):
+    at = AppTest.from_file(app_main_path)
     at.session_state["nav_page"] = "thumbnail"
     at.run(timeout=30)
     assert not at.exception
 
 
 @pytest.mark.skipif(not _HAS_APPTEST, reason="streamlit.testing.v1 not available")
-def test_song_lab_page_renders_without_exception():
-    at = AppTest.from_file("app/main.py")
+def test_song_lab_page_renders_without_exception(app_main_path):
+    at = AppTest.from_file(app_main_path)
     at.session_state["nav_page"] = "song_lab"
     at.run(timeout=30)
     assert not at.exception
 
 
 @pytest.mark.skipif(not _HAS_APPTEST, reason="streamlit.testing.v1 not available")
-def test_library_page_still_renders_with_shared_labels(monkeypatch, tmp_path):
+def test_library_page_still_renders_with_shared_labels(monkeypatch, tmp_path, app_main_path):
     monkeypatch.setattr("services.thumbnail.session_store._studio_root",
                         lambda: tmp_path / "studio")
-    at = AppTest.from_file("app/main.py")
+    at = AppTest.from_file(app_main_path)
     at.session_state["nav_page"] = "library"
     at.run(timeout=30)
     assert not at.exception

@@ -162,16 +162,16 @@ except Exception:
 
 
 @pytest.mark.skipif(not _HAS_APPTEST, reason="streamlit.testing.v1 not available")
-def test_settings_page_renders_without_exception(monkeypatch, tmp_path):
-    at = AppTest.from_file("app/main.py")
+def test_settings_page_renders_without_exception(monkeypatch, tmp_path, app_main_path):
+    at = AppTest.from_file(app_main_path)
     at.session_state["nav_page"] = "settings"
     at.run(timeout=30)
     assert not at.exception
 
 
 @pytest.mark.skipif(not _HAS_APPTEST, reason="streamlit.testing.v1 not available")
-def test_youtube_package_renders_without_exception(monkeypatch, tmp_path):
-    at = AppTest.from_file("app/main.py")
+def test_youtube_package_renders_without_exception(monkeypatch, tmp_path, app_main_path):
+    at = AppTest.from_file(app_main_path)
     at.session_state["nav_page"] = "youtube"
     at.run(timeout=30)
     assert not at.exception

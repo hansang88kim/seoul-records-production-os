@@ -129,13 +129,13 @@ except Exception:
 
 
 @pytest.mark.skipif(not _HAS_APPTEST, reason="streamlit.testing.v1 not available")
-def test_song_lab_project_mode_renders_with_player(monkeypatch, tmp_path):
+def test_song_lab_project_mode_renders_with_player(monkeypatch, tmp_path, app_main_path):
     root = _patch_song_root(monkeypatch, tmp_path)
     mp3 = root / "재생테스트" / "songs" / "곡하나-abc123.mp3"
     _make_project(root, "재생테스트", [{"title": "곡하나", "file_path": "",
                                     "status": "submitted", "model": "v5.5"}])
     mp3.write_bytes(b"ID3fakemp3")
-    at = AppTest.from_file("app/main.py")
+    at = AppTest.from_file(app_main_path)
     at.session_state["nav_page"] = "song_lab"
     at.session_state["song_lab_mode"] = "💿 프로젝트 관리"
     at.run(timeout=30)

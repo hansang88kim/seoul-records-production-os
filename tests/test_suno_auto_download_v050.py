@@ -408,12 +408,12 @@ except Exception:
 
 
 @pytest.mark.skipif(not _HAS_APPTEST, reason="streamlit.testing.v1 not available")
-def test_project_mode_renders_with_auto_download(monkeypatch, tmp_path):
+def test_project_mode_renders_with_auto_download(monkeypatch, tmp_path, app_main_path):
     root = _patch_song_root(monkeypatch, tmp_path)
     _make_project(root, "자동다운", [{"title": "곡", "file_path": "",
                                   "task_id": "8df69261,b099c8aa",
                                   "status": "submitted", "model": "v5.5"}])
-    at = AppTest.from_file("app/main.py")
+    at = AppTest.from_file(app_main_path)
     at.session_state["nav_page"] = "song_lab"
     at.session_state["song_lab_mode"] = "💿 프로젝트 관리"
     at.run(timeout=30)

@@ -70,8 +70,8 @@ except Exception:
 
 
 @pytest.mark.skipif(not _HAS_APPTEST, reason="streamlit.testing.v1 not available")
-def test_form_studio_mode_with_no_session_shows_info_not_exception():
-    at = AppTest.from_file("app/main.py")
+def test_form_studio_mode_with_no_session_shows_info_not_exception(app_main_path):
+    at = AppTest.from_file(app_main_path)
     at.session_state["nav_page"] = "thumbnail"
     at.run(timeout=30)
     assert not at.exception
@@ -84,12 +84,12 @@ def test_form_studio_mode_with_no_session_shows_info_not_exception():
 
 
 @pytest.mark.skipif(not _HAS_APPTEST, reason="streamlit.testing.v1 not available")
-def test_form_studio_mode_with_session_but_no_candidates_shows_warning(monkeypatch, tmp_path):
+def test_form_studio_mode_with_session_but_no_candidates_shows_warning(monkeypatch, tmp_path, app_main_path):
     import services.thumbnail.session_store as ss
     monkeypatch.setattr(ss, "_studio_root", lambda: tmp_path)
     sess = ss.create_session("korea", "night", "Seoul Nights")
 
-    at = AppTest.from_file("app/main.py")
+    at = AppTest.from_file(app_main_path)
     at.session_state["nav_page"] = "thumbnail"
     at.session_state["thumb_session_id"] = sess["session_id"]
     at.run(timeout=30)
@@ -100,7 +100,7 @@ def test_form_studio_mode_with_session_but_no_candidates_shows_warning(monkeypat
 
 
 @pytest.mark.skipif(not _HAS_APPTEST, reason="streamlit.testing.v1 not available")
-def test_form_studio_mode_renders_full_controls_with_selected_candidate(monkeypatch, tmp_path):
+def test_form_studio_mode_renders_full_controls_with_selected_candidate(monkeypatch, tmp_path, app_main_path):
     """Full happy path (minus the actual Playwright render click) — every
     control from the .md spec must appear without raising."""
     from PIL import Image
@@ -121,7 +121,7 @@ def test_form_studio_mode_renders_full_controls_with_selected_candidate(monkeypa
     }]
     ss.save_candidates(sid, candidates)
 
-    at = AppTest.from_file("app/main.py")
+    at = AppTest.from_file(app_main_path)
     at.session_state["nav_page"] = "thumbnail"
     at.session_state["thumb_session_id"] = sid
     at.run(timeout=30)

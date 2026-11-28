@@ -107,8 +107,8 @@ except Exception:
 
 
 @pytest.mark.skipif(not _HAS_APPTEST, reason="streamlit.testing.v1 not available")
-def test_video_renderer_page_renders_with_new_background_picker():
-    at = AppTest.from_file("app/main.py")
+def test_video_renderer_page_renders_with_new_background_picker(app_main_path):
+    at = AppTest.from_file(app_main_path)
     at.session_state["nav_page"] = "video"
     at.run(timeout=30)
     assert not at.exception

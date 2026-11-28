@@ -18,17 +18,17 @@ except Exception:
 pytestmark = pytest.mark.skipif(not _HAS_APPTEST, reason="streamlit.testing.v1 not available")
 
 
-def test_history_page_renders_without_exception(monkeypatch, tmp_path):
+def test_history_page_renders_without_exception(monkeypatch, tmp_path, app_main_path):
     monkeypatch.setattr("services.job_store._jobs_dir", lambda: tmp_path / "jobs")
-    at = AppTest.from_file("app/main.py")
+    at = AppTest.from_file(app_main_path)
     at.session_state["nav_page"] = "history"
     at.run(timeout=30)
     assert not at.exception
 
 
-def test_library_page_renders_without_exception(monkeypatch, tmp_path):
+def test_library_page_renders_without_exception(monkeypatch, tmp_path, app_main_path):
     monkeypatch.setattr("services.thumbnail.session_store._studio_root", lambda: tmp_path / "studio")
-    at = AppTest.from_file("app/main.py")
+    at = AppTest.from_file(app_main_path)
     at.session_state["nav_page"] = "library"
     at.run(timeout=30)
     assert not at.exception
@@ -36,15 +36,15 @@ def test_library_page_renders_without_exception(monkeypatch, tmp_path):
     assert len(at.tabs) == 2
 
 
-def test_dashboard_page_still_renders_without_exception():
-    at = AppTest.from_file("app/main.py")
+def test_dashboard_page_still_renders_without_exception(app_main_path):
+    at = AppTest.from_file(app_main_path)
     at.session_state["nav_page"] = "dashboard"
     at.run(timeout=30)
     assert not at.exception
 
 
-def test_settings_page_still_renders_without_exception():
-    at = AppTest.from_file("app/main.py")
+def test_settings_page_still_renders_without_exception(app_main_path):
+    at = AppTest.from_file(app_main_path)
     at.session_state["nav_page"] = "settings"
     at.run(timeout=30)
     assert not at.exception

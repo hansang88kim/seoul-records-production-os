@@ -12,6 +12,8 @@ which overrides this default.
 """
 from __future__ import annotations
 
+from pathlib import Path
+
 import pytest
 
 
@@ -25,3 +27,9 @@ def _disable_real_llm_calls(monkeypatch):
     except Exception:
         pass
     yield
+
+
+@pytest.fixture
+def app_main_path() -> str:
+    """AppTest resolves relative paths against its caller, not the working directory."""
+    return str(Path(__file__).resolve().parents[1] / "app" / "main.py")

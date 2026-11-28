@@ -10,6 +10,7 @@ jobs:
   test:
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         python-version: ["3.11", "3.12"]
 
@@ -30,6 +31,9 @@ jobs:
           pip install -r requirements.txt
           pip install pytest pytest-cov
 
+      - name: Install Playwright Chromium
+        run: python -m playwright install --with-deps chromium
+
       - name: Run tests
         run: |
           PYTHONDONTWRITEBYTECODE=1 python -m pytest tests/ -v -p no:cacheprovider --cov=. --cov-report=term-missing
@@ -41,3 +45,9 @@ jobs:
       - name: Check package cleanliness
         run: |
           python scripts/ci_check_cleanliness.py
+
+      - name: Smoke test the mock album workflow
+        if: matrix.python-version == '3.11'
+        env:
+          COMPOSER_PROVIDER: mock
+        run: python -m scripts.ci_album_dry_run

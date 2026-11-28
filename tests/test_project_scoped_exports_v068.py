@@ -172,7 +172,7 @@ except Exception:
 
 
 @pytest.mark.skipif(not _HAS_APPTEST, reason="streamlit.testing.v1 not available")
-def test_youtube_package_renders_with_multi_project_assets(monkeypatch, tmp_path):
+def test_youtube_package_renders_with_multi_project_assets(monkeypatch, tmp_path, app_main_path):
     """
     Two projects' worth of rendered assets on disk (one video-render-scoped
     via path, one thumbnail-scoped via filename suffix) — the new project
@@ -206,7 +206,7 @@ def test_youtube_package_renders_with_multi_project_assets(monkeypatch, tmp_path
     monkeypatch.setattr("app.project_manager._song_projects_root",
                         lambda: outputs / "song_projects")
 
-    at = AppTest.from_file("app/main.py")
+    at = AppTest.from_file(app_main_path)
     at.session_state["nav_page"] = "youtube"
     at.run(timeout=30)
     assert not at.exception
