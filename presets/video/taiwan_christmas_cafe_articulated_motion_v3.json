@@ -1,0 +1,39 @@
+{
+  "schema_version": 1,
+  "version": 3,
+  "scene": "Taiwan Christmas jazz cat cafe",
+  "source": "approved still image",
+  "generation_mode": "image-to-video, start frame only",
+  "duration_seconds": 8,
+  "aspect_ratio": "16:9",
+  "resolution": "720p",
+  "camera": "locked tripod",
+  "prompt": "Create a NEW fluidly animated 8-second anime scene from this exact still illustration. This is a living animated scene with clear full-body gestures, not a cinemagraph and not a trembling or warped photograph. The adult woman lifts her head fully away from her supporting hand, turns toward the orange cat, bends forward warmly and reaches out with her free hand to gently stroke the cat’s head. She smiles widely and nods with a soft silent laugh. The cat visibly sits up taller, lifts one front paw to touch her approaching hand and pats it once, then relaxes onto its front paws beside the Santa hat. The woman draws her hand back and settles again. The cat’s long tail sweeps widely left and right twice in a loose, curved arc; ears and head react naturally to the petting. Make these actions unmissable at normal playback, with the head, shoulders, forearm and cat torso visibly changing pose. Keep movement gentle and anatomically clean. Strong visible curling steam rises from the coffee. Candle flame sways and flickers, casting animated warm reflections; fairy lights twinkle. Snow falls continuously outside the window. Exactly locked tripod camera, no zoom or reframing, no scene cuts; fixed cafe, table and objects. Preserve the original woman and cat identity, illustration style, clothes and cozy Taiwanese Christmas setting. Keep all original lettering on the left and the SEOUL RECORDS logo, Taiwan flag, size and layout perfectly unchanged and still. No new text or objects. Silent: no voices, dialogue, singing, background music or soundtrack.",
+  "required_actions": [
+    "woman reaches over and pets cat",
+    "cat visibly rises and lifts front paw toward her hand",
+    "broad tail swishes",
+    "visible steam and candle motion",
+    "falling outdoor snow"
+  ],
+  "preserve": [
+    "original Traditional Chinese and English typography",
+    "Seoul Records branding",
+    "Taiwan flag",
+    "character identities"
+  ],
+  "review": {
+    "reject": "motion that is merely breathing or warped still-image texture",
+    "check": [
+      "articulated gestures visible at normal playback",
+      "hands and faces anatomically coherent",
+      "no global camera movement",
+      "no changing typography"
+    ]
+  },
+  "loop": {
+    "crossfade_seconds": 0.5,
+    "preview_seconds": 32,
+    "silent": true
+  }
+}
